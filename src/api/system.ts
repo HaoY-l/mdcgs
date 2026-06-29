@@ -277,3 +277,34 @@ export async function getSessionTimeout() {
 export async function updateSessionTimeout(data: Record<string, any>) {
   return client.put('/session-timeout', data)
 }
+
+// ============================================================
+// 软件授权管理
+// ============================================================
+
+export interface LicenseInfo {
+  activated: boolean
+  machine_code: string
+  start_time: string | null
+  end_time: string | null
+  remaining_days: number | null
+  status: string
+}
+
+export async function getMachineCode() {
+  return client.get('/license/machine-code')
+}
+
+export async function getLicenseInfo() {
+  return client.get('/license/info-public')
+}
+
+export async function activateLicense(license_key: string) {
+  return client.post('/license/activate', null, {
+    params: { license_key }
+  })
+}
+
+export async function deactivateLicense() {
+  return client.post('/license/deactivate')
+}

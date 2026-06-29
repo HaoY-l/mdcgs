@@ -115,6 +115,62 @@
             <el-form-item><el-button type="primary" @click="handleCreateDataApp">新增对接</el-button></el-form-item>
           </el-form>
         </el-tab-pane>
+
+        <!-- 授权管理 -->
+        <el-tab-pane label="授权管理" name="license">
+          <div v-loading="licenseLoading">
+            <!-- 状态展示 -->
+            <el-alert
+              v-if="licenseInfo.activated"
+              :title="`已激活 - 剩余 ${licenseInfo.remaining_days} 天`"
+              type="success"
+              :closable="false"
+              style="margin-bottom: 20px"
+            >
+              <template #default>
+                <div>授权开始时间: {{ licenseInfo.start_time || '-' }}</div>
+                <div>授权结束时间: {{ licenseInfo.end_time || '-' }}</div>
+                <div>机器码: {{ licenseInfo.machine_code }}</div>
+              </template>
+            </el-alert>
+
+            <el-alert
+              v-else
+              :title="licenseInfo.status"
+              type="warning"
+              :closable="false"
+              style="margin-bottom: 20px"
+            >
+              <template #default>
+                <div>机器码: {{ licenseInfo.machine_code }}</div>
+                <div style="color: #909399; font-size: 12px; margin-top: 4px;">请输入授权码进行激活</div>
+              </template>
+            </el-alert>
+
+            <!-- 激活表单 -->
+            <el-form label-width="120px" style="max-width: 600px">
+              <el-form-item label="机器码">
+                <el-input :value="licenseInfo.machine_code" readonly />
+              </el-form-item>
+              <el-form-item label="授权码">
+                <el-input
+                  v-model="licenseKeyForm.license_key"
+                  placeholder="请输入授权码"
+                  type="textarea"
+                  :rows="3"
+                />
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" @click="handleActivateLicense" :loading="activateLoading">
+                  激活授权
+                </el-button>
+                <el-button v-if="licenseInfo.activated" type="danger" @click="handleDeactivateLicense" style="margin-left: 12px">
+                  注销授权
+                </el-button>
+              </el-form-item>
+            </el-form>
+          </div>
+        </el-tab-pane>
       </el-tabs>
     </el-card>
   </div>
@@ -132,6 +188,7 @@ import {
   getIpWhitelist, updateIpWhitelist,
   getApiKeys, createApiKey, deleteApiKey,
   getDataApps, createDataApp, deleteDataApp, testDataAppConnection,
+  getLicenseInfo, activateLicense, deactivateLicense,
 } from '@/api/system'
 
 const activeTab = ref('basic')
@@ -140,6 +197,8 @@ const ldapLoading = ref(false)
 const securityLoading = ref(false)
 const apiLoading = ref(false)
 const appsLoading = ref(false)
+const licenseLoading = ref(false)
+const activateLoading = ref(false)
 const logoFile = ref<File | null>(null)
 const uploadRef = ref()
 
@@ -159,6 +218,15 @@ const apiForm = reactive({ name: '' })
 const apiKeys = ref<any[]>([])
 const dataApps = ref<any[]>([])
 const dataAppForm = reactive({ name: '', app_type: '', endpoint_url: '' })
+const licenseInfo = reactive({
+  activated: false,
+  machine_code: '',
+  start_time: null as string | null,
+  end_time: null as string | null,
+  remaining_days: null as number | null,
+  status: '未激活',
+})
+const licenseKeyForm = reactive({ license_key: '' })
 
 // ===== 基本设置 =====
 async function fetchSettings() {
@@ -327,6 +395,53 @@ async function handleTestDataApp(row: any) {
   }
 }
 
+// ===== 授权管理 =====
+async function loadLicenseInfo() {
+  licenseLoading.value = true
+  try {
+    const res = await getLicenseInfo()
+    if (res.data) {
+      Object.assign(licenseInfo, res.data)
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取授权信息失败')
+  } finally {
+    licenseLoading.value = false
+  }
+}
+
+async function handleActivateLicense() {
+  if (!licenseKeyForm.license_key.trim()) {
+    ElMessage.warning('请输入授权码')
+    return
+  }
+  activateLoading.value = true
+  try {
+    const res = await activateLicense(licenseKeyForm.license_key)
+    ElMessage.success(res?.message || '授权激活成功')
+    licenseKeyForm.license_key = ''
+    await loadLicenseInfo()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '授权激活失败')
+  } finally {
+    activateLoading.value = false
+  }
+}
+
+async function handleDeactivateLicense() {
+  try {
+    await ElMessageBox.confirm('确定要注销当前授权吗？', '提示', { type: 'warning' })
+    await deactivateLicense()
+    ElMessage.success('授权已注销')
+    licenseKeyForm.license_key = ''
+    await loadLicenseInfo()
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.response?.data?.message || err?.message || '注销失败')
+    }
+  }
+}
+
 onMounted(async () => {
   await fetchSettings()
   await fetchLdapSettings()
@@ -337,6 +452,7 @@ const tabLoaders: Record<string, () => Promise<void>> = {
   security: loadSecuritySettings,
   api: loadApiKeys,
   apps: loadDataApps,
+  license: loadLicenseInfo,
 }
 
 import { watch } from 'vue'

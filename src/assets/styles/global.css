@@ -1,0 +1,254 @@
+/* ============================================
+   MDCGS Global Styles
+   Enterprise SaaS Data Platform
+   ============================================ */
+
+@import './design-tokens.css';
+@import './element-overrides.css';
+
+/* ─── Reset ─── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: var(--font-family);
+  font-size: var(--font-size-14);
+  line-height: var(--line-height-normal);
+  color: var(--color-text-primary);
+  background-color: var(--color-surface-subtle);
+  min-height: 100vh;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+/* ─── Scrollbar ─── */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-border-hover);
+  border-radius: var(--radius-full);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-text-tertiary);
+}
+
+/* ─── Selection ─── */
+::selection {
+  background: var(--color-primary-200);
+  color: var(--color-primary-900);
+}
+
+/* ─── Focus ─── */
+:focus-visible {
+  outline: 2px solid var(--color-primary-400);
+  outline-offset: 2px;
+}
+
+/* ─── Text Utilities ─── */
+.text-primary { color: var(--color-text-primary); }
+.text-secondary { color: var(--color-text-secondary); }
+.text-tertiary { color: var(--color-text-tertiary); }
+.text-disabled { color: var(--color-text-disabled); }
+.text-link { color: var(--color-text-link); cursor: pointer; }
+.text-link:hover { color: var(--color-text-link-hover); }
+
+.text-success { color: var(--color-success-500); }
+.text-warning { color: var(--color-warning-500); }
+.text-danger { color: var(--color-danger-500); }
+.text-info { color: var(--color-info-500); }
+
+/* ─── Font Weight Utilities ─── */
+.font-400 { font-weight: var(--font-weight-400); }
+.font-500 { font-weight: var(--font-weight-500); }
+.font-600 { font-weight: var(--font-weight-600); }
+.font-700 { font-weight: var(--font-weight-700); }
+
+/* ─── Font Size Utilities ─── */
+.fs-12 { font-size: var(--font-size-12); }
+.fs-13 { font-size: var(--font-size-13); }
+.fs-14 { font-size: var(--font-size-14); }
+.fs-16 { font-size: var(--font-size-16); }
+.fs-18 { font-size: var(--font-size-18); }
+.fs-20 { font-size: var(--font-size-20); }
+.fs-24 { font-size: var(--font-size-24); }
+
+/* ─── Spacing Utilities ─── */
+.mt-4 { margin-top: var(--spacing-4); }
+.mt-8 { margin-top: var(--spacing-8); }
+.mt-12 { margin-top: var(--spacing-12); }
+.mt-16 { margin-top: var(--spacing-16); }
+.mt-20 { margin-top: var(--spacing-20); }
+.mt-24 { margin-top: var(--spacing-24); }
+
+.mb-8 { margin-bottom: var(--spacing-8); }
+.mb-12 { margin-bottom: var(--spacing-12); }
+.mb-16 { margin-bottom: var(--spacing-16); }
+.mb-20 { margin-bottom: var(--spacing-20); }
+.mb-24 { margin-bottom: var(--spacing-24); }
+
+.ml-8 { margin-left: var(--spacing-8); }
+.ml-12 { margin-left: var(--spacing-12); }
+
+.mr-8 { margin-right: var(--spacing-8); }
+.mr-12 { margin-right: var(--spacing-12); }
+
+/* ─── Flex Utilities ─── */
+.flex { display: flex; }
+.flex-col { flex-direction: column; }
+.flex-wrap { flex-wrap: wrap; }
+.flex-1 { flex: 1; }
+.items-center { align-items: center; }
+.items-start { align-items: flex-start; }
+.justify-center { justify-content: center; }
+.justify-between { justify-content: space-between; }
+.justify-end { justify-content: flex-end; }
+.gap-4 { gap: var(--spacing-4); }
+.gap-8 { gap: var(--spacing-8); }
+.gap-12 { gap: var(--spacing-12); }
+.gap-16 { gap: var(--spacing-16); }
+.gap-20 { gap: var(--spacing-20); }
+.gap-24 { gap: var(--spacing-24); }
+
+/* ─── Animation / Transition ─── */
+.fade-enter-active,
+.fade-leave-active {
+  transition: opacity var(--transition-base);
+}
+.fade-enter-from,
+.fade-leave-to {
+  opacity: 0;
+}
+
+.fade-slide-enter-active,
+.fade-slide-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.fade-slide-enter-from {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.fade-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px);
+}
+
+.slide-up-enter-active,
+.slide-up-leave-active {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+}
+.slide-up-enter-from,
+.slide-up-leave-to {
+  opacity: 0;
+  max-height: 0;
+  transform: translateY(-8px);
+}
+.slide-up-enter-to,
+.slide-up-leave-from {
+  max-height: 60px;
+}
+
+/* ─── Skeleton Loading ─── */
+@keyframes skeleton-pulse {
+  0% { opacity: 1; }
+  50% { opacity: 0.4; }
+  100% { opacity: 1; }
+}
+
+.skeleton {
+  background: linear-gradient(90deg, var(--color-surface-muted) 25%, var(--color-surface-subtle) 50%, var(--color-surface-muted) 75%);
+  background-size: 200% 100%;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+}
+
+.skeleton-text {
+  height: 14px;
+  margin-bottom: 8px;
+  width: 100%;
+}
+
+.skeleton-text:last-child {
+  width: 60%;
+}
+
+/* ─── Page Container (统一页面布局) ─── */
+.page-container {
+  padding: var(--spacing-20) var(--spacing-24);
+  max-width: var(--content-max-width, 100%);
+  margin: 0 auto;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-20);
+}
+
+.page-header h2 {
+  font-size: var(--font-size-20);
+  font-weight: var(--font-weight-600);
+  color: var(--color-text-primary);
+  margin: 0;
+}
+
+.page-desc {
+  font-size: var(--font-size-14);
+  color: var(--color-text-tertiary);
+  margin: var(--spacing-4) 0 0;
+}
+
+.page-body {
+  min-height: 100px;
+}
+
+/* ─── Common Component Classes ─── */
+.card {
+  background: var(--color-surface-white);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-card);
+  transition: box-shadow var(--transition-base);
+}
+
+.card:hover {
+  box-shadow: var(--shadow-elevated);
+}
+
+/* ─── Inline Code ─── */
+code {
+  font-family: var(--font-family-mono);
+  font-size: 0.9em;
+  padding: 2px 6px;
+  background: var(--color-surface-muted);
+  border-radius: var(--radius-sm);
+  color: var(--color-danger-600);
+}
+
+/* ─── Preserve Element Plus transition for table row selection ─── */
+.el-table__body-wrapper {
+  overflow-x: auto;
+  overflow-y: auto;
+}

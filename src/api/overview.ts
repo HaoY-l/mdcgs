@@ -44,5 +44,10 @@ export async function getUnmatchedColumns(params: Record<string, any> = {}) {
 }
 
 export async function getUnmatchedFeatures(params: Record<string, any> = {}) {
-  return client.get('/overview/unmatched-features', { params })
+  return client.get('/overview/unmatched-features', params)
+}
+
+// ===== 刷新缓存 =====
+export async function invalidateOverviewCache() {
+  return client.post('/overview/cache/invalidate')
 }

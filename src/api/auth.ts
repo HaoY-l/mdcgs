@@ -44,3 +44,12 @@ export async function getMe(): Promise<UserInfo> {
   const res = await client.get('/auth/me')
   return res.data
 }
+
+export async function ldapLogin(params: LoginParams) {
+  const res = await client.post('/auth/ldap-login', params)
+  if (res.data) {
+    localStorage.setItem('access_token', res.data.access_token)
+    localStorage.setItem('refresh_token', res.data.refresh_token)
+  }
+  return res
+}

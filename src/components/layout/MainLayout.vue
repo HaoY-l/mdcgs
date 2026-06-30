@@ -19,10 +19,11 @@
         </button>
         <div class="brand">
           <div class="brand-icon">
-            <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-              <rect width="28" height="28" rx="7" fill="var(--color-primary-500)" />
-              <path d="M8.5 9.5l5.5-3.5 5.5 3.5v9l-5.5 3.5-5.5-3.5v-9z" fill="#fff" opacity="0.92" />
-              <circle cx="14" cy="14" r="2.5" fill="var(--color-primary-500)" />
+            <img v-if="customLogoUrl" :src="customLogoUrl" class="brand-logo-img" />
+            <svg v-else width="36" height="36" viewBox="0 0 36 36" fill="none">
+              <rect width="36" height="36" rx="9" fill="var(--color-primary-500)" />
+              <path d="M10 12l8-5 8 5v11l-8 5-8-5V12z" fill="#fff" opacity="0.92" />
+              <circle cx="18" cy="18" r="3.5" fill="var(--color-primary-500)" />
             </svg>
           </div>
           <span class="brand-name">MDCGS</span>
@@ -53,9 +54,7 @@
             </span>
             <template #dropdown>
               <el-dropdown-menu>
-                <el-dropdown-item command="profile">个人中心</el-dropdown-item>
-                <el-dropdown-item command="changePassword">修改密码</el-dropdown-item>
-                <el-dropdown-item divided command="logout">退出登录</el-dropdown-item>
+                <el-dropdown-item command="logout">退出登录</el-dropdown-item>
               </el-dropdown-menu>
             </template>
           </el-dropdown>
@@ -117,12 +116,14 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessageBox } from 'element-plus'
+import { getSettings } from '@/api/system'
 
 const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
 const isCollapse = ref(false)
+const customLogoUrl = ref('')
 
 const displayName = computed(() =>
   userStore.userInfo?.real_name || userStore.userInfo?.username || '用户'
@@ -187,6 +188,12 @@ onMounted(() => {
   if (!userStore.userInfo) {
     userStore.fetchUserInfo().catch(() => router.push('/login'))
   }
+  // 获取自定义Logo
+  getSettings({ category: 'basic' }).then(res => {
+    if (res.data?.basic?.logo_url) {
+      customLogoUrl.value = res.data.basic.logo_url
+    }
+  }).catch(() => {})
 })
 </script>
 
@@ -242,9 +249,24 @@ onMounted(() => {
   gap: var(--spacing-10);
 }
 
+.brand-name {
+  font-size: var(--font-size-16);
+  font-weight: var(--font-weight-700);
+  color: var(--color-text-primary);
+  letter-spacing: var(--letter-spacing-tight);
+}
+
 .brand-icon {
   display: flex;
   align-items: center;
+}
+
+.brand-logo-img {
+  width: 36px;
+  height: 36px;
+  object-fit: contain;
+  border-radius: 9px;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 
 .brand-name {

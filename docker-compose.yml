@@ -9,3 +9,7 @@ services:
     restart: unless-stopped
     ports:
       - "7785:80"
+    networks:
+      default:
+        external: true
+        name: mdcgs-backend_default

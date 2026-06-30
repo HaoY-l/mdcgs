@@ -3,6 +3,10 @@ FROM node:20-alpine AS build
 
 WORKDIR /app
 
+# 使用淘宝 npm 镜像
+RUN npm install -g yarn --registry=https://registry.npmmirror.com && \
+    npm config set registry https://registry.npmmirror.com
+
 COPY package.json .
 RUN npm install --production
 

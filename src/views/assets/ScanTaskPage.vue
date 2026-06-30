@@ -22,7 +22,7 @@
             <el-tooltip v-if="row.status === 'failed'" :content="row.error_message || '执行失败'" placement="top">
               <el-tag type="danger" size="small">{{ statusLabel(row.status) }}</el-tag>
             </el-tooltip>
-            <el-tag v-else :type="statusTag(row.status)" size="small">{{ statusLabel(row.status) }}</el-tag>
+            <el-tag v-else :type="statusTag(row.status) as any" size="small">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
         <el-table-column label="进度" min-width="140">

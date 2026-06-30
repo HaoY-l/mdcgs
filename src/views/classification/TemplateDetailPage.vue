@@ -237,7 +237,7 @@
             <el-tree-select
               v-model="catForm.parent_id"
               :data="categoryTree"
-              :props="{ label: 'name', value: 'id', children: 'children', emitPath: false }"
+              :props="{ label: 'name', value: 'id', children: 'children', emitPath: false } as any"
               placeholder="不选则创建一级分类"
               style="width: 100%"
               filterable clearable
@@ -331,7 +331,7 @@
           <el-tree-select
             v-model="dtForm.category_id"
             :data="categoryTree"
-            :props="{ label: 'name', value: 'id', children: 'children', emitPath: false }"
+            :props="{ label: 'name', value: 'id', children: 'children', emitPath: false } as any"
             placeholder="选择末级分类"
             style="width: 100%" filterable
           />

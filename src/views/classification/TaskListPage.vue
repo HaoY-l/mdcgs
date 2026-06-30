@@ -86,7 +86,7 @@ const taskStatusMap: Record<string, { label: string; type: string }> = {
   failed: { label: '失败', type: 'danger' },
 }
 function taskStatusLabel(status: string): string { return taskStatusMap[status]?.label || status }
-function taskStatusType(status: string): string { return taskStatusMap[status]?.type || 'info' }
+function taskStatusType(status: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' | undefined { return taskStatusMap[status]?.type as any || 'info' }
 
 function getParams() {
   const params: any = { page: currentPage.value, page_size: pageSize.value }

@@ -73,11 +73,11 @@ function getFilterParams(extra: Record<string, any> = {}) {
 }
 
 const statCards = reactive([
-  { key: 'total_assets', label: '资产总数', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>', color: '#2563eb', bg: '#eff6ff', value: null },
-  { key: 'classified_count', label: '已分类字段', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>', color: '#10b981', bg: '#ecfdf5', value: null },
-  { key: 'sensitive_column_count', label: '敏感字段', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', color: '#f59e0b', bg: '#fffbeb', value: null },
-  { key: 'sensitive_table_count', label: '敏感表', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>', color: '#ef4444', bg: '#fef2f2', value: null },
-  { key: 'sensitive_ratio', label: '敏感占比', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', color: '#6b7280', bg: '#f3f4f6', value: null },
+  { key: 'total_assets', label: '资产总数', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>', color: '#2563eb', bg: '#eff6ff', value: null as string | null },
+  { key: 'classified_count', label: '已分类字段', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>', color: '#10b981', bg: '#ecfdf5', value: null as string | null },
+  { key: 'sensitive_column_count', label: '敏感字段', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', color: '#f59e0b', bg: '#fffbeb', value: null as string | null },
+  { key: 'sensitive_table_count', label: '敏感表', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>', color: '#ef4444', bg: '#fef2f2', value: null as string | null },
+  { key: 'sensitive_ratio', label: '敏感占比', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>', color: '#6b7280', bg: '#f3f4f6', value: null as string | null },
 ])
 
 const trendRange = ref('30')
@@ -218,13 +218,6 @@ async function fetchCategoryRatio() {
       }]
     }, true)
   } finally { categoryRatioLoading.value = false }
-}
-
-async function fetchTemplates() {
-  try {
-    const res = await getTemplates({ page_size: 100 })
-    templates.value = res.data?.items || res.data || []
-  } catch {}
 }
 
 async function loadAll() {

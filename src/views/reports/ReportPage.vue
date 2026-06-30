@@ -15,7 +15,7 @@
       <el-table-column prop="file_size" label="报告大小" min-width="120" />
       <el-table-column label="操作" min-width="160" fixed="right">
         <template #default="{ row }">
-          <ActionColumn :actions="getReportActions(row)" />
+          <ActionColumn :actions="getReportActions(row as ReportItem)" />
         </template>
       </el-table-column>
     </DataTable>

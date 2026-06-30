@@ -401,7 +401,7 @@ async function handleDeleteDataApp(row: any) {
 
 async function handleTestDataApp(row: any) {
   try {
-    const res = await testDataAppConnection(row.id)
+    const res = await testDataAppConnection(row.id) as any
     ElMessage.success(res?.message || '连接测试通过')
   } catch (err: any) {
     ElMessage.error(err?.response?.data?.message || err?.message || '连接测试失败')
@@ -430,7 +430,7 @@ async function handleActivateLicense() {
   }
   activateLoading.value = true
   try {
-    const res = await activateLicense(licenseKeyForm.license_key)
+    const res = await activateLicense(licenseKeyForm.license_key) as any
     ElMessage.success(res?.message || '授权激活成功')
     licenseKeyForm.license_key = ''
     await loadLicenseInfo()

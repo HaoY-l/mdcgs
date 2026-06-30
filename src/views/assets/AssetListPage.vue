@@ -204,7 +204,7 @@ async function handleSave() {
   submitting.value = true
   try {
     const data = { ...form }
-    if (!data.password) data.password = undefined
+    if (!data.password) data.password = ''
     if (isEdit.value && editId.value) {
       await updateAsset(editId.value, data)
       ElMessage.success('更新成功')

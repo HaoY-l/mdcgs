@@ -206,7 +206,7 @@ async function handleActivateLicense() {
   }
   activateLoading.value = true
   try {
-    const res = await activateLicense(licenseKeyForm.license_key)
+    const res = await activateLicense(licenseKeyForm.license_key) as any
     ElMessage.success(res?.message || '授权激活成功')
     licenseKeyForm.license_key = ''
     await loadLicenseInfo()

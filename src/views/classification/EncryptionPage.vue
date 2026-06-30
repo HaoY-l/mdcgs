@@ -24,8 +24,8 @@
         <template #default="{ row }">
           <template v-if="!row.is_builtin">
             <ActionColumn :actions="[
-              { label: '编辑', type: 'primary', click: () => handleEdit(row) },
-              { label: '删除', type: 'danger', click: () => handleDelete(row) },
+              { label: '编辑', type: 'primary' as const, click: () => handleEdit(row as EncryptionType) },
+              { label: '删除', type: 'danger' as const, click: () => handleDelete(row as EncryptionType) },
             ]" />
           </template>
           <span v-else class="no-actions">-</span>

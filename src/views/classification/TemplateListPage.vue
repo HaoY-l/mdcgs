@@ -300,8 +300,8 @@ function getActions(row: any) {
     { label: '管理', click: () => goDetail(row) },
     { label: '编辑', click: () => handleEdit(row) },
     { label: '复制', click: () => handleCopy(row) },
-    { label: row.is_active ? '停用' : '启用', type: row.is_active ? 'warning' : 'success', click: () => handleToggleActive(row) },
-    { label: '删除', type: 'danger', click: () => handleDelete(row) },
+    { label: row.is_active ? '停用' : '启用', type: (row.is_active ? 'warning' : 'success') as 'warning' | 'success', click: () => handleToggleActive(row) },
+    { label: '删除', type: 'danger' as const, click: () => handleDelete(row) },
   ]
 }
 

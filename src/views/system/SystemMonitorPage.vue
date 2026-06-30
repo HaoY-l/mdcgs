@@ -113,9 +113,9 @@
             <el-table-column prop="created_at" label="创建时间" width="170" />
             <el-table-column label="操作" width="200" fixed="right">
               <template #default="row">
-                <el-button link type="primary" size="small" @click="handleDownloadBackup(row.row)">下载</el-button>
-                <el-button link type="warning" size="small" @click="handleRestoreBackup(row.row)">恢复</el-button>
-                <el-button link type="danger" size="small" @click="handleDeleteBackup(row.row)">删除</el-button>
+                <el-button link type="primary" size="small" @click="handleDownloadBackup(row.row as BackupItem)">下载</el-button>
+                <el-button link type="warning" size="small" @click="handleRestoreBackup(row.row as BackupItem)">恢复</el-button>
+                <el-button link type="danger" size="small" @click="handleDeleteBackup(row.row as BackupItem)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
@@ -144,9 +144,9 @@
             <el-table-column prop="updated_at" label="更新时间" width="170" />
             <el-table-column label="操作" width="180" fixed="right">
               <template #default="row">
-                <el-button link type="primary" size="small" @click="handleViewLog(row.row)">查看</el-button>
-                <el-button link type="primary" size="small" @click="handleDownloadLog(row.row)">下载</el-button>
-                <el-button link type="danger" size="small" @click="handleDeleteLog(row.row)">删除</el-button>
+                <el-button link type="primary" size="small" @click="handleViewLog(row.row as SystemLogItem)">查看</el-button>
+                <el-button link type="primary" size="small" @click="handleDownloadLog(row.row as SystemLogItem)">下载</el-button>
+                <el-button link type="danger" size="small" @click="handleDeleteLog(row.row as SystemLogItem)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>

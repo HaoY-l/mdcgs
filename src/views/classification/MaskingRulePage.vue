@@ -27,9 +27,9 @@
         <template #default="{ row }">
           <template v-if="!row.is_builtin">
             <ActionColumn :actions="[
-              { label: '编辑', type: 'primary', click: () => handleEdit(row) },
-              { label: row.is_active ? '停用' : '启用', type: row.is_active ? 'warning' : 'success', click: () => handleToggleActive(row) },
-              { label: '删除', type: 'danger', click: () => handleDelete(row) },
+              { label: '编辑', type: 'primary' as const, click: () => handleEdit(row as MaskingRule) },
+              { label: row.is_active ? '停用' : '启用', type: (row.is_active ? 'warning' : 'success') as 'warning' | 'success', click: () => handleToggleActive(row as MaskingRule) },
+              { label: '删除', type: 'danger' as const, click: () => handleDelete(row as MaskingRule) },
             ]" />
           </template>
           <span v-else class="no-actions">-</span>

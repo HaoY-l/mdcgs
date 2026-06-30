@@ -73,7 +73,7 @@
               clearable
               size="small"
               style="width: 200px"
-              @input="fetchTables"
+              @input="resetTableFilter"
             />
           </div>
           <el-table :data="tables" stripe style="width: 100%" v-loading="tablesLoading" max-height="500">
@@ -120,6 +120,17 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="pagination-wrapper" v-if="tablesTotal > 0">
+            <el-pagination
+              v-model:current-page="tablePage"
+              :page-size="tablePageSize"
+              :total="tablesTotal"
+              layout="total, sizes, prev, pager, next, jumper"
+              :page-sizes="[10, 20, 50, 100]"
+              @size-change="handleTableSizeChange"
+              @current-change="handleTablePageChange"
+            />
+          </div>
         </el-tab-pane>
 
         <!-- 字段详情 -->
@@ -127,19 +138,35 @@
           <div class="tab-toolbar">
             <el-input
               v-model="columnKeyword"
-              placeholder="搜索字段名"
+              placeholder="搜索关键词"
               clearable
               size="small"
-              style="width: 180px; margin-right: 8px"
-              @input="fetchColumns"
+              style="width: 140px; margin-right: 8px"
+              @input="resetColumnFilter"
+            />
+            <el-input
+              v-model="columnNameFilter"
+              placeholder="字段名"
+              clearable
+              size="small"
+              style="width: 120px; margin-right: 8px"
+              @input="resetColumnFilter"
+            />
+            <el-input
+              v-model="commentFilter"
+              placeholder="注释"
+              clearable
+              size="small"
+              style="width: 120px; margin-right: 8px"
+              @input="resetColumnFilter"
             />
             <el-select
               v-model="columnTableFilter"
               placeholder="按表筛选"
               clearable
               size="small"
-              style="width: 160px; margin-right: 8px"
-              @change="fetchColumns"
+              style="width: 150px; margin-right: 8px"
+              @change="resetColumnFilter"
             >
               <el-option
                 v-for="tbl in tables"
@@ -150,16 +177,49 @@
             </el-select>
             <el-select
               v-model="columnStatusFilter"
-              placeholder="状态筛选"
+              placeholder="状态"
               clearable
               size="small"
-              style="width: 120px; margin-right: 8px"
-              @change="fetchColumns"
+              style="width: 100px; margin-right: 8px"
+              @change="resetColumnFilter"
             >
               <el-option label="待确认" value="pending" />
               <el-option label="已确认" value="confirmed" />
               <el-option label="已变更" value="changed" />
               <el-option label="已锁定" value="locked" />
+            </el-select>
+            <el-select
+              v-model="isConfirmedFilter"
+              placeholder="人工确认"
+              clearable
+              size="small"
+              style="width: 110px; margin-right: 8px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="已确认" value="true" />
+              <el-option label="未确认" value="false" />
+            </el-select>
+            <el-select
+              v-model="hasHitFilter"
+              placeholder="规则命中"
+              clearable
+              size="small"
+              style="width: 110px; margin-right: 8px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="已命中" value="true" />
+              <el-option label="未命中" value="false" />
+            </el-select>
+            <el-select
+              v-model="isSensitiveFilter"
+              placeholder="是否敏感"
+              clearable
+              size="small"
+              style="width: 100px; margin-right: 8px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="敏感" value="true" />
+              <el-option label="非敏感" value="false" />
             </el-select>
             <el-button size="small" @click="showBatchDialog = true">批量操作</el-button>
           </div>
@@ -244,6 +304,17 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="pagination-wrapper" v-if="columnTotal > 0">
+            <el-pagination
+              v-model:current-page="columnPage"
+              :page-size="columnPageSize"
+              :total="columnTotal"
+              layout="total, sizes, prev, pager, next, jumper"
+              :page-sizes="[10, 20, 50, 100]"
+              @size-change="handleColumnSizeChange"
+              @current-change="handleColumnPageChange"
+            />
+          </div>
         </el-tab-pane>
 
         <!-- 分类视图 -->
@@ -408,8 +479,8 @@
             <el-option
               v-for="lv in levelOptions"
               :key="lv.id"
-              :label="lv.name"
-              :value="lv.name"
+              :label="lv.level_name || lv.level_code"
+              :value="lv.level_code"
             />
           </el-select>
         </el-form-item>
@@ -737,25 +808,46 @@ async function loadOptions() {
 const tables = ref<any[]>([])
 const tablesLoading = ref(false)
 const tableKeyword = ref('')
+const tablesTotal = ref(0)
+const tablePage = ref(1)
+const tablePageSize = ref(20)
 
 async function fetchTables() {
   tablesLoading.value = true
   try {
-    const params: Record<string, any> = {}
+    const params: Record<string, any> = { page: tablePage.value, page_size: tablePageSize.value }
     if (tableKeyword.value.trim()) {
       params.keyword = tableKeyword.value.trim()
     }
     const res = await getTaskTables(taskId, params)
-    if (Array.isArray(res.data)) {
-      tables.value = res.data
-    } else if (res.data?.items) {
+    if (res.data && Array.isArray(res.data.items)) {
       tables.value = res.data.items
+      tablesTotal.value = res.data.total ?? 0
+    } else if (Array.isArray(res.data)) {
+      tables.value = res.data
+      tablesTotal.value = res.data.length
     } else {
       tables.value = res.data || []
+      tablesTotal.value = 0
     }
   } finally {
     tablesLoading.value = false
   }
+}
+
+function handleTablePageChange() {
+  fetchTables()
+}
+
+function handleTableSizeChange(size: number) {
+  tablePageSize.value = size
+  tablePage.value = 1
+  fetchTables()
+}
+
+function resetTableFilter() {
+  tablePage.value = 1
+  fetchTables()
 }
 
 // ========== 字段详情 ==========
@@ -764,21 +856,37 @@ const columnsLoading = ref(false)
 const columnKeyword = ref('')
 const columnTableFilter = ref<number | null>(null)
 const columnStatusFilter = ref('')
+const columnNameFilter = ref('')
+const commentFilter = ref('')
+const isConfirmedFilter = ref('')
+const hasHitFilter = ref('')
+const isSensitiveFilter = ref('')
+const columnTotal = ref(0)
+const columnPage = ref(1)
+const columnPageSize = ref(20)
 
 async function fetchColumns() {
   columnsLoading.value = true
   try {
-    const params: Record<string, any> = {}
+    const params: Record<string, any> = { page: columnPage.value, page_size: columnPageSize.value }
     if (columnKeyword.value.trim()) params.keyword = columnKeyword.value.trim()
     if (columnStatusFilter.value) params.status = columnStatusFilter.value
     if (columnTableFilter.value) params.table_id = columnTableFilter.value
+    if (columnNameFilter.value.trim()) params.column_name = columnNameFilter.value.trim()
+    if (commentFilter.value.trim()) params.comment = commentFilter.value.trim()
+    if (isConfirmedFilter.value) params.is_confirmed = isConfirmedFilter.value
+    if (hasHitFilter.value) params.has_hit = hasHitFilter.value
+    if (isSensitiveFilter.value) params.is_sensitive = isSensitiveFilter.value
     const res = await getTaskColumns(taskId, params)
-    if (Array.isArray(res.data)) {
-      columns.value = res.data
-    } else if (res.data?.items) {
+    if (res.data && Array.isArray(res.data.items)) {
       columns.value = res.data.items
+      columnTotal.value = res.data.total ?? 0
+    } else if (Array.isArray(res.data)) {
+      columns.value = res.data
+      columnTotal.value = res.data.length
     } else {
       columns.value = res.data || []
+      columnTotal.value = 0
     }
     // Map API field names to template-expected field names
     columns.value = columns.value.map((col: any) => ({
@@ -799,6 +907,22 @@ async function fetchColumns() {
 
 // ========== 变更弹窗 ==========
 const showChangeDialog = ref(false)
+
+function handleColumnPageChange() {
+  fetchColumns()
+}
+
+function handleColumnSizeChange(size: number) {
+  columnPageSize.value = size
+  columnPage.value = 1
+  fetchColumns()
+}
+
+function resetColumnFilter() {
+  columnPage.value = 1
+  fetchColumns()
+}
+
 const changing = ref(false)
 const changeForm = reactive({
   column_id: null as number | null,

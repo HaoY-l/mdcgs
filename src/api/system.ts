@@ -20,6 +20,10 @@ export async function uploadLogo(file: File) {
   })
 }
 
+export async function getLogoUrl() {
+  return client.get('/settings/logo-url')
+}
+
 // ============================================================
 // LDAP设置
 // ============================================================

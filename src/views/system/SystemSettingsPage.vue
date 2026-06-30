@@ -7,6 +7,10 @@
         <el-tab-pane label="基本设置" name="basic">
           <el-form label-width="160px" v-loading="basicLoading">
             <el-form-item label="自定义LOGO">
+              <div class="logo-preview-wrapper" v-if="currentLogoUrl">
+                <img :src="currentLogoUrl" class="logo-preview-img" />
+                <span class="logo-preview-tip">当前LOGO</span>
+              </div>
               <el-upload ref="uploadRef" action="#" :auto-upload="false" :on-change="handleLogoChange">
                 <el-button size="small">选择文件</el-button>
               </el-upload>
@@ -201,6 +205,7 @@ const licenseLoading = ref(false)
 const activateLoading = ref(false)
 const logoFile = ref<File | null>(null)
 const uploadRef = ref()
+const currentLogoUrl = ref('')
 
 const basicForm = reactive({ asset_task_limit: 5, classify_task_limit: 3, refresh_interval: 60 })
 
@@ -233,7 +238,12 @@ async function fetchSettings() {
   basicLoading.value = true
   try {
     const res = await getSettings()
-    if (res.data?.basic) Object.assign(basicForm, res.data.basic)
+    if (res.data?.basic) {
+      Object.assign(basicForm, res.data.basic)
+      if (res.data.basic.logo_url) {
+        currentLogoUrl.value = res.data.basic.logo_url
+      }
+    }
   } finally { basicLoading.value = false }
 }
 
@@ -249,9 +259,12 @@ function handleLogoChange(file: any) {
 async function submitLogo() {
   if (!logoFile.value) { ElMessage.warning('请先选择文件'); return }
   try {
-    await uploadLogo(logoFile.value)
+    const res = await uploadLogo(logoFile.value)
     ElMessage.success('LOGO上传成功')
     logoFile.value = null
+    if (res?.data?.url) {
+      currentLogoUrl.value = res.data.url
+    }
   } catch { ElMessage.error('上传失败') }
 }
 
@@ -462,4 +475,23 @@ watch(activeTab, (tab) => {
 </script>
 
 <style scoped>
+.logo-preview-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.logo-preview-img {
+  width: 48px;
+  height: 48px;
+  object-fit: contain;
+  border-radius: 8px;
+  border: 1px solid var(--color-border-default);
+  padding: 4px;
+  background: var(--color-surface-subtle);
+}
+.logo-preview-tip {
+  font-size: 12px;
+  color: var(--color-text-tertiary);
+}
 </style>

@@ -7,10 +7,11 @@
     <div class="login-content">
       <div class="login-brand">
         <div class="brand-icon">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="12" fill="var(--color-primary-500)"/>
-            <path d="M14 16l10-6 10 6v16l-10 6-10-6V16z" fill="#fff" opacity="0.9"/>
-            <circle cx="24" cy="24" r="5" fill="var(--color-primary-500)"/>
+          <img v-if="customLogoUrl" :src="customLogoUrl" class="brand-logo-img" />
+          <svg v-else width="72" height="72" viewBox="0 0 72 72" fill="none">
+            <rect width="72" height="72" rx="18" fill="var(--color-primary-500)"/>
+            <path d="M20 24l16-10 16 10v24l-16 10-16-10V24z" fill="#fff" opacity="0.9"/>
+            <circle cx="36" cy="36" r="8" fill="var(--color-primary-500)"/>
           </svg>
         </div>
         <h1 class="brand-title">MDCGS</h1>
@@ -98,12 +99,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login, ldapLogin } from '@/api/auth'
-import { updateSessionTimeout } from '@/api/client'
-import { getSessionTimeout, getLicenseInfo, activateLicense, deactivateLicense, type LicenseInfo } from '@/api/system'
+import { getLicenseInfo, activateLicense, deactivateLicense, getLogoUrl, type LicenseInfo } from '@/api/system'
 import { useUserStore } from '@/store/user'
 
 const router = useRouter()
@@ -113,6 +113,7 @@ const formRef = ref()
 const loading = ref(false)
 const errorMsg = ref('')
 const isLdapLogin = ref(false)
+const customLogoUrl = ref('')
 
 const loginForm = reactive({ username: '', password: '' })
 const rules = {
@@ -135,6 +136,20 @@ const licenseInfo = reactive<LicenseInfo>({
 })
 const licenseKeyForm = reactive({ license_key: '' })
 
+// 获取自定义Logo
+async function fetchCustomLogo() {
+  try {
+    const res = await getLogoUrl()
+    if (res.data?.logo_url) {
+      customLogoUrl.value = res.data.logo_url
+    }
+  } catch {}
+}
+
+onMounted(() => {
+  fetchCustomLogo()
+})
+
 async function handleLogin() {
   if (!formRef.value) return
   const valid = await formRef.value.validate().catch(() => false)
@@ -150,16 +165,6 @@ async function handleLogin() {
     }
     const mustChangePassword = res.data?.must_change_password === 1
     await userStore.fetchUserInfo()
-
-    // 获取会话超时设置并保存
-    try {
-      const timeoutRes = await getSessionTimeout()
-      if (timeoutRes.data?.timeout_minutes) {
-        updateSessionTimeout(parseInt(timeoutRes.data.timeout_minutes))
-      }
-    } catch {
-      // 忽略超时设置获取错误
-    }
 
     if (mustChangePassword) {
       router.push('/force-change-password')
@@ -258,7 +263,16 @@ async function handleDeactivateLicense() {
   display: flex; align-items: center; gap: 60px; z-index: 1;
 }
 .login-brand { text-align: center; }
-.brand-icon { margin-bottom: 16px; }
+.brand-icon { margin-bottom: 16px; display: flex; align-items: center; justify-content: center; min-height: 100px; }
+.brand-logo-img {
+  max-height: 100px;
+  max-width: 200px;
+  width: auto;
+  height: auto;
+  object-fit: scale-down;
+  border-radius: 18px;
+  filter: drop-shadow(0 4px 16px rgba(59, 130, 246, 0.3));
+}
 .brand-title {
   font-size: 36px; font-weight: 700; color: #fff;
   margin: 0 0 8px; letter-spacing: -0.02em;

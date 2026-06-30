@@ -1,84 +1,9 @@
 version: '3.8'
 
 services:
-  # MySQL 数据库
-  mysql:
-    image: mysql:8.0
-    container_name: mdcgs-mysql
-    restart: unless-stopped
-    environment:
-      MYSQL_ROOT_PASSWORD: mdcgs_password
-      MYSQL_DATABASE: mdcgs
-      MYSQL_USER: mdcgs
-      MYSQL_PASSWORD: mdcgs_password
-    ports:
-      - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
-    healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # Redis
-  redis:
-    image: redis:7-alpine
-    container_name: mdcgs-redis
-    restart: unless-stopped
-    ports:
-      - "6379:6379"
-    volumes:
-      - redis_data:/data
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
-  # FastAPI 后端
-  backend:
-    build:
-      context: ../mdcgs-backend
-      dockerfile: Dockerfile
-    container_name: mdcgs-backend
-    restart: unless-stopped
-    depends_on:
-      mysql:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    environment:
-      DATABASE_URL: mysql+pymysql://mdcgs:mdcgs_password@mysql:3306/mdcgs
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_USER: mdcgs
-      DB_PASSWORD: mdcgs_password
-      DB_NAME: mdcgs
-      REDIS_URL: redis://redis:6379/0
-      CELERY_BROKER_URL: redis://redis:6379/1
-      CELERY_RESULT_BACKEND: redis://redis:6379/2
-      SECRET_KEY: ${SECRET_KEY:-change-in-production}
-      ENCRYPT_KEY: ${ENCRYPT_KEY:-encryption-key-change-in-prod}
-    ports:
-      - "8000:8000"
-    volumes:
-      - backend_data:/app/data
-
-  # Nginx 前端
   frontend:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: mdcgs-frontend
     restart: unless-stopped
-    depends_on:
-      - backend
-    ports:
-      - "80:80"
-
-volumes:
-  mysql_data:
-  redis_data:
-  backend_data:

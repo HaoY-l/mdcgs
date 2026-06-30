@@ -7,7 +7,7 @@ services:
     container_name: mdcgs-mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_ROOT_PASSWORD: mdcgs_password
       MYSQL_DATABASE: mdcgs
       MYSQL_USER: mdcgs
       MYSQL_PASSWORD: mdcgs_password
@@ -40,7 +40,7 @@ services:
   # FastAPI 后端
   backend:
     build:
-      context: ../mydcgs-backend
+      context: ../mdcgs-backend
       dockerfile: Dockerfile
     container_name: mdcgs-backend
     restart: unless-stopped

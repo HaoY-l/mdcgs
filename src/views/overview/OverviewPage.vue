@@ -6,6 +6,7 @@
         <p class="page-desc">实时了解数据资产的安全状态与分类分布</p>
       </div>
       <div class="header-actions">
+        <el-button size="small" @click="handleRefresh" :loading="refreshing">刷新</el-button>
       </div>
     </div>
     <div v-loading="pageLoading" class="page-body">
@@ -61,10 +62,11 @@
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
-import { getStatistics, getTrend, getTypeRatio, getLevelRatio, getCategoryRatio } from '@/api/overview'
+import { getStatistics, getTrend, getTypeRatio, getLevelRatio, getCategoryRatio, invalidateOverviewCache } from '@/api/overview'
 import { getSettings } from '@/api/system'
 
 const pageLoading = ref(false)
+const refreshing = ref(false)
 
 function getFilterParams(extra: Record<string, any> = {}) {
   return { ...extra }
@@ -243,6 +245,17 @@ async function loadAll() {
 
 function handleFilterChange() { loadAll() }
 function handleResize() { [trendChart, typeRatioChart, levelRatioChart, categoryRatioChart].forEach(c => c?.resize()) }
+
+async function handleRefresh() {
+  refreshing.value = true
+  try {
+    // 清除概览缓存
+    await invalidateOverviewCache()
+    await loadAll()
+  } finally {
+    refreshing.value = false
+  }
+}
 
 let refreshTimer: number | null = null
 

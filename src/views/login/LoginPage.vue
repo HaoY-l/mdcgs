@@ -7,17 +7,18 @@
     <div class="login-content">
       <div class="login-brand">
         <div class="brand-icon">
-          <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-            <rect width="48" height="48" rx="12" fill="var(--color-primary-500)"/>
-            <path d="M14 16l10-6 10 6v16l-10 6-10-6V16z" fill="#fff" opacity="0.9"/>
-            <circle cx="24" cy="24" r="5" fill="var(--color-primary-500)"/>
+          <img v-if="customLogoUrl" :src="customLogoUrl" class="brand-logo-img" />
+          <svg v-else width="72" height="72" viewBox="0 0 72 72" fill="none">
+            <rect width="72" height="72" rx="18" fill="var(--color-primary-500)"/>
+            <path d="M20 24l16-10 16 10v24l-16 10-16-10V24z" fill="#fff" opacity="0.9"/>
+            <circle cx="36" cy="36" r="8" fill="var(--color-primary-500)"/>
           </svg>
         </div>
         <h1 class="brand-title">MDCGS</h1>
         <p class="brand-desc">数据分类分级系统</p>
       </div>
       <div class="login-card">
-        <h2 class="login-title">登录</h2>
+        <h2 class="login-title">{{ isLdapLogin ? 'LDAP登录' : '登录' }}</h2>
         <p class="login-subtitle">欢迎回到数据分类分级管理系统</p>
         <el-form ref="formRef" :model="loginForm" :rules="rules" class="login-form" @keyup.enter="handleLogin">
           <el-form-item prop="username">
@@ -30,25 +31,79 @@
           </el-form-item>
           <el-form-item>
             <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">
-              {{ loading ? '登录中...' : '登录' }}
+              {{ loading ? '登录中...' : (isLdapLogin ? 'LDAP登录' : '登录') }}
             </el-button>
           </el-form-item>
         </el-form>
         <div v-if="errorMsg" class="login-error">
           <el-alert :title="errorMsg" type="error" show-icon :closable="false" />
         </div>
+        <div class="login-links">
+          <el-link type="primary" @click="handleOpenLicense">授权管理</el-link>
+          <el-divider direction="vertical" />
+          <el-link type="primary" @click="isLdapLogin = !isLdapLogin">
+            {{ isLdapLogin ? '本地登录' : 'LDAP登录' }}
+          </el-link>
+        </div>
       </div>
     </div>
+
+    <!-- 授权管理弹窗 -->
+    <el-dialog v-model="licenseDialogVisible" title="授权管理" width="500px" :close-on-click-modal="false">
+      <div v-loading="licenseLoading">
+        <el-alert
+          v-if="licenseInfo.activated"
+          :title="`已激活 - 剩余 ${licenseInfo.remaining_days} 天`"
+          type="success"
+          :closable="false"
+          style="margin-bottom: 20px"
+        >
+          <template #default>
+            <div>授权开始时间: {{ licenseInfo.start_time || '-' }}</div>
+            <div>授权结束时间: {{ licenseInfo.end_time || '-' }}</div>
+            <div>机器码: {{ licenseInfo.machine_code }}</div>
+          </template>
+        </el-alert>
+
+        <el-alert
+          v-else
+          :title="licenseInfo.status"
+          type="warning"
+          :closable="false"
+          style="margin-bottom: 20px"
+        >
+          <template #default>
+            <div>机器码: {{ licenseInfo.machine_code }}</div>
+            <div style="color: #909399; font-size: 12px; margin-top: 4px;">请输入授权码进行激活</div>
+          </template>
+        </el-alert>
+
+        <el-form label-width="100px">
+          <el-form-item label="授权码">
+            <el-input
+              v-model="licenseKeyForm.license_key"
+              placeholder="请输入授权码"
+              type="textarea"
+              :rows="3"
+            />
+          </el-form-item>
+          <el-form-item>
+            <el-button type="primary" @click="handleActivateLicense" :loading="activateLoading">
+              激活授权
+            </el-button>
+          </el-form-item>
+        </el-form>
+      </div>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { login } from '@/api/auth'
-import { updateSessionTimeout } from '@/api/client'
-import { getSessionTimeout } from '@/api/system'
+import { login, ldapLogin } from '@/api/auth'
+import { getLicenseInfo, activateLicense, deactivateLicense, getLogoUrl, type LicenseInfo } from '@/api/system'
 import { useUserStore } from '@/store/user'
 
 const router = useRouter()
@@ -57,12 +112,43 @@ const userStore = useUserStore()
 const formRef = ref()
 const loading = ref(false)
 const errorMsg = ref('')
+const isLdapLogin = ref(false)
+const customLogoUrl = ref('')
 
 const loginForm = reactive({ username: '', password: '' })
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
 }
+
+// 授权管理
+const licenseDialogVisible = ref(false)
+const licenseLoading = ref(false)
+const activateLoading = ref(false)
+const deactivateLoading = ref(false)
+const licenseInfo = reactive<LicenseInfo>({
+  activated: false,
+  machine_code: '',
+  start_time: null,
+  end_time: null,
+  remaining_days: null,
+  status: '未激活',
+})
+const licenseKeyForm = reactive({ license_key: '' })
+
+// 获取自定义Logo
+async function fetchCustomLogo() {
+  try {
+    const res = await getLogoUrl()
+    if (res.data?.logo_url) {
+      customLogoUrl.value = res.data.logo_url
+    }
+  } catch {}
+}
+
+onMounted(() => {
+  fetchCustomLogo()
+})
 
 async function handleLogin() {
   if (!formRef.value) return
@@ -71,22 +157,16 @@ async function handleLogin() {
   loading.value = true
   errorMsg.value = ''
   try {
-    const res = await login(loginForm)
+    let res
+    if (isLdapLogin.value) {
+      res = await ldapLogin(loginForm)
+    } else {
+      res = await login(loginForm)
+    }
     const mustChangePassword = res.data?.must_change_password === 1
     await userStore.fetchUserInfo()
 
-    // 获取会话超时设置并保存
-    try {
-      const timeoutRes = await getSessionTimeout()
-      if (timeoutRes.data?.timeout_minutes) {
-        updateSessionTimeout(parseInt(timeoutRes.data.timeout_minutes))
-      }
-    } catch {
-      // 忽略超时设置获取错误
-    }
-
     if (mustChangePassword) {
-      // 必须修改密码，跳转到专门页面
       router.push('/force-change-password')
     } else {
       ElMessage.success('登录成功')
@@ -96,6 +176,58 @@ async function handleLogin() {
     errorMsg.value = err?.response?.data?.message || '登录失败，请检查用户名和密码'
   } finally {
     loading.value = false
+  }
+}
+
+// 授权管理
+async function handleOpenLicense() {
+  licenseDialogVisible.value = true
+  await loadLicenseInfo()
+}
+
+async function loadLicenseInfo() {
+  licenseLoading.value = true
+  try {
+    const res = await getLicenseInfo()
+    if (res.data) {
+      Object.assign(licenseInfo, res.data)
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取授权信息失败')
+  } finally {
+    licenseLoading.value = false
+  }
+}
+
+async function handleActivateLicense() {
+  if (!licenseKeyForm.license_key.trim()) {
+    ElMessage.warning('请输入授权码')
+    return
+  }
+  activateLoading.value = true
+  try {
+    const res = await activateLicense(licenseKeyForm.license_key)
+    ElMessage.success(res?.message || '授权激活成功')
+    licenseKeyForm.license_key = ''
+    await loadLicenseInfo()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '授权激活失败')
+  } finally {
+    activateLoading.value = false
+  }
+}
+
+async function handleDeactivateLicense() {
+  deactivateLoading.value = true
+  try {
+    await deactivateLicense()
+    ElMessage.success('授权已注销')
+    licenseKeyForm.license_key = ''
+    await loadLicenseInfo()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '注销失败')
+  } finally {
+    deactivateLoading.value = false
   }
 }
 </script>
@@ -131,7 +263,16 @@ async function handleLogin() {
   display: flex; align-items: center; gap: 60px; z-index: 1;
 }
 .login-brand { text-align: center; }
-.brand-icon { margin-bottom: 16px; }
+.brand-icon { margin-bottom: 16px; display: flex; align-items: center; justify-content: center; min-height: 100px; }
+.brand-logo-img {
+  max-height: 100px;
+  max-width: 200px;
+  width: auto;
+  height: auto;
+  object-fit: scale-down;
+  border-radius: 18px;
+  filter: drop-shadow(0 4px 16px rgba(59, 130, 246, 0.3));
+}
 .brand-title {
   font-size: 36px; font-weight: 700; color: #fff;
   margin: 0 0 8px; letter-spacing: -0.02em;
@@ -172,4 +313,14 @@ async function handleLogin() {
   font-weight: 600; border-radius: 8px; margin-top: 8px;
 }
 .login-error { margin-top: 16px; }
+.login-links {
+  margin-top: 16px;
+  text-align: center;
+}
+:deep(.el-link) {
+  font-size: 13px;
+}
+:deep(.el-divider--vertical) {
+  border-color: #475569;
+}
 </style>

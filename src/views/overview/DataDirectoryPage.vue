@@ -254,14 +254,14 @@ const filterForm = reactive({
 })
 
 // ===== Helpers =====
-function levelTagType(level: string): string {
+function levelTagType(level: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
   const map: Record<string, string> = {
     'L1': 'danger',
     'L2': 'warning',
     'L3': 'primary',
     'L4': 'info',
   }
-  return map[level] || 'info'
+  return (map[level] || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
 }
 
 function buildParams(): Record<string, any> {

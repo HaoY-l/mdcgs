@@ -290,10 +290,10 @@
             </el-col>
           </el-row>
           <el-form-item label="规则描述">
-            <el-input v-model="ruleForm.description" type="textarea" rows="2" />
+            <el-input v-model="ruleForm.description" type="textarea" :rows="2" />
           </el-form-item>
           <el-form-item label="触发条件">
-            <el-input v-model="ruleForm.conditionText as any" type="textarea" rows="2" placeholder='如: {"status": "failed"}' />
+            <el-input v-model="ruleForm.conditionText as any" type="textarea" :rows="2" placeholder='如: {"status": "failed"}' />
           </el-form-item>
           <el-form-item label="告警渠道">
             <el-checkbox-group v-model="ruleForm.alert_channels as any">
@@ -333,7 +333,7 @@
             <el-button link type="primary" size="small" @click="handleToggleRule(row as AuditRule)">
               {{ row.enabled ? '禁用' : '启用' }}
             </el-button>
-            <el-button link type="danger" size="small" @click="handleDeleteRule(row)">删除</el-button>
+            <el-button link type="danger" size="small" @click="handleDeleteRule(row as AuditRule)">删除</el-button>
           </template>
         </el-table-column>
       </el-table>
@@ -403,10 +403,10 @@
         </el-table-column>
         <el-table-column label="操作" width="150">
           <template #default="{ row }">
-            <el-button link type="primary" size="small" v-if="row.status !== 'ack'" @click="handleAckAlert(row)">
+            <el-button link type="primary" size="small" v-if="row.status !== 'ack'" @click="handleAckAlert(row as AuditAlert)">
               确认
             </el-button>
-            <el-button link type="primary" size="small" v-if="row.status === 'pending'" @click="handleResendAlert(row)">
+            <el-button link type="primary" size="small" v-if="row.status === 'pending'" @click="handleResendAlert(row as AuditAlert)">
               重发
             </el-button>
           </template>
@@ -546,7 +546,7 @@ async function fetchLogs() {
       params.date_to = dateRange.value[1]
     }
 
-    const res = await getAuditLogs(params)
+    const res = await getAuditLogs(params) as any
     if (res.code === 0) {
       logList.value = res.data?.items || []
       pagination.total = res.data?.total || 0
@@ -606,7 +606,7 @@ async function fetchStats() {
       params.date_from = dateRange.value[0]
       params.date_to = dateRange.value[1]
     }
-    const res = await getAuditLogStats(params)
+    const res = await getAuditLogStats(params) as any
     if (res.code === 0) {
       const stats: AuditLogStats = res.data
       await nextTick()
@@ -620,7 +620,7 @@ async function fetchStats() {
 
 async function fetchTrend() {
   try {
-    const res = await getAuditLogTrend({ days: 7 })
+    const res = await getAuditLogTrend({ days: 7 }) as any
     if (res.code === 0) {
       const trend: AuditTrendData = res.data
       await nextTick()
@@ -737,7 +737,7 @@ async function handleExport() {
       params.date_to = dateRange.value[1]
     }
     if (filters.module) params.module = filters.module
-    const res = await exportAuditLogs(params)
+    const res = await exportAuditLogs(params) as any
     if (res.code === 0) {
       exportInfo.value = res.data
       exportVisible.value = true
@@ -752,7 +752,7 @@ async function handleExport() {
 // 保留设置
 async function fetchRetentionSettings() {
   try {
-    const res = await getRetentionSettings()
+    const res = await getRetentionSettings() as any
     if (res.code === 0) {
       Object.assign(retentionSettings, res.data)
     }
@@ -767,7 +767,7 @@ async function handleSaveSettings() {
       log_retention_days: parseInt(retentionSettings.log_retention_days),
       log_level: retentionSettings.log_level,
       enable_audit_log: retentionSettings.enable_audit_log === 'true',
-    })
+    }) as any
     if (res.code === 0) {
       ElMessage.success('设置已保存')
       showSettingsDialog.value = false
@@ -779,7 +779,7 @@ async function handleSaveSettings() {
 
 async function handleDryRunCleanup() {
   try {
-    const res = await cleanupOldLogs(true)
+    const res = await cleanupOldLogs(true) as any
     if (res.code === 0) {
       cleanupPreview.value = res.data
     }
@@ -795,7 +795,7 @@ async function handleCleanup() {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    const res = await cleanupOldLogs(false)
+    const res = await cleanupOldLogs(false) as any
     if (res.code === 0) {
       ElMessage.success(`已删除 ${res.data.deleted} 条过期日志`)
       cleanupPreview.value = null
@@ -811,7 +811,7 @@ async function handleCleanup() {
 // 审计规则
 async function fetchRules() {
   try {
-    const res = await getAuditRules()
+    const res = await getAuditRules() as any
     if (res.code === 0) {
       ruleList.value = res.data?.items || []
     }
@@ -839,7 +839,7 @@ async function handleCreateRule() {
       alert_level: ruleForm.alert_level,
       alert_channels: ruleForm.alert_channels,
       condition,
-    })
+    }) as any
     if (res.code === 0) {
       ElMessage.success('规则创建成功')
       showRuleForm.value = false
@@ -853,7 +853,7 @@ async function handleCreateRule() {
 
 async function handleToggleRule(rule: AuditRule) {
   try {
-    const res = await toggleAuditRule(rule.id)
+    const res = await toggleAuditRule(rule.id) as any
     if (res.code === 0) {
       ElMessage.success(`规则已${res.data.enabled ? '启用' : '禁用'}`)
       fetchRules()
@@ -870,7 +870,7 @@ async function handleDeleteRule(rule: AuditRule) {
       cancelButtonText: '取消',
       type: 'warning',
     })
-    const res = await deleteAuditRule(rule.id)
+    const res = await deleteAuditRule(rule.id) as any
     if (res.code === 0) {
       ElMessage.success('规则已删除')
       fetchRules()
@@ -885,7 +885,7 @@ async function handleDeleteRule(rule: AuditRule) {
 // 告警
 async function fetchAlertStats() {
   try {
-    const res = await getAlertStats()
+    const res = await getAlertStats() as any
     if (res.code === 0) {
       Object.assign(alertStats, res.data)
     }
@@ -899,7 +899,7 @@ async function fetchAlerts() {
     const params: Record<string, any> = {}
     if (alertFilters.status) params.status = alertFilters.status
     if (alertFilters.alert_level) params.alert_level = alertFilters.alert_level
-    const res = await getAuditAlerts(params)
+    const res = await getAuditAlerts(params) as any
     if (res.code === 0) {
       alertList.value = res.data?.items || []
     }
@@ -910,7 +910,7 @@ async function fetchAlerts() {
 
 async function handleAckAlert(alert: AuditAlert) {
   try {
-    const res = await acknowledgeAlert(alert.id)
+    const res = await acknowledgeAlert(alert.id) as any
     if (res.code === 0) {
       ElMessage.success('告警已确认')
       fetchAlerts()
@@ -923,7 +923,7 @@ async function handleAckAlert(alert: AuditAlert) {
 
 async function handleResendAlert(alert: AuditAlert) {
   try {
-    const res = await resendAlert(alert.id)
+    const res = await resendAlert(alert.id) as any
     if (res.code === 0) {
       ElMessage.success('告警已重新发送')
       fetchAlerts()

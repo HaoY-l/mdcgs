@@ -189,9 +189,9 @@ onMounted(() => {
     userStore.fetchUserInfo().catch(() => router.push('/login'))
   }
   // 获取自定义Logo
-  getSettings({ category: 'basic' }).then(res => {
-    if (res.data?.basic?.logo_url) {
-      customLogoUrl.value = res.data.basic.logo_url
+  ;(getSettings() as any).then((res: any) => {
+    if (res.basic?.logo_url) {
+      customLogoUrl.value = res.basic.logo_url
     }
   }).catch(() => {})
 })

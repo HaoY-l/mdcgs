@@ -438,7 +438,7 @@
           <el-tree-select
             v-model="changeForm.new_category_id"
             :data="categoryTreeForSelect"
-            :props="{ label: 'name', value: 'id', children: 'children' }"
+            :props="{ label: 'name', value: 'id', children: 'children' } as any"
             placeholder="请选择分类"
             style="width: 100%"
             filterable
@@ -598,7 +598,7 @@
 <script setup lang="ts">
 import { ref, reactive, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type TabPaneName } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import {
   getTaskDetail,
@@ -656,8 +656,9 @@ function statusLabel(status: string): string {
   return statusMap[status]?.label || status
 }
 
-function statusTag(status: string): string {
-  return statusMap[status]?.tag || 'info'
+function statusTag(status: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
+  const tag = statusMap[status]?.tag
+  return (tag || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
 }
 
 const executeTypeMap: Record<string, { label: string; tag: string }> = {
@@ -670,8 +671,9 @@ function executeTypeLabel(type: string): string {
   return executeTypeMap[type]?.label || type
 }
 
-function executeTypeTag(type: string): string {
-  return executeTypeMap[type]?.tag || 'info'
+function executeTypeTag(type: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
+  const tag = executeTypeMap[type]?.tag
+  return (tag || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
 }
 
 function tableStatusLabel(status: string): string {
@@ -679,14 +681,14 @@ function tableStatusLabel(status: string): string {
   return m[status] || status
 }
 
-function tableStatusTag(status: string): string {
+function tableStatusTag(status: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
   const m: Record<string, string> = { pending: 'info', processing: 'warning', completed: 'success', skipped: 'default' }
-  return m[status] || 'info'
+  return (m[status] || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
 }
 
-function levelTag(level: string): string {
+function levelTag(level: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
   const m: Record<string, string> = { L0: 'info', L1: 'success', L2: 'warning', L3: 'danger', L4: 'danger' }
-  return m[level] || 'info'
+  return (m[level] || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
 }
 
 // 选项数据
@@ -1182,8 +1184,8 @@ const typeRatioCanvas = ref<HTMLCanvasElement | null>(null)
 const levelDistCanvas = ref<HTMLCanvasElement | null>(null)
 const typeRatioChartData = reactive({ labels: [] as string[], values: [] as number[] })
 const levelDistChartData = reactive({ labels: [] as string[], values: [] as number[] })
-let chartInstance1: Chart | null = null
-let chartInstance2: Chart | null = null
+let chartInstance1: echarts.ECharts | null = null
+let chartInstance2: echarts.ECharts | null = null
 
 async function fetchStatistics() {
   statsLoading.value = true
@@ -1332,13 +1334,14 @@ function switchToColumns(row: any) {
   fetchColumns()
 }
 
-function handleTabChange(tabName: string) {
-  if (tabName === 'tables' && !tables.value.length) fetchTables()
-  if (tabName === 'columns' && !columns.value.length) fetchColumns()
-  if (tabName === 'category' && !categoryTree.value.length) fetchCategoryView()
-  if (tabName === 'statistics' && !typeRatioChartData.labels.length && !levelDistChartData.labels.length) fetchStatistics()
-  if (tabName === 'logs' && !logs.value.length) fetchLogs()
-  if (tabName === 'history' && !historyList.value.length) fetchHistory()
+function handleTabChange(tabName: TabPaneName) {
+  const name = String(tabName)
+  if (name === 'tables' && !tables.value.length) fetchTables()
+  if (name === 'columns' && !columns.value.length) fetchColumns()
+  if (name === 'category' && !categoryTree.value.length) fetchCategoryView()
+  if (name === 'statistics' && !typeRatioChartData.labels.length && !levelDistChartData.labels.length) fetchStatistics()
+  if (name === 'logs' && !logs.value.length) fetchLogs()
+  if (name === 'history' && !historyList.value.length) fetchHistory()
 }
 
 function goBack() {

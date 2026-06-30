@@ -269,7 +269,7 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type TabPaneName } from 'element-plus'
 import { ArrowRight } from '@element-plus/icons-vue'
 import {
   getAuditApplications,
@@ -322,8 +322,9 @@ function appTypeLabel(type: string): string {
   return appTypeMap[type]?.label || type
 }
 
-function appTypeTag(type: string): string {
-  return appTypeMap[type]?.tag || 'info'
+function appTypeTag(type: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
+  const tag = appTypeMap[type]?.tag
+  return (tag || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
 }
 
 const appStatusMap: Record<string, { label: string; tag: string }> = {
@@ -336,8 +337,9 @@ function appStatusLabel(status: string): string {
   return appStatusMap[status]?.label || status
 }
 
-function appStatusTag(status: string): string {
-  return appStatusMap[status]?.tag || 'info'
+function appStatusTag(status: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
+  const tag = appStatusMap[status]?.tag
+  return (tag || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
 }
 
 // ===== 申请列表 =====
@@ -514,8 +516,8 @@ async function handleWithdraw(row: any) {
   }
 }
 
-function handleTabChange(tabName: string) {
-  if (tabName === 'my' && !myApplications.value.length) {
+function handleTabChange(tabName: TabPaneName) {
+  if (String(tabName) === 'my' && !myApplications.value.length) {
     fetchMyApplications()
   }
 }

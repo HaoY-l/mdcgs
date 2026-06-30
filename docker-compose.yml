@@ -7,3 +7,5 @@ services:
       dockerfile: Dockerfile
     container_name: mdcgs-frontend
     restart: unless-stopped
+    ports:
+      - "7785:80"

@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # ========== 前端 ==========
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mdcgs-frontend
+    restart: unless-stopped
+    ports:
+      - "7785:80"
+    depends_on:
+      - backend
+    networks:
+      - mdcgs-network
+
+  # ========== 后端（从 DockerHub 拉取）==========
+  backend:
+    image: your-dockerhub-username/mdcgs-backend:latest
+    container_name: mdcgs-backend
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      # ★★★ MySQL 配置 ★★★
+      - DB_HOST=${DB_HOST}
+      - DB_PORT=${DB_PORT}
+      - DB_USER=${DB_USER}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME}
+      - DATABASE_URL=mysql+pymysql://${DB_USER}:${DB_PASSWORD}@${DB_HOST}:${DB_PORT}/${DB_NAME}
+      # ★★★ Redis 配置 ★★★
+      - REDIS_URL=${REDIS_URL}
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - CELERY_RESULT_BACKEND=${CELERY_RESULT_BACKEND}
+      # ★★★ 安全 ★★★
+      - SECRET_KEY=${SECRET_KEY}
+      - ENCRYPT_KEY=${ENCRYPT_KEY}
+    volumes:
+      - backend_data:/app/data
+    networks:
+      - mdcgs-network
+
+networks:
+  mdcgs-network:
+    driver: bridge
+
+volumes:
+  backend_data:

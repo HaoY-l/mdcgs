@@ -38,3 +38,4 @@ redis_data/
 backend_data/
 info.txt
 .claude
+.env

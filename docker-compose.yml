@@ -17,7 +17,7 @@ services:
 
   # ========== 后端（从 DockerHub 拉取）==========
   backend:
-    image: your-dockerhub-username/mdcgs-backend:latest
+    image: monday1/mdcgs-backend:latest
     container_name: mdcgs-backend
     restart: unless-stopped
     ports:

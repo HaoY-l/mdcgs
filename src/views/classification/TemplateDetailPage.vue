@@ -86,6 +86,7 @@
                     <el-icon><Plus /></el-icon>新增子级
                   </el-button>
                   <el-button text type="primary" size="small" @click="editCategory(row)">编辑</el-button>
+                  <el-button text type="danger" size="small" @click="handleDeleteCategory(row)">删除</el-button>
                 </div>
               </template>
             </el-table-column>

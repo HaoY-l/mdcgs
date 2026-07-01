@@ -114,6 +114,9 @@ MDCGS 正是为解决这些问题而生。
 # 克隆项目后，进入部署目录
 cd /mdcgs
 
+# 复制 .env-example 为 .env，并修改数据库连接信息
+mv .env-example .env
+
 # 启动所有服务（前端 + 后端 + MySQL + Redis + Celery）
 docker-compose up -d
 ```

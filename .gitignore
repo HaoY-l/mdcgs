@@ -38,5 +38,4 @@ redis_data/
 backend_data/
 info.txt
 .claude
-docker-compose.yml
 .env

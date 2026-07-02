@@ -26,6 +26,10 @@
           </el-tag>
         </div>
         <div class="info-item">
+          <span class="info-label">数据资产</span>
+          <span class="info-value">{{ (taskDetail.asset_names || []).join('、') || '-' }}</span>
+        </div>
+        <div class="info-item">
           <span class="info-label">状态</span>
           <el-tag :type="statusTag(taskDetail.status)" size="small">
             {{ statusLabel(taskDetail.status) }}

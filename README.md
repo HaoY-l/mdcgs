@@ -146,7 +146,7 @@ docker-compose up -d
 
 **⭐ 如果这个项目对你有帮助，请给我们一个星标！**
 
-[![Star History Chart](https://api.star-history.com/svg?repos=HaoY-l/mdcgs&type=Date)](https://www.star-history.com/#HaoY-l/mdcgs&Date)
+[![Star History Chart](https://api.star-history.com/chart?repos=HaoY-l/mdcgs&type=date&legend=top-left)](https://www.star-history.com/?type=date&repos=HaoY-l%2Fmdcgs)
 
 ---
 

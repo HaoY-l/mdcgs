@@ -143,7 +143,11 @@ function handleEdit(row: any) {
 
 async function handleSave() {
   if (!form.username) { ElMessage.warning('请输入用户账号'); return }
-  if (!isEdit.value && !form.password) { ElMessage.warning('请输入密码'); return }
+  if (!/^[a-zA-Z0-9]{5,20}$/.test(form.username)) { ElMessage.warning('用户账号为5-20位字母数字'); return }
+  if (!isEdit.value) {
+    if (!form.password) { ElMessage.warning('请输入密码'); return }
+    if (!/^.{6,20}$/.test(form.password)) { ElMessage.warning('密码为6-20位'); return }
+  }
   submitting.value = true
   try {
     const data: any = {

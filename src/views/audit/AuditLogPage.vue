@@ -644,7 +644,7 @@ function renderModuleChart(data: { name: string; value: number }[]) {
   }
   const option: echarts.EChartsOption = {
     tooltip: { trigger: 'item', formatter: '{b}: {c} ({d}%)' },
-    legend: { orient: 'vertical', right: '5%', top: 'center' },
+    legend: { orient: 'vertical', right: '5%', top: 'center', type: 'scroll' },
     series: [{
       type: 'pie',
       radius: ['35%', '60%'],

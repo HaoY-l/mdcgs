@@ -159,3 +159,23 @@ We're proud that our project is trusted by awesome teams around the world 🌍
 | [MDCGS](https://github.com/HaoY-l/mdcgs) | 作者 ✍️ |
 
 > 💬 If your company is using this project, feel free to open a PR and add your logo here!
+
+---
+
+## 🚀 免费试用 & 反馈激励
+
+**欢迎部署测试，有任何问题或建议都欢迎反馈！**
+
+- 🆓 **免费部署**：支持 Docker 一键部署，本地/服务器均可快速体验完整功能
+- 💡 **反馈有礼**：在使用过程中提出的 Bug 反馈、功能建议、体验优化等，一经采纳即可获得**永久使用授权**，无任何限制
+- 🤝 **共建生态**：如果你在数据分类分级、合规审计等场景有更多需求，欢迎提 Issue 或 PR，一起让这个工具更好用
+
+**如何参与：**
+
+1. ⭐ 给项目 Star 支持一下
+2. 🐛 发现 Bug？→ [提交 Issue](https://github.com/HaoY-l/mdcgs/issues)
+3. 💡 有想法或建议？→ [提交 Issue](https://github.com/HaoY-l/mdcgs/issues)
+4. 📧 也可以直接微信联系：**tomorrow_me-**
+
+> 好的产品离不开用户的反馈，期待你的声音！
+

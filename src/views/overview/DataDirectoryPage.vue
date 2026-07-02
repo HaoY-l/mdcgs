@@ -28,9 +28,12 @@
                 style="width: 100%"
                 @change="handleSearch"
               >
-                <el-option label="邮箱" value="邮箱" />
-                <el-option label="手机号" value="手机号" />
-                <el-option label="URL" value="URL" />
+                <el-option
+                  v-for="t in dataTypeOptions"
+                  :key="t"
+                  :label="t"
+                  :value="t"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -43,10 +46,12 @@
                 style="width: 100%"
                 @change="handleSearch"
               >
-                <el-option label="L1 (S级)" value="L1" />
-                <el-option label="L2 (A级)" value="L2" />
-                <el-option label="L3 (B级)" value="L3" />
-                <el-option label="L4 (C级)" value="L4" />
+                <el-option
+                  v-for="l in levelOptions"
+                  :key="l"
+                  :label="l"
+                  :value="l"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -185,6 +190,7 @@
         <el-table-column prop="asset_name" label="数据资产" min-width="120" />
         <el-table-column prop="table_name" label="表" min-width="130" />
         <el-table-column prop="database_name" label="数据库" min-width="120" />
+        <el-table-column prop="task_name" label="来源任务" min-width="120" show-overflow-tooltip />
         <el-table-column label="敏感" width="70" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_sensitive ? 'danger' : 'info'" size="small">
@@ -241,6 +247,8 @@ const pageSize = ref(20)
 
 const categoryPathOptions = ref<string[]>([])
 const assetOptions = ref<string[]>([])
+const dataTypeOptions = ref<string[]>([])
+const levelOptions = ref<string[]>([])
 
 const filterForm = reactive({
   keyword: '',
@@ -304,6 +312,12 @@ async function fetchFilterOptions() {
     }
     if (d.assets) {
       assetOptions.value = d.assets
+    }
+    if (d.data_type_options) {
+      dataTypeOptions.value = d.data_type_options
+    }
+    if (d.level_options) {
+      levelOptions.value = d.level_options
     }
   } catch {
     // silently fail

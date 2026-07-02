@@ -14,7 +14,7 @@
         </el-form-item>
 
         <el-form-item label="关联模板" required>
-          <el-select v-model="form.template_id" placeholder="请选择模板" style="width: 100%" filterable>
+          <el-select v-model="form.template_id" placeholder="请选择模板" style="width: 100%" filterable @change="handleTemplateChange">
             <el-option
               v-for="tpl in templates"
               :key="tpl.id"
@@ -44,6 +44,22 @@
             <el-option v-for="e in encryptionTypes" :key="e.id" :label="e.name" :value="e.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="选择资产" required>
+          <el-select
+            v-model="form.asset_ids"
+            multiple
+            placeholder="请选择数据资产"
+            style="width: 100%"
+            filterable
+          >
+            <el-option
+              v-for="asset in assets"
+              :key="asset.id"
+              :label="asset.name || asset.database_name"
+              :value="asset.id"
+            />
+          </el-select>
+        </el-form-item>
 
         <el-form-item>
           <el-button type="primary" :loading="saving" @click="handleSave">保存</el-button>
@@ -61,6 +77,7 @@ import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
 import { getTaskDetail, updateTask } from '@/api/task'
 import { getTemplates, getMaskingRules, getEncryptionTypes } from '@/api/classification'
+import { getAssets } from '@/api/assets'
 
 const router = useRouter()
 const route = useRoute()
@@ -69,6 +86,7 @@ const taskId = Number(route.params.id)
 const loading = ref(false)
 const saving = ref(false)
 const templates = ref<any[]>([])
+const assets = ref<any[]>([])
 
 const maskingRules = ref<any[]>([])
 const encryptionTypes = ref<any[]>([])
@@ -80,6 +98,7 @@ const form = ref({
   cron_expression: '',
   masking_rule_id: null as number | null,
   encryption_type_id: null as number | null,
+  asset_ids: [] as number[],
 })
 
 async function loadTask() {
@@ -93,6 +112,7 @@ async function loadTask() {
     form.value.cron_expression = data.cron_expression || ''
     form.value.masking_rule_id = data.masking_rule_id ?? null
     form.value.encryption_type_id = data.encryption_type_id ?? null
+    form.value.asset_ids = data.asset_ids || []
   } catch {
     ElMessage.error('加载任务信息失败')
     goBack()
@@ -103,7 +123,7 @@ async function loadTask() {
 
 async function loadTemplates() {
   try {
-    const res = await getTemplates({ page_size: 200 })
+    const res = await getTemplates({ page_size: 100 })
     if (Array.isArray(res.data)) {
       templates.value = res.data
     } else if (res.data?.items) {
@@ -134,6 +154,7 @@ async function handleSave() {
       name: form.value.name.trim(),
       template_id: form.value.template_id,
       execute_type: form.value.execute_type,
+      asset_ids: form.value.asset_ids,
     }
     if (form.value.execute_type === 'periodic') {
       payload.cron_expression = form.value.cron_expression.trim()
@@ -164,11 +185,27 @@ async function loadEncryptionTypes() {
   } catch { encryptionTypes.value = [] }
 }
 
+async function loadAssets() {
+  try {
+    const res = await getAssets({ page_size: 100 })
+    if (Array.isArray(res.data)) {
+      assets.value = res.data
+    } else {
+      assets.value = res.data?.items || []
+    }
+  } catch { assets.value = [] }
+}
+
+function handleTemplateChange() {
+  form.value.asset_ids = []
+}
+
 onMounted(() => {
   loadTask()
   loadTemplates()
   loadMaskingRules()
   loadEncryptionTypes()
+  loadAssets()
 })
 </script>
 

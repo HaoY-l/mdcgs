@@ -15,6 +15,10 @@ export default defineConfig({
       resolvers: [ElementPlusResolver()],
     }),
   ],
+  build: {
+    // 改用 /static/ 目录，避免与前端路由 /assets/ 冲突（nginx try_files 会误匹配到同名目录导致403）
+    assetsDir: 'static',
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

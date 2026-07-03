@@ -227,7 +227,7 @@ async function handleSubmit() {
   submitting.value = true
   try {
     const res = await generateReport({
-      report_type: form.value.report_type,
+      report_type: form.value.report_type as ReportType,
       file_format: form.value.file_format as ReportFormat,
       task_id: form.value.task_id,
       title: form.value.title || undefined,
@@ -253,8 +253,8 @@ function handleViewReport() {
   }
 }
 
-function taskStatusType(status?: string) {
-  const map: Record<string, string> = {
+function taskStatusType(status?: string): 'success' | 'warning' | 'danger' | 'info' {
+  const map: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
     completed: 'success',
     running: 'warning',
     failed: 'danger',

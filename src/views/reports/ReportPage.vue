@@ -150,7 +150,7 @@
               type="primary"
               link
               size="small"
-              @click="openPreview(row)"
+              @click="openPreview(row as ReportItem)"
             >
               预览
             </el-button>
@@ -159,7 +159,7 @@
               type="primary"
               link
               size="small"
-              @click="handleDownload(row)"
+              @click="handleDownload(row as ReportItem)"
             >
               下载
             </el-button>
@@ -168,7 +168,7 @@
               type="warning"
               link
               size="small"
-              @click="checkStatus(row)"
+              @click="checkStatus(row as ReportItem)"
             >
               刷新状态
             </el-button>
@@ -176,7 +176,7 @@
               type="danger"
               link
               size="small"
-              @click="handleDelete(row)"
+              @click="handleDelete(row as ReportItem)"
             >
               删除
             </el-button>

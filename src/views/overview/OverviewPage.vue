@@ -74,6 +74,7 @@ function getFilterParams(extra: Record<string, any> = {}) {
 
 const statCards = reactive([
   { key: 'total_assets', label: '资产总数', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>', color: '#2563eb', bg: '#eff6ff', value: null as string | null },
+  { key: 'total_columns', label: '字段总数', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>', color: '#8b5cf6', bg: '#f5f3ff', value: null as string | null },
   { key: 'classified_count', label: '已分类字段', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>', color: '#10b981', bg: '#ecfdf5', value: null as string | null },
   { key: 'sensitive_column_count', label: '敏感字段', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>', color: '#f59e0b', bg: '#fffbeb', value: null as string | null },
   { key: 'sensitive_table_count', label: '敏感表', icon: '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>', color: '#ef4444', bg: '#fef2f2', value: null as string | null },
@@ -283,24 +284,25 @@ onBeforeUnmount(() => {
 .page-body { min-height: 400px; }
 
 .stat-cards {
-  display: grid; grid-template-columns: repeat(5, 1fr);
+  display: grid; grid-template-columns: repeat(6, 1fr);
   gap: 16px; margin-bottom: 20px;
 }
 .stat-card {
-  display: flex; align-items: flex-start; gap: 16px;
-  padding: 16px; background: #fff;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 14px 12px; background: #fff;
   border: 1px solid #e5e6eb; border-radius: 8px;
 }
 .stat-card-icon {
   display: flex; align-items: center; justify-content: center;
-  width: 40px; height: 40px; border-radius: 8px; flex-shrink: 0;
+  width: 36px; height: 36px; border-radius: 8px; flex-shrink: 0;
 }
 .stat-card-body { flex: 1; min-width: 0; }
-.stat-label { font-size: 13px; font-weight: 500; color: #86909c; margin-bottom: 4px; }
-.stat-value { font-size: 24px; font-weight: 700; line-height: 1.25; }
+.stat-label { font-size: 12px; font-weight: 500; color: #86909c; margin-bottom: 4px; white-space: nowrap; }
+.stat-value { font-size: 20px; font-weight: 700; line-height: 1.25; }
 
-@media (max-width: 1200px) { .stat-cards { grid-template-columns: repeat(3, 1fr); } }
-@media (max-width: 768px) { .stat-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 1400px) { .stat-cards { grid-template-columns: repeat(3, 1fr); } }
+@media (max-width: 900px) { .stat-cards { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px) { .stat-cards { grid-template-columns: 1fr; } }
 
 .charts-row {
   display: grid; grid-template-columns: 3fr 2fr;

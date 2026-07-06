@@ -63,7 +63,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { getStatistics, getTrend, getTypeRatio, getLevelRatio, getCategoryRatio, invalidateOverviewCache } from '@/api/overview'
-import { getSettings } from '@/api/system'
+import { getSettings, getBasicSettings } from '@/api/system'
 
 const pageLoading = ref(false)
 const refreshing = ref(false)
@@ -255,8 +255,8 @@ let refreshTimer: number | null = null
 
 async function loadRefreshInterval() {
   try {
-    const res = await getSettings()
-    const basic = res.data?.basic || {}
+    const res = await getBasicSettings()
+    const basic = res.data || {}
     const interval = basic.refresh_interval || 0
     if (interval > 0) {
       if (refreshTimer) clearInterval(refreshTimer)

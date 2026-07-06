@@ -30,6 +30,11 @@
             <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" size="large" show-password />
           </el-form-item>
           <el-form-item>
+            <div class="login-options">
+              <el-checkbox v-model="rememberPassword">记住密码</el-checkbox>
+            </div>
+          </el-form-item>
+          <el-form-item>
             <el-button type="primary" size="large" class="login-btn" :loading="loading" @click="handleLogin">
               {{ loading ? '登录中...' : (isLdapLogin ? 'LDAP登录' : '登录') }}
             </el-button>
@@ -116,6 +121,7 @@ const isLdapLogin = ref(false)
 const customLogoUrl = ref('')
 
 const loginForm = reactive({ username: '', password: '' })
+const rememberPassword = ref(false)
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }],
@@ -148,6 +154,14 @@ async function fetchCustomLogo() {
 
 onMounted(() => {
   fetchCustomLogo()
+  // 加载记住的账号密码
+  const savedUsername = localStorage.getItem('remembered_username')
+  const savedPassword = localStorage.getItem('remembered_password')
+  if (savedUsername) loginForm.username = savedUsername
+  if (savedPassword) {
+    loginForm.password = savedPassword
+    rememberPassword.value = true
+  }
 })
 
 async function handleLogin() {
@@ -162,6 +176,14 @@ async function handleLogin() {
       res = await ldapLogin(loginForm)
     } else {
       res = await login(loginForm)
+    }
+    // 记住密码
+    if (rememberPassword.value) {
+      localStorage.setItem('remembered_username', loginForm.username)
+      localStorage.setItem('remembered_password', loginForm.password)
+    } else {
+      localStorage.removeItem('remembered_username')
+      localStorage.removeItem('remembered_password')
     }
     const mustChangePassword = res.data?.must_change_password === 1
     await userStore.fetchUserInfo()
@@ -291,7 +313,8 @@ async function handleDeactivateLicense() {
   font-size: 14px; color: #64748b;
   margin: 0 0 28px;
 }
-.login-form { margin-bottom: 16px; }
+.login-form { margin-bottom: 8px; }
+.login-options { display: flex; align-items: center; }
 .input-label {
   font-size: 13px; font-weight: 500;
   color: #cbd5e1; margin-bottom: 6px;

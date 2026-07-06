@@ -7,6 +7,12 @@
 
     <DataTable :data="users" :loading="loading" :total="total" :current-page="currentPage" :page-size="pageSize" @page-change="handlePageChange">
       <el-table-column prop="username" label="用户账号" min-width="120" />
+      <el-table-column label="来源" min-width="80">
+        <template #default="{ row }">
+          <el-tag v-if="row.auth_type === 'ldap'" type="warning" size="small">LDAP</el-tag>
+          <el-tag v-else type="success" size="small">本地</el-tag>
+        </template>
+      </el-table-column>
       <el-table-column prop="real_name" label="姓名" min-width="120" />
       <el-table-column prop="email" label="邮箱" min-width="180" />
       <el-table-column label="角色" min-width="120">

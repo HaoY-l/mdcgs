@@ -116,7 +116,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessageBox } from 'element-plus'
-import { getSettings } from '@/api/system'
+import { getLogoUrl } from '@/api/system'
 
 const route = useRoute()
 const router = useRouter()
@@ -189,9 +189,9 @@ onMounted(() => {
     userStore.fetchUserInfo().catch(() => router.push('/login'))
   }
   // 获取自定义Logo
-  ;(getSettings() as any).then((res: any) => {
-    if (res.basic?.logo_url) {
-      customLogoUrl.value = res.basic.logo_url
+  ;(getLogoUrl() as any).then((res: any) => {
+    if (res.data?.logo_url) {
+      customLogoUrl.value = res.data.logo_url
     }
   }).catch(() => {})
 })

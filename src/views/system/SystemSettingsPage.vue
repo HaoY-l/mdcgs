@@ -64,6 +64,7 @@
         <!-- LDAP设置 -->
         <el-tab-pane label="LDAP设置" name="ldap">
           <el-form label-width="140px" v-loading="ldapLoading">
+            <el-form-item label="启用LDAP登录"><el-switch v-model="ldapForm.enabled" /></el-form-item>
             <el-form-item label="服务器地址"><el-input v-model="ldapForm.host" placeholder="ldap.example.com" /></el-form-item>
             <el-form-item label="端口"><el-input-number v-model="ldapForm.port" :min="1" :max="65535" /></el-form-item>
             <el-form-item label="Base DN"><el-input v-model="ldapForm.base_dn" placeholder="dc=example,dc=com" /></el-form-item>
@@ -218,7 +219,7 @@ const securityForm = reactive({
   whitelist_enabled: false,
 })
 
-const ldapForm = reactive({ host: '', port: 389, base_dn: '', bind_dn: '', bind_password: '', user_filter: '(uid={username})' })
+const ldapForm = reactive({ enabled: false, host: '', port: 389, base_dn: '', bind_dn: '', bind_password: '', user_filter: '(uid={username})' })
 const apiForm = reactive({ name: '' })
 const apiKeys = ref<any[]>([])
 const dataApps = ref<any[]>([])
@@ -273,12 +274,25 @@ async function fetchLdapSettings() {
   ldapLoading.value = true
   try {
     const res = await getLdapSettings()
-    if (res.data) Object.assign(ldapForm, res.data)
+    if (res.data) {
+      // 后端返回的是字符串 "true"/"false"，需要转成布尔值
+      res.data.enabled = res.data.enabled === 'true'
+      Object.assign(ldapForm, res.data)
+    }
   } finally { ldapLoading.value = false }
 }
 
 async function saveLdapSettings() {
-  await updateLdapSettings({ ...ldapForm })
+  // 布尔值转成字符串提交给后端
+  await updateLdapSettings({
+    enabled: String(ldapForm.enabled),
+    host: ldapForm.host,
+    port: ldapForm.port,
+    base_dn: ldapForm.base_dn,
+    bind_dn: ldapForm.bind_dn,
+    bind_password: ldapForm.bind_password,
+    user_filter: ldapForm.user_filter,
+  })
   ElMessage.success('LDAP设置已保存')
 }
 

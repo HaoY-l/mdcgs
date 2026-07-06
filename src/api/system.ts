@@ -8,6 +8,10 @@ export async function getSettings() {
   return client.get('/settings')
 }
 
+export async function getBasicSettings() {
+  return client.get('/settings/basic')
+}
+
 export async function updateSettings(data: Record<string, any>) {
   return client.put('/settings', data)
 }

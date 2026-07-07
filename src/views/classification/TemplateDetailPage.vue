@@ -64,7 +64,7 @@
                   size="small"
                   style="color: #fff; border: none; font-weight: 500; white-space: nowrap"
                 >
-                  {{ row.level_name || row.level_code }}
+                  {{ row.level_code }}
                 </el-tag>
                 <span v-else style="color: #c9cdd4">-</span>
               </template>
@@ -167,7 +167,7 @@
                   size="small"
                   style="color: #fff; border: none; white-space: nowrap"
                 >
-                  {{ row.level_name || row.level_code }}
+                  {{ row.level_code }}
                 </el-tag>
                 <span v-else style="color: #c9cdd4">-</span>
               </template>
@@ -224,7 +224,7 @@
           </el-form-item>
           <el-form-item label="数据分级" required>
             <el-select v-model="catForm.level_id" placeholder="选择分级" style="width: 100%">
-              <el-option v-for="l in levelOptions" :key="l.id" :label="l.level_name + ' (' + l.level_code + ')'" :value="l.id" />
+              <el-option v-for="l in levelOptions" :key="l.id" :label="l.level_code" :value="l.id" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -246,7 +246,7 @@
           </el-form-item>
           <el-form-item label="数据分级">
             <el-select v-model="catForm.level_id" placeholder="选择分级(可选)" style="width: 100%" clearable>
-              <el-option v-for="l in levelOptions" :key="l.id" :label="l.level_name + ' (' + l.level_code + ')'" :value="l.id" />
+              <el-option v-for="l in levelOptions" :key="l.id" :label="l.level_code" :value="l.id" />
             </el-select>
           </el-form-item>
         </el-form>
@@ -340,14 +340,14 @@
         <el-form-item label="数据分级" required>
           <template v-if="selectedCategoryLevel">
             <el-tag :color="getLevelColor(selectedCategoryLevel.level_code)" style="color: #fff; border: none;">
-              {{ selectedCategoryLevel.level_name }} ({{ selectedCategoryLevel.level_code }})
+              {{ selectedCategoryLevel.level_code }}
             </el-tag>
             <span class="inherit-hint">继承自「{{ selectedCategoryName }}」</span>
             <input type="hidden" :value="selectedCategoryLevel.id" />
           </template>
           <el-select v-else v-model="dtForm.level_id" placeholder="分类未绑定分级，请手动选择" style="width: 100%">
-            <el-option v-for="l in levels" :key="l.id" :label="l.level_name" :value="l.id">
-              <span>{{ l.level_name }} ({{ l.level_code }})</span>
+            <el-option v-for="l in levels" :key="l.id" :label="l.level_code" :value="l.id">
+              <span>{{ l.level_code }}</span>
             </el-option>
           </el-select>
         </el-form-item>
@@ -751,7 +751,6 @@ async function fetchDataTypes() {
     const catList = flatCategories.value
     dataTypes.value.forEach((dt: any) => {
       const lv = levels.value.find((l: any) => l.id === dt.level_id)
-      dt.level_name = lv?.level_name || ''
       dt.level_code = lv?.level_code || ''
       // 类型转换：后端 SmallInteger 0/1 → boolean
       dt.is_sensitive = !!dt.is_sensitive

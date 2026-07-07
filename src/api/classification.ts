@@ -159,6 +159,10 @@ export async function updateLevel(id: number, data: Record<string, any>) {
   return client.put(`/levels/${id}`, data)
 }
 
+export async function deleteLevel(id: number) {
+  return client.delete(`/levels/${id}`)
+}
+
 export async function setLevelPriority(data: Record<string, any>) {
   return client.put('/levels/priority', data)
 }

@@ -64,6 +64,7 @@ const ALL_MENU_ITEMS: MenuItem[] = [
     permission: 'user_view',
     children: [
       { path: '/system/users', title: '用户管理', icon: 'User', permission: 'user_view' },
+      { path: '/system/datasources', title: '数据源管理', icon: 'Database', permission: 'asset_view' },
       { path: '/system/monitor', title: '性能监控', icon: 'DataBoard', permission: 'monitor_view' },
       { path: '/system/settings', title: '系统设置', icon: 'Tools', permission: 'setting_view' },
     ],

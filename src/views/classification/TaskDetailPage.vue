@@ -483,7 +483,7 @@
             <el-option
               v-for="lv in levelOptions"
               :key="lv.id"
-              :label="lv.level_name || lv.level_code"
+              :label="lv.level_code"
               :value="lv.level_code"
             />
           </el-select>
@@ -755,7 +755,7 @@ async function loadOptions() {
     const res = await getTaskDetail(taskId)
     if (res.data?.template_id) {
       const { getDataTypes } = await import('@/api/classification')
-      const dtRes = await getDataTypes(res.data.template_id, { page_size: 200 })
+      const dtRes = await getDataTypes(res.data.template_id, { page_size: 100 })
       if (Array.isArray(dtRes.data)) {
         dataTypeOptions.value = dtRes.data.map((d: any) => d.name || d)
       } else if (dtRes.data?.items) {
@@ -1152,7 +1152,7 @@ watch(() => changeForm.new_category_id, (newId) => {
         changeForm.new_level_id = levelId
         const level = levelOptions.value.find((l: any) => l.id === levelId)
         if (level) {
-          changeForm.new_level_code = level.level_code || level.level_name || level.name || ''
+          changeForm.new_level_code = level.level_code || level.name || ''
         } else {
           changeForm.new_level_code = ''
         }

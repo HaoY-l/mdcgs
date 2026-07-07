@@ -144,12 +144,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/system/SystemSettingsPage.vue'),
         meta: { title: '系统设置', icon: 'Tools' },
       },
-      {
-        path: 'system/datasources',
-        name: 'DataSources',
-        component: () => import('@/views/system/DataSourcePage.vue'),
-        meta: { title: '数据源管理', icon: 'Database' },
-      },
     ],
   },
 ]

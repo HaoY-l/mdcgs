@@ -12,7 +12,7 @@
       <el-table-column prop="name" label="资产名称" min-width="150" />
       <el-table-column prop="asset_type" label="资产类型" min-width="100">
         <template #default="{ row }">
-          <el-tag size="small">{{ row.asset_type }}</el-tag>
+          <el-tag size="small">{{ getDataSourceLabel(row.asset_type) }}</el-tag>
         </template>
       </el-table-column>
       <el-table-column label="地址" min-width="180">
@@ -47,13 +47,12 @@
         </el-form-item>
         <el-form-item label="数据库类型" required>
           <el-select v-model="form.asset_type" style="width: 100%">
-            <el-option label="MySQL" value="mysql" />
-            <el-option label="Oracle" value="oracle" />
-            <el-option label="SQLServer" value="sqlserver" />
-            <el-option label="PostgreSQL" value="postgresql" />
-            <el-option label="ClickHouse" value="clickhouse" />
-            <el-option label="MariaDB" value="mariadb" />
-            <el-option label="MongoDB" value="mongodb" />
+            <el-option
+              v-for="type in DATA_SOURCE_TYPES"
+              :key="type.value"
+              :label="type.label"
+              :value="type.value"
+            />
           </el-select>
         </el-form-item>
         <el-row :gutter="16">
@@ -90,10 +89,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual } from '@/api/assets'
+import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLabel } from '@/constants/datasource'
 import PageShell from '@/components/common/PageShell.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
@@ -117,6 +117,14 @@ const form = reactive({
   database_name: '', username: 'root', password: '',
 })
 
+// 资产类型切换时自动更新默认端口和用户名
+watch(() => form.asset_type, (newType) => {
+  if (!isEdit.value) {
+    form.port = getDefaultPort(newType)
+    form.username = getDefaultUsername(newType)
+  }
+})
+
 async function fetchAssets() {
   loading.value = true
   try {
@@ -138,6 +146,9 @@ function resetForm() {
   form.name = ''; form.asset_type = 'mysql'; form.host = '127.0.0.1'; form.port = 3306
   form.database_name = ''; form.username = 'root'; form.password = ''
   isEdit.value = false; editId.value = null
+  // 重置时同步默认端口和用户名
+  form.port = getDefaultPort(form.asset_type)
+  form.username = getDefaultUsername(form.asset_type)
 }
 
 function handleAdd() {
@@ -186,6 +197,7 @@ async function testConnectionHandler() {
         port: form.port,
         username: form.username,
         password: form.password,
+        asset_type: form.asset_type,
       })
       ElMessage.success((res as any).message || '连接测试通过')
     } catch (err: any) {

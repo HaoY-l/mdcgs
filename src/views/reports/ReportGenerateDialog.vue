@@ -207,7 +207,7 @@ async function loadReportTypes() {
 async function loadTasks() {
   tasksLoading.value = true
   try {
-    const res = await getTasks({ page: 1, page_size: 200 })
+    const res = await getTasks({ page: 1, page_size: 100 })
     console.log('[DEBUG] getTasks raw res:', JSON.stringify(res))
     // client.get() 经拦截器返回 {code, data, message}，data 里有 items
     taskList.value = (res as any)?.data?.items || (res as any)?.items || []

@@ -189,7 +189,7 @@ async function fetchLevelRatio() {
         label: { show: false }, emphasis: { label: { show: true, fontSize: 13 } },
         itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
         data: data.map((d: any, i: number) => ({
-          name: d.level_name || d.level_code || '',
+          name: d.level_code || '',
           value: d.count,
           itemStyle: { color: d.level_code === 'L1' ? '#ef4444' : d.level_code === 'L2' ? '#f59e0b' : d.level_code === 'L3' ? '#f97316' : d.level_code === 'L4' ? '#10b981' : d.level_code === 'L5' ? '#06b6d4' : chartColors[i % chartColors.length] }
         }))

@@ -81,7 +81,7 @@
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, type CheckboxValueType } from 'element-plus'
 import { getRoles, getPermissions, getRole, createRole, updateRole, deleteRole, type PermissionCategory } from '@/api/role'
 import PageShell from '@/components/common/PageShell.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -120,12 +120,12 @@ const isIndeterminate = computed(() => {
   return checked.length > 0 && checked.length < allPerms.length
 })
 
-function handleSelectAll(val: boolean) {
+function handleSelectAll(val: CheckboxValueType) {
   const allPerms = permissionTree.value.flatMap(cat => cat.permissions.map(p => p.key))
   selectedPermissions.value = val ? [...allPerms] : []
 }
 
-function getPermissionCount(permissions: Record<string, boolean> | null): number {
+function getPermissionCount(permissions: Record<string, boolean> | null): number | string {
   if (!permissions) return 0
   if (permissions['*']) return '全部'
   return Object.values(permissions).filter(Boolean).length

@@ -551,14 +551,13 @@ function levelColor(level: string): string {
   return levelMap.value[level]?.color || '#6b7280'
 }
 
-function getLevelOrder(level: string): number {
-
 function computeLevelSort(l: any): number {
   if (l.sort_order != null) return l.sort_order
   const v = parseInt(l.level_code.replace(/L/i, ''))
   return v || 0
 }
 
+function getLevelOrder(level: string): number {
   const item = levelMap.value[level]
   if (item) return item.sort
   // fallback: 从 level_code 提取数字
@@ -753,7 +752,7 @@ async function handleExecuteEvaluation() {
     let upgradedCount = 0
 
     Object.entries(typeFieldMap).forEach(([dataType, fieldCount]) => {
-      const rule = rules.find(r =>
+      const rule = rules.find((r: any) =>
         dataType.includes(r.data_type) || r.data_type.includes(dataType)
       ) || {
         data_type: dataType,
@@ -951,9 +950,9 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
-  typeLevelChart?.dispose()
-  levelCountChart?.dispose()
-  reportLevelChart?.dispose()
+  ;(typeLevelChart as any)?.dispose()
+  ;(levelCountChart as any)?.dispose()
+  ;(reportLevelChart as any)?.dispose()
 })
 </script>
 

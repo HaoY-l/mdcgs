@@ -1,5 +1,5 @@
 <template>
-  <PageShell title="数据分级" description="配置数据安全分级（L1~L5）的颜色、管控原则及敏感属性，修改后自动同步到关联的分类与数据类型">
+  <PageShell title="数据分级" description="配置数据安全分级的颜色、管控原则及敏感属性，启用/停用后自动同步到其他模块">
     <div class="content-wrap">
       <!-- 分级列表 -->
       <DataTable :data="levels" :loading="loading" stripe v-bind="$attrs" size="small">
@@ -22,6 +22,15 @@
               :model-value="!!row.is_sensitive"
               disabled
               size="small"
+            />
+          </template>
+        </el-table-column>
+        <el-table-column label="启用" min-width="70" align="center">
+          <template #default="{ row }">
+            <el-switch
+              :model-value="!!row.is_active"
+              size="small"
+              @change="handleToggleActive(row)"
             />
           </template>
         </el-table-column>
@@ -79,14 +88,16 @@ async function fetchLevels() {
   try {
     const res = await getLevels()
     const items = Array.isArray(res.data) ? res.data : []
-    levels.value = items.map((l: any) => ({
-      ...l,
-      editing: false,
-      edit_color: l.color,
-      edit_sensitive: !!l.is_sensitive,
-      edit_principle: l.control_principle,
-      edit_description: l.description,
-    }))
+    // 显示所有级别（包括未启用的）
+    levels.value = items
+      .map((l: any) => ({
+        ...l,
+        editing: false,
+        edit_color: l.color,
+        edit_sensitive: !!l.is_sensitive,
+        edit_principle: l.control_principle,
+        edit_description: l.description,
+      }))
   } finally {
     loading.value = false
   }
@@ -124,6 +135,22 @@ async function saveEdit(row: any) {
 
 function cancelEdit(row: any) {
   row.editing = false
+}
+
+async function handleToggleActive(row: any) {
+  try {
+    const newActive = row.is_active ? 0 : 1
+    await updateLevel(row.id, { is_active: newActive })
+    row.is_active = newActive
+    ElMessage.success(row.is_active ? '已启用' : '已停用')
+    // 停用后刷新列表（移除停用的行）
+    if (!row.is_active) {
+      fetchLevels()
+    }
+  } catch {
+    // 失败则恢复switch状态
+    row.is_active = row.is_active ? 0 : 1
+  }
 }
 
 async function handleDelete(row: any) {

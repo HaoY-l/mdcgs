@@ -167,6 +167,10 @@ export async function setLevelPriority(data: Record<string, any>) {
   return client.put('/levels/priority', data)
 }
 
+export async function setLevelActive(id: number, isActive: boolean) {
+  return client.patch(`/levels/${id}/active`, { is_active: isActive ? 1 : 0 })
+}
+
 export async function enableRestrictedLevel(data: Record<string, any>) {
   return client.post('/levels/restricted/enable', data)
 }

@@ -234,7 +234,23 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDirectory } from '@/api/overview'
+import { getLevels } from '@/api/classification'
 import client from '@/api/client'
+
+// 级别颜色映射（动态加载）
+const levelColorMap = ref<Record<string, string>>({})
+
+async function loadLevelColors() {
+  try {
+    const res = await getLevels()
+    const data = res.data || []
+    const map: Record<string, string> = {}
+    for (const l of data) {
+      map[l.level_code] = l.color
+    }
+    levelColorMap.value = map
+  } catch { /* ignore */ }
+}
 
 // ===== State =====
 const loading = ref(false)
@@ -263,13 +279,15 @@ const filterForm = reactive({
 
 // ===== Helpers =====
 function levelTagType(level: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
-  const map: Record<string, string> = {
-    'L1': 'danger',
-    'L2': 'warning',
-    'L3': 'primary',
-    'L4': 'info',
+  if (!level) return 'info'
+  // 如果有颜色映射，根据颜色判断；否则默认 info
+  const color = levelColorMap.value[level]
+  if (color) {
+    // 红色系 -> danger，橙色系 -> warning
+    if (color.toLowerCase().includes('ff4d4f') || color.toLowerCase().includes('ef4444')) return 'danger'
+    if (color.toLowerCase().includes('ff7a00') || color.toLowerCase().includes('f59e0b')) return 'warning'
   }
-  return (map[level] || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
+  return 'info'
 }
 
 function buildParams(): Record<string, any> {
@@ -422,6 +440,7 @@ function jsonToCsv(items: any[]): string {
 
 // ===== Init =====
 onMounted(() => {
+  loadLevelColors()
   fetchFilterOptions()
   fetchDirectory(buildParams())
 })

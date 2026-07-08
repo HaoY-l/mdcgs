@@ -14,12 +14,7 @@
           <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
           工具
         </el-button>
-        <el-button size="small" @click="showReportDialog = true">
-          <span class="btn-icon"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
-          报告
-        </el-button>
         <el-button size="small" @click="handleRefresh" :loading="refreshing">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
           刷新
         </el-button>
       </div>
@@ -46,47 +41,100 @@
 
       <!-- 图表区域 -->
       <div class="charts-row">
-        <div class="chart-card">
+        <div class="chart-card" style="cursor: pointer">
           <div class="chart-header">
-            <span class="chart-title">数据类型级别分布</span>
+            <span class="chart-title">一级分类占比</span>
           </div>
           <div ref="typeLevelChartRef" class="chart-body" v-loading="typeLevelLoading"></div>
         </div>
-        <div class="chart-card">
+        <div class="chart-card" style="cursor: pointer">
           <div class="chart-header">
-            <span class="chart-title">各级别数据量</span>
+            <span class="chart-title">各级别数量</span>
           </div>
           <div ref="levelCountChartRef" class="chart-body" v-loading="levelCountLoading"></div>
         </div>
       </div>
 
-      <!-- 评估记录 -->
-      <div class="record-section">
-        <div class="section-header">
-          <span class="section-title">评估记录</span>
+      <div class="chart-card-full">
+        <div class="chart-header">
+          <span class="chart-title">二级分类数量趋势</span>
         </div>
-        <el-table :data="evaluationRecords" stripe border size="small" v-loading="recordsLoading">
-          <el-table-column prop="id" label="序号" width="60" align="center" />
-          <el-table-column prop="executed_at" label="评估时间" min-width="160" />
-          <el-table-column prop="total_fields" label="参与字段数" width="110" align="center" />
-          <el-table-column prop="total_assets" label="涉及资产数" width="110" align="center" />
-          <el-table-column prop="max_level" label="最高级别" width="90" align="center">
+        <!-- 自定义图例 -->
+        <div class="trend-legend" v-if="trendCategories.length > 0">
+          <span
+            v-for="cat in trendCategories"
+            :key="cat"
+            class="trend-legend-item"
+            :class="{ active: selectedTrendCategory === cat }"
+            :style="{ borderColor: selectedTrendCategory && selectedTrendCategory !== cat ? '#e5e7eb' : getTrendColor(cat) }"
+            @click="toggleTrendCategory(cat)"
+          >
+            {{ cat }}
+          </span>
+          <span v-if="selectedTrendCategory" class="trend-legend-clear" @click="clearTrendFilter">× 清除</span>
+        </div>
+        <div ref="trendChartRef" class="chart-body" v-loading="trendLoading"></div>
+      </div>
+
+      <!-- 最新评估结果 -->
+      <div v-if="lastEvaluation" class="result-section">
+        <div class="section-header">
+          <span class="section-title">最新评估结果</span>
+          <span class="section-meta">{{ lastEvaluation.executed_at }}</span>
+          <div class="section-actions">
+            <el-button size="small" type="primary" @click="applySuggestedLevels">应用建议级</el-button>
+            <el-button size="small" @click="exportEvaluationCSV">导出CSV</el-button>
+          </div>
+        </div>
+        <div class="result-summary">
+          <div class="result-stat">
+            <span class="result-stat-val">{{ lastEvaluation.total_fields?.toLocaleString() }}</span>
+            <span class="result-stat-label">参与字段</span>
+          </div>
+          <div class="result-stat">
+            <span class="result-stat-val">{{ lastEvaluation.total_assets }}</span>
+            <span class="result-stat-label">涉及资产</span>
+          </div>
+          <div class="result-stat">
+            <span class="result-stat-val" :style="{ color: levelColorMap[lastEvaluation.max_level] }">{{ lastEvaluation.max_level }}</span>
+            <span class="result-stat-label">最高级别</span>
+          </div>
+          <div class="result-stat">
+            <span class="result-stat-val" style="color:#f59e0b">{{ lastEvaluation.upgraded_count }}</span>
+            <span class="result-stat-label">触发升级</span>
+          </div>
+        </div>
+        <el-table :data="lastEvaluation.details" stripe border size="small" max-height="400">
+          <el-table-column prop="data_type" label="数据类型" min-width="140" show-overflow-tooltip />
+          <el-table-column prop="field_count" label="字段数" width="80" align="center">
+            <template #default="{ row }">{{ row.field_count?.toLocaleString() }}</template>
+          </el-table-column>
+          <el-table-column label="基础级" width="75" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :type="levelTagType(row.max_level)">{{ row.max_level || '-' }}</el-tag>
+              <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.base_level], color: '#fff', border: 'none' }">{{ row.base_level }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="upgraded_count" label="触发升级数" width="110" align="center">
+          <el-table-column label="建议级" width="75" align="center">
             <template #default="{ row }">
-              <span v-if="row.upgraded_count > 0" style="color:#f59e0b;font-weight:600">{{ row.upgraded_count }}</span>
-              <span v-else>0</span>
+              <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.suggested_level], color: '#fff', border: 'none' }">{{ row.suggested_level }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column label="评估结果" min-width="200">
+          <el-table-column label="升级" width="60" align="center">
             <template #default="{ row }">
-              <span class="record-summary">{{ row.summary || '无' }}</span>
+              <span v-if="row.upgrade > 0" style="color:#ef4444;font-weight:600">+{{ row.upgrade }}</span>
+              <span v-else style="color:#9ca3af">-</span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="trigger" label="触发原因" min-width="140" show-overflow-tooltip />
+          <el-table-column label="操作" width="80" align="center">
+            <template #default="{ row, $index }">
+              <el-button link type="primary" size="small" @click="openChangeLevelDialog(row, $index)">变更</el-button>
             </template>
           </el-table-column>
         </el-table>
+      </div>
+      <div v-else class="result-empty">
+        <p>暂无评估结果，请点击「工具 → 同步」获取数据</p>
       </div>
     </div>
 
@@ -94,9 +142,9 @@
     <el-drawer v-model="showRulesDrawer" title="量级定级规则" size="600px" direction="rtl">
       <div class="drawer-body">
         <div class="drawer-toolbar">
-          <el-button type="primary" size="small" @click="handleAddRule">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-            新增规则
+          <el-button type="primary" size="small" @click="handleSync" :loading="syncing">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+            同步
           </el-button>
         </div>
         <el-table :data="rulesTable" stripe border size="small" max-height="360">
@@ -106,17 +154,17 @@
               <el-tag size="small" :type="levelTagType(row.base_level)">{{ row.base_level }}</el-tag>
             </template>
           </el-table-column>
-          <el-table-column prop="threshold_1k" label="1K阈值" width="80" align="center">
+          <el-table-column prop="threshold_1k" label="梯度1" width="80" align="center">
             <template #default="{ row }">
               <span class="threshold-val">{{ row.threshold_1k && row.threshold_1k.toLocaleString() || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="threshold_10k" label="1万阈值" width="85" align="center">
+          <el-table-column prop="threshold_10k" label="梯度2" width="85" align="center">
             <template #default="{ row }">
               <span class="threshold-val">{{ row.threshold_10k && row.threshold_10k.toLocaleString() || '-' }}</span>
             </template>
           </el-table-column>
-          <el-table-column prop="threshold_100k" label="10万阈值" width="90" align="center">
+          <el-table-column prop="threshold_100k" label="梯度3" width="90" align="center">
             <template #default="{ row }">
               <span class="threshold-val">{{ row.threshold_100k && row.threshold_100k.toLocaleString() || '-' }}</span>
             </template>
@@ -148,71 +196,112 @@
       </div>
     </el-drawer>
 
-    <!-- 工具抽屉 -->
-    <el-drawer v-model="showToolDrawer" title="量级评估工具" size="560px" direction="rtl">
+    <!-- 工具抽屉：简化为只执行评估 -->
+    <el-drawer v-model="showToolDrawer" title="量级评估" size="480px" direction="rtl">
       <div class="drawer-body">
         <div class="tool-intro">
-          <p>点击「执行评估」按钮，系统将自动从数据目录获取已人工分类的字段数据，按当前规则计算各级别的建议级别，并生成一条评估记录。</p>
+          <p>点击「立即执行」按钮，系统将自动从<strong>数据目录</strong>获取所有已人工分类标记的字段，按数据量规模计算建议级别，生成评估记录。</p>
+          <p style="margin-top:8px;color:#6b7280;font-size:12px">每次执行都会从后端实时拉取最新数据，不使用任何预设假数据。</p>
         </div>
         <el-divider />
-        <div class="tool-current-rules">
-          <div class="tool-rules-title">当前规则（将用于本次评估）</div>
-          <el-tag v-for="rule in rulesTable" :key="rule.data_type" size="small" style="margin:4px 4px 4px 0">
-            {{ rule.data_type }}：{{ rule.base_level }}
-          </el-tag>
+        <div class="tool-schedule">
+          <div class="tool-schedule-title">定期执行（可选）</div>
+          <div class="tool-schedule-row">
+            <span class="tool-schedule-label">定期执行：</span>
+            <el-switch v-model="scheduleEnabled" size="small" />
+          </div>
+          <div v-if="scheduleEnabled" class="tool-schedule-config">
+            <el-select v-model="scheduleCron" size="small" style="width:100%;margin-bottom:8px">
+              <el-option label="每天凌晨 2:00" value="0 2 * * *" />
+              <el-option label="每周一凌晨 2:00" value="0 2 * * 1" />
+              <el-option label="每月1号凌晨 2:00" value="0 2 1 * *" />
+            </el-select>
+            <div class="tool-schedule-tip">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+              定期任务由后端 Celery 执行，不依赖前端页面打开
+            </div>
+          </div>
         </div>
         <el-divider />
-        <el-button type="primary" size="default" style="width:100%;margin-bottom:16px" @click="handleExecuteEvaluation" :loading="evaluating">
+        <el-button type="primary" size="default" style="width:100%;margin-bottom:12px" @click="handleExecuteEvaluation" :loading="evaluating">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-          执行评估
+          {{ scheduleEnabled ? '保存并执行' : '立即执行' }}
         </el-button>
 
-        <!-- 本次预览 -->
+        <!-- 评估结果（最新一次） -->
         <div v-if="lastEvaluation" class="tool-result">
-          <div class="tool-result-title">最近一次评估结果</div>
-          <div class="tool-result-row">
-            <span class="tool-result-label">评估时间：</span>
-            <span class="tool-result-val">{{ lastEvaluation.executed_at }}</span>
+          <div class="tool-result-title">
+            <span>评估结果</span>
+            <span class="tool-result-time">{{ lastEvaluation.executed_at }}</span>
           </div>
-          <div class="tool-result-row">
-            <span class="tool-result-label">参与字段：</span>
-            <span class="tool-result-val">{{ lastEvaluation.total_fields }} 条</span>
+          <div class="tool-result-summary">
+            <span>参与字段：<strong>{{ lastEvaluation.total_fields?.toLocaleString() }}</strong> 条</span>
+            <span>涉及资产：<strong>{{ lastEvaluation.total_assets }}</strong> 个</span>
+            <span>最高级别：<el-tag size="small" :type="levelTagType(lastEvaluation.max_level)">{{ lastEvaluation.max_level }}</el-tag></span>
+            <span>触发升级：<strong style="color:#f59e0b">{{ lastEvaluation.upgraded_count }}</strong> 条</span>
           </div>
-          <div class="tool-result-row">
-            <span class="tool-result-label">最高级别：</span>
-            <el-tag size="small" :type="levelTagType(lastEvaluation.max_level)">{{ lastEvaluation.max_level }}</el-tag>
-          </div>
-          <div class="tool-result-row">
-            <span class="tool-result-label">触发升级：</span>
-            <span style="color:#f59e0b;font-weight:600">{{ lastEvaluation.upgraded_count }} 条规则</span>
-          </div>
+          <el-divider style="margin: 12px 0" />
           <div class="tool-result-detail">
-            <div class="tool-result-detail-title">各类型评估明细</div>
-            <el-table :data="lastEvaluation.details" stripe border size="small">
-              <el-table-column prop="data_type" label="数据类型" min-width="120" />
-              <el-table-column prop="field_count" label="字段数" width="80" align="center" />
-              <el-table-column prop="base_level" label="基础级" width="70" align="center">
+            <div class="tool-result-detail-title">评估明细（支持变更级别）</div>
+            <el-table :data="lastEvaluation.details" stripe border size="small" max-height="400">
+              <el-table-column prop="data_type" label="数据类型" min-width="100" />
+              <el-table-column prop="field_count" label="字段数" width="70" align="center">
+                <template #default="{ row }">{{ row.field_count?.toLocaleString() }}</template>
+              </el-table-column>
+              <el-table-column label="基础级" width="70" align="center">
                 <template #default="{ row }">
-                  <el-tag size="small" :type="levelTagType(row.base_level)">{{ row.base_level }}</el-tag>
+                  <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.base_level], color: '#fff', border: 'none' }">{{ row.base_level }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="suggested_level" label="建议级" width="70" align="center">
+              <el-table-column label="建议级" width="70" align="center">
                 <template #default="{ row }">
-                  <el-tag size="small" type="warning">{{ row.suggested_level }}</el-tag>
+                  <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.suggested_level], color: '#fff', border: 'none' }">{{ row.suggested_level }}</el-tag>
                 </template>
               </el-table-column>
-              <el-table-column prop="upgrade" label="升级" width="60" align="center">
+              <el-table-column prop="upgrade" label="升级" width="55" align="center">
                 <template #default="{ row }">
-                  <span v-if="row.upgrade > 0" style="color:#ef4444">+{{ row.upgrade }}</span>
+                  <span v-if="row.upgrade > 0" style="color:#ef4444;font-weight:600">+{{ row.upgrade }}</span>
                   <span v-else style="color:#9ca3af">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="80" align="center">
+                <template #default="{ row, $index }">
+                  <el-button link type="primary" size="small" @click="openChangeLevelDialog(row, $index)">变更</el-button>
                 </template>
               </el-table-column>
               <el-table-column prop="trigger" label="触发原因" min-width="120" show-overflow-tooltip />
             </el-table>
           </div>
         </div>
+        <div v-else class="tool-empty">
+          <p>暂无评估结果，请先执行评估</p>
+        </div>
       </div>
     </el-drawer>
+
+    <!-- 变更级别弹窗 -->
+    <el-dialog v-model="showChangeLevelDialog" title="变更级别" width="400px">
+      <el-form :model="changeLevelForm" label-width="80px" size="small">
+        <el-form-item label="数据类型">
+          <span>{{ changeLevelForm.data_type }}</span>
+        </el-form-item>
+        <el-form-item label="当前级别">
+          <el-tag size="small" :style="{ backgroundColor: levelColorMap[changeLevelForm.current_level], color: '#fff', border: 'none' }">{{ changeLevelForm.current_level }}</el-tag>
+        </el-form-item>
+        <el-form-item label="新级别" required>
+          <el-select v-model="changeLevelForm.new_level" placeholder="选择新级别" style="width: 100%">
+            <el-option v-for="l in levelOptions" :key="l.value" :label="l.label" :value="l.value" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="变更原因">
+          <el-input v-model="changeLevelForm.reason" type="textarea" :rows="2" placeholder="请输入变更原因" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showChangeLevelDialog = false">取消</el-button>
+        <el-button type="primary" @click="handleConfirmLevelChange">确认变更</el-button>
+      </template>
+    </el-dialog>
 
     <!-- 报告弹窗 -->
     <el-dialog v-model="showReportDialog" title="量级定级评估报告" width="760px">
@@ -337,7 +426,7 @@ import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'v
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { getDirectory, getLevelRatio, getStatistics } from '@/api/overview'
-import { getLevels } from '@/api/classification'
+import { getLevels, getTemplates, getCategoryTree } from '@/api/classification'
 import client from '@/api/client'
 
 // ===== 状态 =====
@@ -349,10 +438,134 @@ const showReportDialog = ref(false)
 const showRuleEditDialog = ref(false)
 const ruleEditTitle = ref('编辑规则')
 const evaluating = ref(false)
+const syncing = ref(false)
 const reportLoading = ref(false)
 const recordsLoading = ref(false)
 const typeLevelLoading = ref(false)
 const levelCountLoading = ref(false)
+const trendLoading = ref(false)
+const scheduleEnabled = ref(false)
+const scheduleCron = ref('0 2 * * *')
+const showTrendChart = ref(true)
+const trendCategories = ref<string[]>([])
+const selectedTrendCategory = ref('')
+
+function handleSelectTrendCategory(category: string) {
+  selectedTrendCategory.value = category
+  fetchTrendChart()
+}
+
+function clearTrendFilter() {
+  selectedTrendCategory.value = ''
+  fetchTrendChart()
+}
+
+// 应用建议级：将所有明细的建议级更新为基础级
+function applySuggestedLevels() {
+  if (!lastEvaluation.value) return
+  ElMessageBox.confirm('确定要将所有明细的建议级更新为基础级吗？', '确认应用', {
+    confirmButtonText: '确定',
+    cancelButtonText: '取消',
+    type: 'warning',
+  }).then(() => {
+    let appliedCount = 0
+    lastEvaluation.value.details.forEach((d: EvaluationDetail) => {
+      if (d.upgrade > 0) {
+        d.base_level = d.suggested_level
+        d.upgrade = 0
+        d.trigger = '已应用建议级'
+        appliedCount++
+      }
+    })
+    saveRecords(evaluationRecords.value)
+    ElMessage.success(`已应用 ${appliedCount} 个分类的建议级`)
+  }).catch(() => {})
+}
+
+// 导出评估结果为 CSV
+function exportEvaluationCSV() {
+  if (!lastEvaluation.value) return
+  const details = lastEvaluation.value.details
+  const headers = ['数据类型', '字段数', '基础级', '建议级', '升级', '触发原因']
+  const rows = details.map((d: EvaluationDetail) => [
+    d.data_type,
+    d.field_count,
+    d.base_level,
+    d.suggested_level,
+    d.upgrade,
+    d.trigger,
+  ])
+  const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n')
+  const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = `数量分级评估_${new Date().toISOString().slice(0, 10)}.csv`
+  link.click()
+  URL.revokeObjectURL(url)
+}
+
+function toggleTrendCategory(cat: string) {
+  if (selectedTrendCategory.value === cat) {
+    selectedTrendCategory.value = ''
+  } else {
+    selectedTrendCategory.value = cat
+  }
+  fetchTrendChart()
+}
+
+function getTrendColor(name: string): string {
+  const idx = trendCategories.value.indexOf(name)
+  const colors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
+  return colors[idx % colors.length]
+}
+
+// 级别颜色映射（用于表格中动态颜色）
+const levelColorMap = computed(() => {
+  const m: Record<string, string> = {}
+  levels.value.forEach(l => { m[l.level_code] = l.color || '#6b7280' })
+  return m
+})
+
+// ===== 变更级别弹窗 =====
+const showChangeLevelDialog = ref(false)
+const changeLevelForm = reactive({
+  data_type: '',
+  current_level: '',
+  new_level: '',
+  reason: '',
+  detailIndex: -1,
+})
+
+function openChangeLevelDialog(row: any, index: number) {
+  changeLevelForm.data_type = row.data_type
+  changeLevelForm.current_level = row.suggested_level
+  changeLevelForm.new_level = row.suggested_level
+  changeLevelForm.reason = ''
+  changeLevelForm.detailIndex = index
+  showChangeLevelDialog.value = true
+}
+
+function handleConfirmLevelChange() {
+  if (!changeLevelForm.new_level) {
+    ElMessage.warning('请选择新级别')
+    return
+  }
+  const idx = changeLevelForm.detailIndex
+  if (idx >= 0 && lastEvaluation.value?.details[idx]) {
+    const detail = lastEvaluation.value.details[idx]
+    detail.suggested_level = changeLevelForm.new_level
+    // 重新计算是否触发升级
+    const baseNum = levelOrderMapRef[detail.base_level] ?? 0
+    const newNum = levelOrderMapRef[changeLevelForm.new_level] ?? 0
+    detail.upgrade = Math.max(0, newNum - baseNum)
+    detail.trigger = changeLevelForm.reason || '人工变更级别'
+    // 保存更新后的记录
+    saveRecords(evaluationRecords.value)
+    ElMessage.success('级别变更成功')
+  }
+  showChangeLevelDialog.value = false
+}
 
 // ===== 级别（从数据分级API动态获取） =====
 interface LevelItem {
@@ -398,10 +611,9 @@ const sensitiveLevel = computed(() => {
 
 // 规则说明（动态）
 const legendItems = computed(() => [
-  { color: '#10b981', text: `特殊敏感信息（身份证、生物识别、宗教信仰等）：无论数量多少，最低${sensitiveLevel.value}` },
-  { color: '#f59e0b', text: `数量 ≥ 1K阈值：+1级` },
-  { color: '#f97316', text: `数量 ≥ 1万阈值：+2级` },
-  { color: '#ef4444', text: `数量 ≥ 10万阈值：+3级或强制${highestLevel.value}` },
+  { color: '#f59e0b', text: `数量 ≥ 梯度1：+1级` },
+  { color: '#f97316', text: `数量 ≥ 梯度2：+2级` },
+  { color: '#ef4444', text: `数量 ≥ 梯度3：+3级或强制${highestLevel.value}` },
 ])
 
 // ===== 评估记录（本地存储） =====
@@ -450,25 +662,71 @@ function loadRules() {
     const raw = localStorage.getItem(RULES_STORAGE_KEY)
     if (raw) return JSON.parse(raw)
   } catch {}
-  return getDefaultRules()
+  return []
 }
 
 function saveRules(rules: any[]) {
   localStorage.setItem(RULES_STORAGE_KEY, JSON.stringify(rules))
 }
 
-function getDefaultRules() {
-  const lowest = lowestLevel.value
-  const second = [...levels.value].sort((a, b) => a.sort - b.sort)[1]?.level_code || 'L2'
-  return [
-    { data_type: '身份证信息', base_level: second, threshold_1k: 1000, threshold_10k: 10000, threshold_100k: 100000, special_rule: `无论数量，最低${second}` },
-    { data_type: '姓名+手机号', base_level: second, threshold_1k: 1000, threshold_10k: 10000, threshold_100k: 100000, special_rule: '组合信息视为敏感' },
-    { data_type: '银行卡账户', base_level: highestLevel.value, threshold_1k: 500, threshold_10k: 5000, threshold_100k: 50000, special_rule: '金融信息，严格保护' },
-    { data_type: '健康医疗记录', base_level: highestLevel.value, threshold_1k: 500, threshold_10k: 5000, threshold_100k: 50000, special_rule: '医疗信息，最高保护' },
-    { data_type: '邮箱地址', base_level: second, threshold_1k: 5000, threshold_10k: 50000, threshold_100k: 500000, special_rule: '-' },
-    { data_type: '一般个人信息', base_level: lowest, threshold_1k: 10000, threshold_10k: 100000, threshold_100k: 1000000, special_rule: '-' },
-    { data_type: '行为日志数据', base_level: lowest, threshold_1k: 50000, threshold_10k: 500000, threshold_100k: 5000000, special_rule: '-' },
-  ]
+// 从模板分类目录获取真实的数据类型和级别
+interface CategoryItem {
+  name: string
+  level_code: string
+}
+async function fetchDataTypesFromTemplate(): Promise<CategoryItem[]> {
+  try {
+    // 获取已激活的模板
+    const templatesRes = await getTemplates({ is_active: 1 })
+    const templates = templatesRes.data?.items || templatesRes.data || []
+    const activeTemplate = Array.isArray(templates) ? templates[0] : null
+    if (!activeTemplate?.id) return []
+
+    // 获取分类树
+    const treeRes = await getCategoryTree(activeTemplate.id)
+    const tree = treeRes.data || []
+
+    // 收集所有二级分类的名称和级别
+    const categoryMap = new Map<string, string>()
+    tree.forEach((cat: any) => {
+      if (cat.children) {
+        cat.children.forEach((child: any) => {
+          if (child.name) {
+            // 二级分类直接用二级分类的级别
+            categoryMap.set(child.name, child.level_code || '')
+          }
+        })
+      }
+      // 如果没有二级分类，一级分类也算
+      if (!cat.children && cat.name) {
+        categoryMap.set(cat.name, cat.level_code || '')
+      }
+    })
+
+    // 转为数组
+    return Array.from(categoryMap.entries()).map(([name, level_code]) => ({
+      name,
+      level_code: level_code || 'L1',
+    }))
+  } catch {
+    return []
+  }
+}
+
+function buildRulesFromDataTypes(categories: CategoryItem[]) {
+  // 默认阈值
+  const defaultThreshold1k = 1000
+  const defaultThreshold10k = 10000
+  const defaultThreshold100k = 100000
+
+  return categories.map(cat => ({
+    data_type: cat.name,
+    base_level: cat.level_code || 'L1',
+    threshold_1k: defaultThreshold1k,
+    threshold_10k: defaultThreshold10k,
+    threshold_100k: defaultThreshold100k,
+    special_rule: '-',
+  }))
 }
 
 const rulesTable = ref<any[]>([])
@@ -510,9 +768,11 @@ const statCards = reactive([
 // ===== 图表 refs =====
 const typeLevelChartRef = ref<HTMLElement | null>(null)
 const levelCountChartRef = ref<HTMLElement | null>(null)
+const trendChartRef = ref<HTMLElement | null>(null)
 const reportLevelChartRef = ref<HTMLElement | null>(null)
 let typeLevelChart: echarts.ECharts | null = null
 let levelCountChart: echarts.ECharts | null = null
+let trendChart: echarts.ECharts | null = null
 let reportLevelChart: echarts.ECharts | null = null
 
 // ===== 规则表单 =====
@@ -566,9 +826,26 @@ function getLevelOrder(level: string): number {
 }
 
 // ===== 数据获取 =====
+// 分页获取所有字段，前端过滤出已分级的
 async function fetchDirectoryForEvaluation() {
-  const res = await getDirectory({ page_size: -1 })
-  return res.data?.items || []
+  const allItems: any[] = []
+  let page = 1
+  const pageSize = 100
+  let hasMore = true
+
+  while (hasMore) {
+    const res = await getDirectory({ page, page_size: pageSize })
+    const items = res.data?.items || res.data || []
+    allItems.push(...items)
+    if (!items || items.length < pageSize) {
+      hasMore = false
+    } else {
+      page++
+    }
+  }
+
+  // 前端过滤：只保留有 level 的字段
+  return allItems.filter((item: any) => item.level)
 }
 
 async function fetchStatistics() {
@@ -620,19 +897,28 @@ async function fetchTypeLevelChart() {
       return
     }
 
-    const seriesData = last.details.map((d: EvaluationDetail) => ({
-      name: `${d.data_type}(${d.suggested_level})`,
-      value: d.field_count,
-    }))
+    // 按一级分类聚合（从数据类型名称中提取，去掉最后一个">"之后的部分）
+    const firstLevelMap: Record<string, number> = {}
+    last.details.forEach((d: EvaluationDetail) => {
+      const firstLevel = d.data_type.split('>')[0].trim() || '其他'
+      firstLevelMap[firstLevel] = (firstLevelMap[firstLevel] || 0) + d.field_count
+    })
+
+    const seriesData = Object.entries(firstLevelMap).map(([name, value]) => ({ name, value }))
+    const chartColors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
 
     typeLevelChart?.setOption({
-      tooltip: { trigger: 'item', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, formatter: (p: any) => `${p.name}: ${p.value.toLocaleString()} 字段` },
+      tooltip: { trigger: 'item', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, enterable: true, confine: false, appendToBody: true, formatter: (p: any) => {
+        const total = seriesData.reduce((sum, d) => sum + d.value, 0)
+        const percent = total > 0 ? ((p.value / total) * 100).toFixed(1) : '0'
+        return `<div style="max-width:200px;white-space:normal;word-wrap:break-word;">${p.name}<br/>占比: ${percent}%<br/>数量: ${p.value.toLocaleString()}</div>`
+      }},
       series: [{
         type: 'pie', radius: ['42%', '68%'], center: ['50%', '50%'],
         label: { show: true, formatter: '{b}\n{d}%', fontSize: 12, color: '#374151' },
         emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' } },
         itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
-        data: seriesData,
+        data: seriesData.map((d, i) => ({ ...d, itemStyle: { color: chartColors[i % chartColors.length] } })),
       }]
     }, true)
   } finally { typeLevelLoading.value = false }
@@ -646,36 +932,139 @@ async function fetchLevelCountChart() {
       levelCountChart = echarts.init(levelCountChartRef.value)
     }
     const last = lastEvaluation.value
+    if (!last || !last.details?.length) {
+      levelCountChart?.setOption({
+        series: [{ type: 'bar', data: [] }],
+      }, true)
+      return
+    }
 
-    // 按建议级别聚合（使用动态级别列表）
+    // 按建议级别聚合
     const sortedLevels = [...levels.value].sort((a, b) => a.sort - b.sort)
     const levelAgg: Record<string, number> = {}
     sortedLevels.forEach(l => { levelAgg[l.level_code] = 0 })
 
-    if (last?.details) {
-      last.details.forEach((d: EvaluationDetail) => {
-        if (d.suggested_level in levelAgg) {
-          levelAgg[d.suggested_level] += d.field_count
-        }
-      })
-    }
+    last.details.forEach((d: EvaluationDetail) => {
+      if (d.suggested_level && levelAgg[d.suggested_level] !== undefined) {
+        levelAgg[d.suggested_level] += d.field_count
+      }
+    })
 
     const chartData = sortedLevels.map(l => ({ level: l.level_code, count: levelAgg[l.level_code] || 0 }))
 
     levelCountChart?.setOption({
-      tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, formatter: (p: any) => `${p[0].name}: ${p[0].value.toLocaleString()} 字段` },
+      tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, enterable: true, confine: false, appendToBody: true, formatter: (params: any[]) => {
+        const p = params[0]
+        return `<div style="max-width:200px;white-space:normal;word-wrap:break-word;">${p.name}<br/>数量: ${p.value?.toLocaleString() || 0}</div>`
+      }},
       grid: { left: 60, right: 16, top: 16, bottom: 28 },
       xAxis: { type: 'category', data: chartData.map(d => d.level), axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { fontSize: 12, color: '#6b7280' } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
       series: [{
         type: 'bar', data: chartData.map(d => ({
           value: d.count,
-          itemStyle: { color: levelMap.value[d.level]?.color || '#6b7280', borderRadius: [4, 4, 0, 0] }
+          itemStyle: { color: levelColorMap.value[d.level] || '#6b7280', borderRadius: [4, 4, 0, 0] }
         })),
         barWidth: 40,
       }]
     }, true)
   } finally { levelCountLoading.value = false }
+}
+
+async function fetchTrendChart() {
+  trendLoading.value = true
+  try {
+    await nextTick()
+    if (!trendChart && trendChartRef.value) {
+      trendChart = echarts.init(trendChartRef.value)
+    }
+
+    // 从历史评估记录中提取趋势数据
+    if (evaluationRecords.value.length === 0) {
+      trendChart?.setOption({
+        series: [{ type: 'line', data: [] }],
+      }, true)
+      trendCategories.value = []
+      return
+    }
+
+    // 按时间顺序，取最近10条记录
+    const recentRecords = [...evaluationRecords.value].reverse().slice(-10)
+
+    // 提取二级分类名称（最后一个">"之后的部分）
+    const secondLevelSet = new Set<string>()
+    recentRecords.forEach(record => {
+      record.details?.forEach((d: EvaluationDetail) => {
+        const parts = d.data_type.split('>')
+        const secondLevel = parts[parts.length - 1]?.trim() || d.data_type
+        secondLevelSet.add(secondLevel)
+      })
+    })
+    const secondLevels = Array.from(secondLevelSet)
+    trendCategories.value = secondLevels
+
+    // 如果选择了特定分类，只显示该分类
+    const filteredLevels = selectedTrendCategory.value
+      ? secondLevels.filter(l => l === selectedTrendCategory.value)
+      : secondLevels
+
+    // 构建每个二级分类的时间序列数据
+    const seriesData = filteredLevels.map((secondLevel, idx) => {
+      const data = recentRecords.map(record => {
+        const detail = record.details?.find((d: EvaluationDetail) => {
+          const parts = d.data_type.split('>')
+          const name = parts[parts.length - 1]?.trim()
+          return name === secondLevel
+        })
+        return detail?.field_count || 0
+      })
+      return {
+        name: secondLevel,
+        type: 'line',
+        data,
+        smooth: true,
+        symbol: 'circle',
+        symbolSize: 6,
+      }
+    })
+
+    const dates = recentRecords.map(r => r.executed_at.split(' ')[0] || r.executed_at.substring(5, 10))
+    const chartColors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
+
+    trendChart?.setOption({
+      tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, enterable: true, confine: false, appendToBody: true, formatter: (params: any[]) => {
+        let result = `<div style="max-width:300px;white-space:normal;word-wrap:break-word;">${params[0].axisValue}<br/>`
+        params.forEach(p => {
+          result += `<span style="color:${p.color};">●</span> ${p.seriesName}: <b>${p.value?.toLocaleString() || 0}</b><br/>`
+        })
+        return result + '</div>'
+      }},
+      legend: { show: false },
+      grid: { left: 50, right: 16, top: 16, bottom: selectedTrendCategory.value ? 16 : 50 },
+      xAxis: { type: 'category', data: dates, axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { fontSize: 11, color: '#6b7280' } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
+      series: seriesData.map((s, i) => ({ ...s, itemStyle: { color: chartColors[i % chartColors.length] }, lineStyle: { color: chartColors[i % chartColors.length], width: 2 } })),
+    }, true)
+
+    // 注册趋势图点击事件，点击图例时筛选
+    if (trendChart) {
+      trendChart.off('legendselectchanged')
+      trendChart.on('legendselectchanged', (params: any) => {
+        // ECharts 默认会切换图例选中状态，我们需要覆盖它
+        const name = params.name
+        const isSelected = params.selected?.[name]
+
+        if (isSelected) {
+          // 选中了这个图例
+          selectedTrendCategory.value = name
+        } else {
+          // 取消选中
+          selectedTrendCategory.value = ''
+        }
+        fetchTrendChart()
+      })
+    }
+  } finally { trendLoading.value = false }
 }
 
 async function loadAll() {
@@ -693,14 +1082,16 @@ async function loadAll() {
       sort: computeLevelSort(l),
     }))
 
-    // 如果规则表为空，用默认规则初始化
+    // 初始化 levelOrderMapRef
+    initLevelOrderMapRef()
+
+    // 如果规则表为空，从本地存储加载
     if (rulesTable.value.length === 0) {
-      rulesTable.value = getDefaultRules()
-      saveRules(rulesTable.value)
+      rulesTable.value = loadRules()
     }
 
     evaluationRecords.value = loadRecords()
-    await Promise.all([fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart()])
+    await Promise.all([fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart(), fetchTrendChart()])
   } finally { pageLoading.value = false }
 }
 
@@ -715,101 +1106,175 @@ async function handleRefresh() {
 function handleResize() {
   typeLevelChart?.resize()
   levelCountChart?.resize()
+  trendChart?.resize()
   reportLevelChart?.resize()
+}
+
+// ===== 同步 =====
+async function handleSync() {
+  syncing.value = true
+  try {
+    // 1. 从模板获取分类目录（含级别信息）
+    const categories = await fetchDataTypesFromTemplate()
+    if (categories.length === 0) {
+      ElMessage.warning('未从模板中获取到数据类型，请先在分类模板中配置')
+      return
+    }
+
+    // 2. 构建新规则，但保留用户已修改的阈值
+    const existingRules = new Map(rulesTable.value.map(r => [r.data_type, r]))
+    const newRules = buildRulesFromDataTypes(categories).map(newRule => {
+      const existing = existingRules.get(newRule.data_type)
+      if (existing) {
+        // 保留用户修改过的阈值
+        return { ...existing }
+      }
+      return newRule
+    })
+
+    rulesTable.value = newRules
+    saveRules(rulesTable.value)
+
+    // 3. 执行评估
+    await handleExecuteEvaluation()
+
+    ElMessage.success(`同步完成：共 ${categories.length} 个数据类型`)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '同步失败')
+  } finally {
+    syncing.value = false
+  }
+}
+
+// 引用 levelOrderMap（需要在 handleSync 中使用）
+const levelOrderMapRef: Record<string, number> = {}
+
+// 初始化 levelOrderMapRef
+function initLevelOrderMapRef() {
+  const sorted = [...levels.value].sort((a, b) => a.sort - b.sort)
+  sorted.forEach((l, i) => { levelOrderMapRef[l.level_code] = i })
 }
 
 // ===== 执行评估 =====
 async function handleExecuteEvaluation() {
   evaluating.value = true
   try {
-    // 1. 从数据目录获取已人工分类的字段
+    // 1. 如果启用调度，先保存调度配置到后端
+    if (scheduleEnabled.value) {
+      try {
+        await client.post('/volume-grade/schedule', {
+          enabled: true,
+          cron: scheduleCron.value,
+        })
+      } catch {
+        // 调度配置失败不影响主流程
+      }
+    }
+
+    // 2. 从数据目录获取已人工分类标记的字段（level 不为空）
     const items = await fetchDirectoryForEvaluation()
 
     if (!items || items.length === 0) {
-      ElMessage.warning('数据目录中暂无已分类字段，请先进行数据分类')
+      ElMessage.warning('数据目录中暂无已分级字段，请先在数据目录中为字段标记级别')
       return
     }
 
-    // 2. 按数据类型聚合统计字段数
-    const typeFieldMap: Record<string, number> = {}
-    const assetSet = new Set<string>()
-
-    items.forEach((item: any) => {
-      const categoryPath = item.category_path || '未分类'
-      if (!typeFieldMap[categoryPath]) typeFieldMap[categoryPath] = 0
-      typeFieldMap[categoryPath]++
-      if (item.asset_name) assetSet.add(item.asset_name)
-    })
-
-    // 3. 按规则计算每种类型的建议级别
-    const rules = loadRules()
-    const details: EvaluationDetail[] = []
+    // 3. 先构建级别顺序映射
     const sortedLevels = [...levels.value].sort((a, b) => a.sort - b.sort)
     const levelOrderMap: Record<string, number> = {}
     sortedLevels.forEach((l, i) => { levelOrderMap[l.level_code] = i })
+
+    // 4. 按分类路径（category_path）聚合统计字段数，同时记录每个分类的最低级别
+    const typeFieldMap: Record<string, { count: number; baseLevel: string }> = {}
+    const assetSet = new Set<string>()
+
+    items.forEach((item: any) => {
+      // 优先用 category_path（人工分类路径），没有则用 data_type（数据类型）
+      const categoryKey = item.category_path || item.data_type || '未分类'
+      if (!typeFieldMap[categoryKey]) {
+        typeFieldMap[categoryKey] = { count: 0, baseLevel: '' }
+      }
+      typeFieldMap[categoryKey].count++
+
+      // 记录该分类的最低级别（数字越小级别越低，取 sort 最小的）
+      if (item.level) {
+        const currentBase = typeFieldMap[categoryKey].baseLevel
+        if (!currentBase) {
+          typeFieldMap[categoryKey].baseLevel = item.level
+        } else {
+          const currentSort = levelOrderMap[currentBase] ?? 0
+          const itemSort = levelOrderMap[item.level] ?? 0
+          if (itemSort < currentSort) {
+            typeFieldMap[categoryKey].baseLevel = item.level
+          }
+        }
+      }
+
+      if (item.asset_name) assetSet.add(item.asset_name)
+    })
+
+    // 5. 按阈值规则计算每种类型的建议级别
+    const details: EvaluationDetail[] = []
     const maxSort = sortedLevels.length - 1
     let maxLevel = lowestLevel.value
     let upgradedCount = 0
 
-    Object.entries(typeFieldMap).forEach(([dataType, fieldCount]) => {
-      const rule = rules.find((r: any) =>
+    Object.entries(typeFieldMap).forEach(([dataType, { count: fieldCount, baseLevel: dataBaseLevel }]) => {
+      // 找到该数据类型对应的规则（用于获取阈值）
+      const rule = rulesTable.value.find((r: any) =>
         dataType.includes(r.data_type) || r.data_type.includes(dataType)
-      ) || {
-        data_type: dataType,
-        base_level: lowestLevel.value,
-        threshold_1k: 1000,
-        threshold_10k: 10000,
-        threshold_100k: 100000,
-        special_rule: '-',
-      }
+      )
 
-      const baseNum = levelOrderMap[rule.base_level] || 0
+      // 基础级别：优先用数据目录中该分类的实际分级，其次用规则中的基础级
+      const baseLevelCode = dataBaseLevel || rule?.base_level || lowestLevel.value
+      const baseNum = levelOrderMap[baseLevelCode] ?? 0
       let suggestedNum = baseNum
       let upgrade = 0
       let trigger = '-'
       let legalBasis = '-'
 
-      // 特殊敏感信息：拉到这个类型的敏感最低级别
-      const sensitiveLevel = sortedLevels.find(l => l.is_sensitive)?.level_code || sortedLevels[sortedLevels.length - 1]?.level_code
-      const specialKeywords = ['身份证', '银行卡', '健康', '医疗', '生物识别', '宗教', '基因']
-      const isSpecial = specialKeywords.some(k => dataType.includes(k)) || rule.special_rule?.includes(sensitiveLevel || '敏感')
+      // 特殊敏感信息：强制到敏感级别（从模板获取）
+      const sensitiveLevelCode = sortedLevels.find(l => l.is_sensitive)?.level_code
+      const specialKeywords = ['身份证', '银行卡', '健康', '医疗', '生物识别', '宗教', '基因', '护照']
+      const isSpecial = specialKeywords.some(k => dataType.includes(k))
 
-      if (isSpecial && sensitiveLevel) {
-        const sensitiveSort = levelOrderMap[sensitiveLevel]
-        if (sensitiveSort !== undefined && sensitiveSort > baseNum) {
-          suggestedNum = sensitiveSort
-          upgrade = suggestedNum - baseNum
-          trigger = `特殊敏感信息，最低${sensitiveLevel}`
+      if (isSpecial && sensitiveLevelCode) {
+        const sensitiveNum = levelOrderMap[sensitiveLevelCode]
+        if (sensitiveNum !== undefined && sensitiveNum > baseNum) {
+          suggestedNum = sensitiveNum
+          upgrade = sensitiveNum - baseNum
+          trigger = `特殊敏感信息，强制${sensitiveLevelCode}`
           legalBasis = '《个人信息保护法》第28条'
         }
       }
 
-      if (fieldCount >= (rule.threshold_100k || 100000)) {
+      // 按阈值升级
+      if (fieldCount >= (rule?.threshold_100k || 100000)) {
         const up = Math.max(upgrade, 3)
         if (up > upgrade) {
           upgrade = up
-          trigger = `字段数${fieldCount.toLocaleString()}，超10万阈值，+3升级`
+          trigger = `字段数${fieldCount.toLocaleString()} ≥ 10万，+3升级`
           legalBasis = 'GB/T 42574-2023 / JR/T 0171-2020'
         }
         suggestedNum = Math.min(baseNum + 3, maxSort)
-      } else if (fieldCount >= (rule.threshold_10k || 10000)) {
+      } else if (fieldCount >= (rule?.threshold_10k || 10000)) {
         const up = Math.max(upgrade, 2)
         if (up > upgrade) {
           upgrade = up
-          trigger = `字段数${fieldCount.toLocaleString()}，超1万阈值，+2升级`
+          trigger = `字段数${fieldCount.toLocaleString()} ≥ 1万，+2升级`
           legalBasis = 'GB/T 42574-2023 / JR/T 0171-2020'
         }
         suggestedNum = Math.min(baseNum + 2, maxSort)
-      } else if (fieldCount >= (rule.threshold_1k || 1000)) {
+      } else if (fieldCount >= (rule?.threshold_1k || 1000)) {
         const up = Math.max(upgrade, 1)
         if (up > upgrade) {
           upgrade = up
-          trigger = `字段数${fieldCount.toLocaleString()}，超1千阈值，+1升级`
+          trigger = `字段数${fieldCount.toLocaleString()} ≥ 1千，+1升级`
           legalBasis = '《数据安全法》第21条'
         }
         suggestedNum = Math.min(baseNum + 1, maxSort)
       } else if (!isSpecial) {
-        trigger = `字段数${fieldCount.toLocaleString()}，未超过阈值，不升级`
+        trigger = `字段数${fieldCount.toLocaleString()}，未超阈值，不升级`
         legalBasis = '《数据安全法》第21条'
       }
 
@@ -823,7 +1288,7 @@ async function handleExecuteEvaluation() {
       details.push({
         data_type: dataType,
         field_count: fieldCount,
-        base_level: rule.base_level,
+        base_level: baseLevelCode,
         suggested_level: suggestedLevel,
         upgrade,
         trigger,
@@ -831,41 +1296,16 @@ async function handleExecuteEvaluation() {
       })
     })
 
-    // 4. 排序
+    // 5. 按字段数降序排列
     details.sort((a, b) => b.field_count - a.field_count)
-
-    // 5. 如果有触发升级的，先让用户确认
-    const upgradedDetails = details.filter(d => d.upgrade > 0)
-    if (upgradedDetails.length > 0) {
-      // 构建确认消息
-      const upgradeListHtml = upgradedDetails.map(d =>
-        `<b>${d.data_type}</b>：${d.base_level} → <b>${d.suggested_level}</b>（${d.field_count.toLocaleString()}字段，${d.trigger}）`
-      ).join('<br>')
-
-      try {
-        await ElMessageBox.confirm(
-          `<div style="text-align:left;line-height:1.8">以下数据类型触发升级，请确认：<br><br>${upgradeListHtml}<br><br>确认后将保存本次评估记录。</div>`,
-          `评估结果确认（${upgradedDetails.length}项需确认）`,
-          {
-            confirmButtonText: '确认保存',
-            cancelButtonText: '取消',
-            type: 'warning',
-            dangerouslyUseHTMLString: true,
-          }
-        )
-      } catch {
-        evaluating.value = false
-        return
-      }
-    }
 
     // 6. 生成评估摘要
     const upgradedTypes = details.filter(d => d.upgrade > 0).map(d => d.data_type)
     const summary = upgradedTypes.length > 0
-      ? `触发升级：${upgradedTypes.slice(0, 3).join('、')}${upgradedTypes.length > 3 ? '等' : ''}`
+      ? `触发升级：${upgradedTypes.slice(0, 3).join('、')}${upgradedTypes.length > 3 ? `等${upgradedTypes.length}类` : ''}`
       : '各数据类型均未触发升级'
 
-    // 7. 生成评估记录
+    // 7. 保存评估记录到后端（如果后端支持），同时保存到本地
     const record: EvaluationRecord = {
       id: Date.now(),
       executed_at: new Date().toLocaleString('zh-CN'),
@@ -877,19 +1317,17 @@ async function handleExecuteEvaluation() {
       details,
     }
 
-    // 8. 保存记录（插入到最前面）
+    // 保存到本地存储
     const records = [record, ...evaluationRecords.value].slice(0, 50)
     evaluationRecords.value = records
     saveRecords(records)
 
-    // 9. 更新卡片和图表
-    await Promise.all([fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart()])
+    // 8. 更新卡片和图表
+    await Promise.all([fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart(), fetchTrendChart()])
 
-    ElMessage.success(`评估完成：参与${items.length}个字段，${assetSet.size}个资产，最高${maxLevel}`)
+    ElMessage.success(`评估完成：共 ${items.length} 个已分级字段，${assetSet.size} 个资产涉及，最高${maxLevel}`)
   } catch (e: any) {
-    if (e !== 'cancel') {
-      ElMessage.error(e?.message || '评估执行失败')
-    }
+    ElMessage.error(e?.message || '评估执行失败')
   } finally {
     evaluating.value = false
   }
@@ -951,7 +1389,7 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   ;(typeLevelChart as any)?.dispose()
-  ;(levelCountChart as any)?.dispose()
+  ;(trendChart as any)?.dispose()
   ;(reportLevelChart as any)?.dispose()
 })
 </script>
@@ -986,25 +1424,52 @@ onBeforeUnmount(() => {
   display: grid; grid-template-columns: 1fr 1fr;
   gap: 16px; margin-bottom: 16px;
 }
+.charts-row-3 {
+  display: grid; grid-template-columns: 1fr 1fr 1fr;
+  gap: 16px; margin-bottom: 16px;
+}
 .chart-card {
   background: #fff; border: 1px solid #e5e6eb; border-radius: 8px; overflow: hidden;
+}
+.chart-card-full {
+  background: #fff; border: 1px solid #e5e6eb; border-radius: 8px; overflow: hidden;
+  margin-bottom: 16px;
 }
 .chart-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px; border-bottom: 1px solid #f2f3f5;
 }
 .chart-title { font-size: 14px; font-weight: 600; color: #1d2129; }
+.chart-title-left { display: flex; align-items: center; gap: 8px; }
+.chart-dropdown-trigger { cursor: pointer; display: flex; align-items: center; color: #409eff; }
+.chart-dropdown-trigger:hover { color: #66b1ff; }
 .chart-body { height: 280px; padding: 8px; }
+.chart-filter-tag { background: #2563eb; color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 400; }
+.chart-filter-hint { color: #86909c; font-size: 12px; font-weight: 400; }
+.trend-legend { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 16px; border-bottom: 1px solid #f2f3f5; }
+.trend-legend-item { padding: 2px 10px; border: 1px solid #e5e7eb; border-radius: 12px; font-size: 12px; cursor: pointer; color: #6b7280; transition: all 0.2s; }
+.trend-legend-item:hover { border-color: #409eff; color: #409eff; }
+.trend-legend-item.active { background: #2563eb; color: #fff; border-color: #2563eb; }
+.trend-legend-clear { padding: 2px 10px; font-size: 12px; color: #ef4444; cursor: pointer; }
+@media (max-width: 1400px) { .charts-row-3 { grid-template-columns: 1fr 1fr; } }
 @media (max-width: 1200px) { .charts-row { grid-template-columns: 1fr; } }
+@media (max-width: 900px) { .charts-row-3 { grid-template-columns: 1fr; } }
 
-/* 评估记录 */
-.record-section { background: #fff; border: 1px solid #e5e6eb; border-radius: 8px; overflow: hidden; }
+/* 最新评估结果 */
+.result-section { background: #fff; border: 1px solid #e5e6eb; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
 .section-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 16px; border-bottom: 1px solid #f2f3f5;
 }
 .section-title { font-size: 14px; font-weight: 600; color: #1d2129; }
-.record-summary { font-size: 12px; color: #6b7280; }
+.section-meta { font-size: 12px; color: #86909c; }
+.section-actions { display: flex; gap: 8px; }
+.result-summary { display: flex; gap: 24px; padding: 12px 16px; border-bottom: 1px solid #f2f3f5; }
+.result-stat { display: flex; flex-direction: column; align-items: center; min-width: 60px; }
+.result-stat-val { font-size: 20px; font-weight: 700; line-height: 1.2; }
+.result-stat-label { font-size: 12px; color: #86909c; margin-top: 2px; }
+.result-empty { background: #fff; border: 1px solid #e5e6eb; border-radius: 8px; padding: 40px; text-align: center; color: #9ca3af; margin-bottom: 16px; }
+.result-empty p { margin: 0; }
 
 /* 抽屉 */
 .drawer-body { padding: 0 16px; }
@@ -1026,12 +1491,17 @@ onBeforeUnmount(() => {
 .tool-rules-title { font-size: 13px; font-weight: 600; color: #1d2129; margin-bottom: 8px; }
 
 .tool-result { background: #f9fafb; border-radius: 8px; padding: 12px; }
-.tool-result-title { font-size: 14px; font-weight: 600; color: #1d2129; margin-bottom: 10px; }
+.tool-result-title { display: flex; justify-content: space-between; align-items: center; font-size: 14px; font-weight: 600; color: #1d2129; margin-bottom: 10px; }
+.tool-result-time { font-size: 12px; font-weight: 400; color: #86909c; }
+.tool-result-summary { display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; }
+.tool-result-summary span { display: flex; align-items: center; gap: 4px; }
 .tool-result-row { display: flex; align-items: center; gap: 8px; font-size: 13px; margin-bottom: 8px; }
 .tool-result-label { color: #86909c; flex-shrink: 0; }
 .tool-result-val { color: #374151; font-weight: 500; }
 .tool-result-detail { margin-top: 12px; }
 .tool-result-detail-title { font-size: 12px; font-weight: 600; color: #1d2129; margin-bottom: 6px; }
+.tool-empty { text-align: center; padding: 40px; color: #9ca3af; font-size: 14px; }
+.tool-empty p { margin: 0; }
 
 /* 报告弹窗 */
 .report-content { max-height: 60vh; overflow-y: auto; }

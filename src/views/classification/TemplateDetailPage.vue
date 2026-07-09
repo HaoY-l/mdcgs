@@ -512,14 +512,10 @@ const referencedFeatureIds = computed(() => {
 
 // ===== 工具函数 =====
 function getLevelColor(code: string): string {
-  const map: Record<string, string> = {
-    'L1': '#FF4D4F',
-    'L2': '#FF7A00',
-    'L3': '#FFC000',
-    'L4': '#92D050',
-    'L5': '#00B0F0',
-  }
-  return map[code] || '#909399'
+  if (!code) return '#909399'
+  // 从组件已加载的 levels 数据获取颜色
+  const found = levels.value.find((l: any) => l.level_code === code)
+  return found?.color || '#909399'
 }
 
 // ===== 加载数据 =====

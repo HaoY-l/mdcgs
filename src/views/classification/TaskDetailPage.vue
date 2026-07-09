@@ -691,8 +691,18 @@ function tableStatusTag(status: string): 'success' | 'warning' | 'info' | 'dange
 }
 
 function levelTag(level: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
-  const m: Record<string, string> = { L0: 'info', L1: 'success', L2: 'warning', L3: 'danger', L4: 'danger' }
-  return (m[level] || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
+  // 根据级别代码判断敏感标签类型（使用 levelOptions 中已加载的数据）
+  if (!level) return 'info'
+  const found = levelOptions.value.find(l => l.level_code === level || l.name === level)
+  if (found) {
+    // 如果该级别在 levelOptions 中标记为敏感，使用 warning 或 danger
+    if (found.is_sensitive) {
+      return 'danger'
+    }
+    return 'info'
+  }
+  // 不在选项中的级别默认 info
+  return 'info'
 }
 
 // 选项数据

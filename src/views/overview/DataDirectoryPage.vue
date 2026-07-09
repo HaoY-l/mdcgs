@@ -171,48 +171,48 @@
         border
         size="small"
       >
-        <el-table-column type="index" label="#" width="50" fixed />
-        <el-table-column prop="field_name" label="字段名" min-width="130" fixed />
-        <el-table-column prop="field_comment" label="字段注释" min-width="150" show-overflow-tooltip />
-        <el-table-column prop="data_type" label="数据类型" min-width="120" />
-        <el-table-column prop="level" label="数据分级" width="90" align="center">
+        <el-table-column type="index" label="#" width="45" fixed />
+        <el-table-column prop="field_name" label="字段名" min-width="100" fixed />
+        <el-table-column prop="field_comment" label="字段注释" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="data_type" label="数据类型" min-width="90" />
+        <el-table-column prop="level" label="分级" width="65" align="center">
           <template #default="{ row }">
-            <el-tag
-              :type="levelTagType(row.level)"
-              size="small"
-              effect="dark"
+            <span
+              v-if="row.level"
+              class="level-badge"
+              :style="getLevelBadgeStyle(row.level)"
             >
-              {{ row.level || '-' }}
-            </el-tag>
+              {{ row.level }}
+            </span>
+            <span v-else style="color:#d1d5db">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="category_path" label="分类路径" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="asset_name" label="数据资产" min-width="120" />
-        <el-table-column prop="table_name" label="表" min-width="130" />
-        <el-table-column prop="database_name" label="数据库" min-width="120" />
-        <el-table-column prop="task_name" label="来源任务" min-width="120" show-overflow-tooltip />
-        <el-table-column label="敏感" width="70" align="center">
+        <el-table-column prop="database_name" label="数据库" min-width="90" show-overflow-tooltip />
+        <el-table-column prop="table_name" label="表" min-width="90" show-overflow-tooltip />
+        <el-table-column prop="asset_name" label="资产" min-width="90" show-overflow-tooltip />
+        <el-table-column prop="category_path" label="分类路径" min-width="150" show-overflow-tooltip />
+        <el-table-column label="敏感" width="60" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_sensitive ? 'danger' : 'info'" size="small">
               {{ row.is_sensitive ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="脱敏" width="70" align="center">
+        <el-table-column label="脱敏" width="60" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_masked === 'confirmed' ? 'success' : 'info'" size="small">
               {{ row.is_masked === 'confirmed' ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="加密" width="70" align="center">
+        <el-table-column label="加密" width="60" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_encrypted === 'confirmed' ? 'warning' : 'info'" size="small">
               {{ row.is_encrypted === 'confirmed' ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="risk_suggestion" label="安全建议" min-width="140" />
+        <el-table-column prop="risk_suggestion" label="安全建议" min-width="120" show-overflow-tooltip />
       </el-table>
 
       <div class="pagination-wrapper" v-if="total > 0">
@@ -234,7 +234,23 @@
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDirectory } from '@/api/overview'
+import { getLevels } from '@/api/classification'
 import client from '@/api/client'
+
+// 级别颜色映射（动态加载）
+const levelColorMap = reactive<Record<string, string>>({})
+
+async function loadLevelColors() {
+  try {
+    const res = await getLevels()
+    const data = res.data || []
+    for (const l of data) {
+      if (l.level_code && l.color) {
+        levelColorMap[l.level_code] = l.color
+      }
+    }
+  } catch { /* ignore */ }
+}
 
 // ===== State =====
 const loading = ref(false)
@@ -263,13 +279,24 @@ const filterForm = reactive({
 
 // ===== Helpers =====
 function levelTagType(level: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined {
-  const map: Record<string, string> = {
-    'L1': 'danger',
-    'L2': 'warning',
-    'L3': 'primary',
-    'L4': 'info',
+  if (!level) return 'info'
+  const color = levelColorMap[level]
+  if (color) {
+    if (color.includes('ff4d4f') || color.includes('ef4444')) return 'danger'
+    if (color.includes('ff7a00') || color.includes('f59e0b')) return 'warning'
   }
-  return (map[level] || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | undefined
+  return 'info'
+}
+
+function getLevelBadgeStyle(level: string): Record<string, string> {
+  const color = levelColorMap[level]
+  if (!color) return { backgroundColor: '#6b7280', color: '#fff' }
+  // 白色文字，背景用级别颜色
+  return {
+    backgroundColor: color,
+    color: '#fff',
+    borderRadius: '4px',
+  }
 }
 
 function buildParams(): Record<string, any> {
@@ -362,8 +389,33 @@ async function handleExportQuery() {
 async function handleExportAll() {
   exportingAll.value = true
   try {
-    const res: any = await getDirectory({ export: 'all', page_size: -1 })
-    triggerDownload(res, '数据目录_全部')
+    // 分页获取所有数据
+    const allItems: any[] = []
+    let page = 1
+    const pageSize = 100
+    let hasMore = true
+
+    while (hasMore) {
+      const res: any = await getDirectory({ page, page_size: pageSize })
+      const items = res.data?.items || res.data || []
+      allItems.push(...items)
+      if (!items || items.length < pageSize) {
+        hasMore = false
+      } else {
+        page++
+      }
+    }
+
+    if (allItems.length > 0) {
+      const csvContent = jsonToCsv(allItems)
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = '数据目录_全部.csv'
+      link.click()
+      URL.revokeObjectURL(url)
+    }
     ElMessage.success('导出成功')
   } catch (err: any) {
     ElMessage.error(err?.message || '导出失败')
@@ -422,6 +474,7 @@ function jsonToCsv(items: any[]): string {
 
 // ===== Init =====
 onMounted(() => {
+  loadLevelColors()
   fetchFilterOptions()
   fetchDirectory(buildParams())
 })
@@ -460,5 +513,14 @@ onMounted(() => {
   display: flex;
   justify-content: flex-end;
   margin-top: 20px;
+}
+
+.level-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
 }
 </style>

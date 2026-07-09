@@ -31,6 +31,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '数据目录', icon: 'List' },
       },
       {
+        path: 'overview/volume-grade',
+        name: 'VolumeGrade',
+        component: () => import('@/views/overview/VolumeGradePage.vue'),
+        meta: { title: '数量分级', icon: 'TrendCharts' },
+      },
+      {
         path: 'assets',
         name: 'AssetList',
         component: () => import('@/views/assets/AssetListPage.vue'),
@@ -119,6 +125,12 @@ const routes: RouteRecordRaw[] = [
         name: 'UserManage',
         component: () => import('@/views/system/UserManagePage.vue'),
         meta: { title: '用户管理', icon: 'User' },
+      },
+      {
+        path: 'system/roles',
+        name: 'RoleManage',
+        component: () => import('@/views/system/RoleManagePage.vue'),
+        meta: { title: '角色管理', icon: 'Key' },
       },
       {
         path: 'system/authorizations',

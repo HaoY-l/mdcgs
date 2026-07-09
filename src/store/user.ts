@@ -20,6 +20,7 @@ const ALL_MENU_ITEMS: MenuItem[] = [
     children: [
       { path: '/overview', title: '数据概览', icon: 'DataAnalysis', permission: 'overview_view' },
       { path: '/overview/directory', title: '数据目录', icon: 'List', permission: 'overview_view' },
+      { path: '/overview/volume-grade', title: '数量分级', icon: 'TrendCharts', permission: 'overview_view' },
     ],
   },
   {
@@ -64,6 +65,7 @@ const ALL_MENU_ITEMS: MenuItem[] = [
     permission: 'user_view',
     children: [
       { path: '/system/users', title: '用户管理', icon: 'User', permission: 'user_view' },
+      { path: '/system/roles', title: '角色管理', icon: 'Key', permission: 'role_view' },
       { path: '/system/monitor', title: '性能监控', icon: 'DataBoard', permission: 'monitor_view' },
       { path: '/system/settings', title: '系统设置', icon: 'Tools', permission: 'setting_view' },
     ],
@@ -94,6 +96,8 @@ export const useUserStore = defineStore('user', () => {
   // 根据用户权限动态计算的菜单
   const menuItems = computed<MenuItem[]>(() => {
     if (!userInfo.value?.permissions) return []
+    // ADMIN 角色拥有所有权限
+    if (userInfo.value.role_code === 'ADMIN') return ALL_MENU_ITEMS
     return filterMenu(ALL_MENU_ITEMS, userInfo.value.permissions)
   })
 

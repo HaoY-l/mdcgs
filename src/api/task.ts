@@ -30,6 +30,10 @@ export async function stopTask(id: number) {
   return client.post(`/classification-tasks/${id}/stop`)
 }
 
+export async function clearTaskResults(id: number) {
+  return client.post(`/classification-tasks/${id}/clear-results`)
+}
+
 export async function getTaskProgress(id: number) {
   return client.get(`/classification-tasks/${id}/progress`)
 }

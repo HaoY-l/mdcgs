@@ -31,9 +31,11 @@
         </div>
         <div class="info-item">
           <span class="info-label">状态</span>
-          <el-tag :type="statusTag(taskDetail.status)" size="small">
-            {{ statusLabel(taskDetail.status) }}
-          </el-tag>
+          <el-tooltip :content="taskDetail.error_message || ''" placement="top" :disabled="!taskDetail.error_message">
+            <el-tag :type="statusTag(taskDetail.status)" size="small">
+              {{ statusLabel(taskDetail.status) }}
+            </el-tag>
+          </el-tooltip>
         </div>
         <div class="info-item">
           <span class="info-label">进度</span>
@@ -148,6 +150,54 @@
               style="width: 140px; margin-right: 8px"
               @input="resetColumnFilter"
             />
+            <el-select
+              v-model="columnAssetFilter"
+              placeholder="资产"
+              clearable
+              size="small"
+              style="width: 130px; margin-right: 8px"
+              filterable
+              @change="onAssetFilterChange"
+            >
+              <el-option
+                v-for="a in assetOptions"
+                :key="a"
+                :label="a"
+                :value="a"
+              />
+            </el-select>
+            <el-select
+              v-model="columnDatabaseFilter"
+              placeholder="库"
+              clearable
+              size="small"
+              style="width: 130px; margin-right: 8px"
+              filterable
+              @change="onDatabaseFilterChange"
+            >
+              <el-option
+                v-for="d in filteredDatabaseOptions"
+                :key="d"
+                :label="d"
+                :value="d"
+              />
+            </el-select>
+            <el-select
+              v-model="columnTableFilter"
+              placeholder="表"
+              clearable
+              size="small"
+              style="width: 130px; margin-right: 8px"
+              filterable
+              @change="resetColumnFilter"
+            >
+              <el-option
+                v-for="t in filteredTableOptions"
+                :key="t"
+                :label="t"
+                :value="t"
+              />
+            </el-select>
             <el-input
               v-model="columnNameFilter"
               placeholder="字段名"
@@ -165,56 +215,6 @@
               @input="resetColumnFilter"
             />
             <el-select
-              v-model="columnTableFilter"
-              placeholder="按表筛选"
-              clearable
-              size="small"
-              style="width: 150px; margin-right: 8px"
-              @change="resetColumnFilter"
-            >
-              <el-option
-                v-for="tbl in tables"
-                :key="tbl.id"
-                :label="tbl.table_name"
-                :value="tbl.id"
-              />
-            </el-select>
-            <el-select
-              v-model="columnStatusFilter"
-              placeholder="状态"
-              clearable
-              size="small"
-              style="width: 100px; margin-right: 8px"
-              @change="resetColumnFilter"
-            >
-              <el-option label="待确认" value="pending" />
-              <el-option label="已确认" value="confirmed" />
-              <el-option label="已变更" value="changed" />
-              <el-option label="已锁定" value="locked" />
-            </el-select>
-            <el-select
-              v-model="isConfirmedFilter"
-              placeholder="人工确认"
-              clearable
-              size="small"
-              style="width: 110px; margin-right: 8px"
-              @change="resetColumnFilter"
-            >
-              <el-option label="已确认" value="true" />
-              <el-option label="未确认" value="false" />
-            </el-select>
-            <el-select
-              v-model="hasHitFilter"
-              placeholder="规则命中"
-              clearable
-              size="small"
-              style="width: 110px; margin-right: 8px"
-              @change="resetColumnFilter"
-            >
-              <el-option label="已命中" value="true" />
-              <el-option label="未命中" value="false" />
-            </el-select>
-            <el-select
               v-model="isSensitiveFilter"
               placeholder="是否敏感"
               clearable
@@ -225,89 +225,188 @@
               <el-option label="敏感" value="true" />
               <el-option label="非敏感" value="false" />
             </el-select>
-            <el-button size="small" @click="showBatchDialog = true">批量操作</el-button>
+            <el-select
+              v-model="isMaskedFilter"
+              placeholder="是否脱敏"
+              clearable
+              size="small"
+              style="width: 100px; margin-right: 8px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="已脱敏" value="true" />
+              <el-option label="未脱敏" value="false" />
+            </el-select>
+            <el-select
+              v-model="isEncryptedFilter"
+              placeholder="是否加密"
+              clearable
+              size="small"
+              style="width: 100px; margin-right: 8px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="已加密" value="true" />
+              <el-option label="未加密" value="false" />
+            </el-select>
+            <el-select
+              v-model="systemTypeStatus"
+              placeholder="系统类型"
+              clearable
+              filterable
+              size="small"
+              style="width: 130px; margin-right: 4px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="未确认" value="unconfirmed" />
+              <el-option label="已确认" value="confirmed_top" />
+              <el-option
+                v-for="t in systemTypeOptions"
+                :key="t"
+                :label="t"
+                :value="t"
+              />
+            </el-select>
+            <el-select
+              v-model="aiTypeStatus"
+              placeholder="AI类型"
+              clearable
+              filterable
+              size="small"
+              style="width: 130px; margin-right: 4px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="未确认" value="unconfirmed" />
+              <el-option label="已确认" value="confirmed_top" />
+              <el-option
+                v-for="a in aiCategoryOptions"
+                :key="a"
+                :label="a"
+                :value="a"
+              />
+            </el-select>
+            <el-select
+              v-model="manualTypeStatus"
+              placeholder="人工类型"
+              clearable
+              filterable
+              size="small"
+              style="width: 130px; margin-right: 4px"
+              @change="resetColumnFilter"
+            >
+              <el-option label="未确认" value="unconfirmed" />
+              <el-option label="已确认" value="confirmed_top" />
+              <el-option
+                v-for="m in manualTypeOptions"
+                :key="m"
+                :label="m"
+                :value="m"
+              />
+            </el-select>
+            <el-select
+              v-model="levelFilter"
+              placeholder="数据分级"
+              clearable
+              filterable
+              size="small"
+              style="width: 90px; margin-right: 8px"
+              @change="resetColumnFilter"
+            >
+              <el-option
+                v-for="l in levelFilterOptions"
+                :key="l"
+                :label="l"
+                :value="l"
+              />
+            </el-select>
           </div>
-          <el-table :data="columns" stripe style="width: 100%" v-loading="columnsLoading" max-height="500">
-            <el-table-column prop="column_name" label="字段名" min-width="140" />
-            <el-table-column prop="comment" label="注释" min-width="140" />
-            <el-table-column prop="system_type" label="系统类型" min-width="100" />
-            <el-table-column label="人工类型" min-width="130">
+          <el-table :data="columns" stripe style="width: 100%" v-loading="columnsLoading" max-height="500" :header-cell-style="{ background: '#f5f7fa', color: '#606266' }" @selection-change="handleSelectionChange">
+            <el-table-column type="selection" width="45" fixed />
+            <el-table-column type="index" label="序号" width="60" fixed />
+            <el-table-column label="字段名" min-width="140" fixed show-overflow-tooltip>
               <template #default="{ row }">
-                <!-- 已人工确认/变更过，展示值 -->
-                <span v-if="row.data_type_name_manual">{{ row.data_type_name_manual }}</span>
-                <!-- 未确认但系统有匹配，显示确认按钮 -->
+                <el-tooltip :content="`资产: ${row.asset_name || '-'}\n库: ${row.database_name || '-'}\n表: ${row.table_name || '-'}`" placement="top" :enterable="false">
+                  <span class="column-name">{{ row.column_name }}</span>
+                </el-tooltip>
+              </template>
+            </el-table-column>
+            <el-table-column prop="comment" label="注释" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="system_type" label="系统类型" min-width="90" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span v-if="row.system_type" class="type-tag">{{ row.system_type }}</span>
+                <span v-else style="color:#999">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="AI分类" min-width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span v-if="row.ai_category" class="ai-category">{{ row.ai_category }}</span>
+                <span v-else style="color:#c0c4cc">-</span>
+              </template>
+            </el-table-column>
+            <el-table-column label="人工类型" min-width="100" show-overflow-tooltip>
+              <template #default="{ row }">
+                <span v-if="row.manual_type" class="manual-type">{{ row.manual_type }}</span>
                 <el-button
-                  v-else-if="row.system_type && !row.is_confirmed"
-                  size="small"
+                  v-else
                   type="primary"
                   link
-                  @click="handleAcceptSystemType(row)"
+                  size="small"
+                  @click="handleQuickConfirm(row)"
                 >
-                  确认
+                  待确认
                 </el-button>
-                <!-- 无系统匹配也无人工值 -->
-                <span v-else>-</span>
               </template>
             </el-table-column>
-            <el-table-column label="级别" min-width="80" align="center">
+            <el-table-column label="数据分级" min-width="70" align="center">
               <template #default="{ row }">
-                <el-tag :type="levelTag(row.level)" size="small">{{ row.level || '-' }}</el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="分类路径" min-width="200">
-              <template #default="{ row }">
-                <span style="white-space: nowrap;">{{ (row.category_path_manual || row.category_path || '').split('>')[0] || '-' }}</span>
+                <span
+                  v-if="row.level"
+                  class="level-badge"
+                  :style="getLevelBadgeStyle(row.level)"
+                >
+                  {{ row.level }}
+                </span>
+                <span v-else style="color:#999">-</span>
               </template>
             </el-table-column>
             <el-table-column label="是否敏感" min-width="80" align="center">
               <template #default="{ row }">
-                <el-tag :type="row.is_sensitive ? 'danger' : 'info'" size="small" style="white-space: nowrap;">
+                <el-tag :type="row.is_sensitive ? 'danger' : 'info'" size="small" effect="plain">
                   {{ row.is_sensitive ? '是' : '否' }}
                 </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="脱敏方式" min-width="140" align="center">
+            <el-table-column label="数据分类" min-width="100" show-overflow-tooltip>
               <template #default="{ row }">
-                <el-select v-model="row.masking_rule_name" placeholder="选择脱敏方式" size="small" clearable style="width: 120px" @change="(val: string) => handleChangeMask(row, val)">
-                  <el-option v-for="r in maskingRules" :key="r.id" :label="r.name" :value="r.name" />
-                </el-select>
+                <span>{{ (row.category_path_manual || row.category_path || '').split('/')[0] || '-' }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="加密方式" min-width="140" align="center">
+            <el-table-column label="是否脱敏" min-width="80" align="center">
               <template #default="{ row }">
-                <el-select v-model="row.encryption_type_name" placeholder="选择加密方式" size="small" clearable style="width: 120px" @change="(val: string) => handleChangeEncrypt(row, val)">
-                  <el-option v-for="e in encryptionTypes" :key="e.id" :label="e.name" :value="e.name" />
-                </el-select>
+                <el-tag :type="row.is_masked === 'confirmed' ? 'success' : 'info'" size="small" effect="plain">
+                  {{ row.is_masked === 'confirmed' ? '是' : '否' }}
+                </el-tag>
               </template>
             </el-table-column>
-                        <el-table-column label="命中率" min-width="80" align="center">
+            <el-table-column label="是否加密" min-width="80" align="center">
               <template #default="{ row }">
-                <span>{{ row.hit_rate != null ? Number(row.hit_rate).toFixed(1) + '%' : '-' }}</span>
+                <el-tag :type="row.is_encrypted === 'confirmed' ? 'warning' : 'info'" size="small" effect="plain">
+                  {{ row.is_encrypted === 'confirmed' ? '是' : '否' }}
+                </el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="操作" min-width="280" fixed="right">
+            <el-table-column prop="risk_suggestion" label="建议" min-width="120" show-overflow-tooltip />
+            <el-table-column prop="note" label="备注" min-width="100" show-overflow-tooltip />
+            <el-table-column label="操作" width="120" fixed="right">
               <template #default="{ row }">
-                <el-button link type="primary" size="small" @click="handleColumnSample(row)">
-                  样本
-                </el-button>
-                <el-button link type="primary" size="small" @click="openChangeDialog(row)">
-                  变更
-                </el-button>
-                <el-button v-if="row.system_type || row.manual_type" link type="success" size="small" @click="handleConfirmColumn(row)">
-                  确认
-                </el-button>
-                <el-button
-                  v-if="row.locked"
-                  link
-                  type="warning"
-                  size="small"
-                  @click="handleUnlockColumn(row)"
-                >
-                  解锁
-                </el-button>
+                <el-button link type="primary" size="small" @click="handleColumnSample(row)">样本</el-button>
+                <el-button link type="primary" size="small" @click="openChangeDialog(row)">变更</el-button>
               </template>
             </el-table-column>
           </el-table>
+          <div class="batch-actions" v-if="selectedColumns.length > 0">
+            <span>已选择 {{ selectedColumns.length }} 项</span>
+            <el-button size="small" type="success" @click="handleBatchConfirm">批量确认</el-button>
+            <el-button size="small" type="warning" @click="handleBatchChange">批量变更</el-button>
+          </div>
           <div class="pagination-wrapper" v-if="columnTotal > 0">
             <el-pagination
               v-model:current-page="columnPage"
@@ -344,17 +443,37 @@
 
         <!-- 统计信息 -->
         <el-tab-pane label="统计信息" name="statistics">
-          <div v-loading="statsLoading" class="stats-grid">
-            <div v-if="typeRatioChartData.labels.length" class="chart-box">
-              <h4>类型占比</h4>
-              <div style="height: 300px">
-                <canvas ref="typeRatioCanvas"></canvas>
+          <div v-loading="statsLoading" class="stats-content">
+            <div class="stats-summary">
+              <div class="summary-card">
+                <div class="summary-label">总字段数</div>
+                <div class="summary-value">{{ statsData.total_fields || 0 }}</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">已分类</div>
+                <div class="summary-value success">{{ statsData.classified_fields || 0 }}</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">敏感字段</div>
+                <div class="summary-value danger">{{ statsData.sensitive_fields || 0 }}</div>
+              </div>
+              <div class="summary-card">
+                <div class="summary-label">敏感占比</div>
+                <div class="summary-value warning">{{ statsData.sensitive_ratio || '0%' }}</div>
               </div>
             </div>
-            <div v-if="levelDistChartData.labels.length" class="chart-box">
-              <h4>级别分布</h4>
-              <div style="height: 300px">
-                <canvas ref="levelDistCanvas"></canvas>
+            <div class="stats-charts">
+              <div v-if="typeRatioChartData.labels.length" class="chart-card">
+                <h4>类型占比</h4>
+                <div class="chart-container">
+                  <div ref="typeRatioCanvas" style="width: 100%; height: 300px"></div>
+                </div>
+              </div>
+              <div v-if="levelDistChartData.labels.length" class="chart-card">
+                <h4>级别分布</h4>
+                <div class="chart-container">
+                  <div ref="levelDistCanvas" style="width: 100%; height: 300px"></div>
+                </div>
               </div>
             </div>
             <el-empty v-if="!typeRatioChartData.labels.length && !levelDistChartData.labels.length" description="暂无统计数据" />
@@ -503,41 +622,6 @@
       </template>
     </el-dialog>
 
-    <!-- 批量操作弹窗 -->
-    <el-dialog v-model="showBatchDialog" title="批量操作" width="450px">
-      <el-form label-width="100px">
-        <el-form-item label="操作类型" required>
-          <el-select v-model="batchActionType" placeholder="请选择操作" style="width: 100%">
-            <el-option label="批量确认" value="confirm" />
-            <el-option label="批量变更" value="change" />
-            <el-option label="批量解锁" value="unlock" />
-            <el-option label="批量备注" value="note" />
-          </el-select>
-        </el-form-item>
-        <el-form-item v-if="batchActionType === 'note'" label="备注内容">
-          <el-input
-            v-model="batchNoteContent"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入备注"
-          />
-        </el-form-item>
-        <el-form-item v-if="batchActionType === 'change'" label="目标类型">
-          <el-select v-model="batchChangeType" placeholder="请选择" style="width: 100%" filterable>
-            <el-option
-              v-for="dt in dataTypeOptions"
-              :key="dt"
-              :label="dt"
-              :value="dt"
-            />
-          </el-select>
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="showBatchDialog = false">取消</el-button>
-        <el-button type="primary" :loading="batchLoading" @click="submitBatch">确定</el-button>
-      </template>
-    </el-dialog>
 
     <!-- 样本弹窗 -->
     <el-dialog v-model="showSampleDialog" title="样本数据" width="600px">
@@ -600,7 +684,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { ref, reactive, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox, type TabPaneName } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
@@ -703,6 +787,38 @@ function levelTag(level: string): 'success' | 'warning' | 'info' | 'danger' | 'p
   }
   // 不在选项中的级别默认 info
   return 'info'
+}
+
+// 级别颜色映射
+const levelColorMap = ref<Record<string, string>>({})
+
+function getLevelBadgeStyle(level: string): Record<string, string> {
+  const color = levelColorMap.value[level]
+  if (!color) return { backgroundColor: '#6b7280', color: '#fff' }
+  return {
+    backgroundColor: color,
+    color: '#fff',
+    borderRadius: '4px',
+  }
+}
+
+async function loadLevelColors() {
+  try {
+    const res = await getLevels()
+    const data = res.data || []
+    for (const l of data) {
+      if (l.level_code && l.color) {
+        levelColorMap.value[l.level_code] = l.color
+      }
+    }
+  } catch {
+    // fallback
+    levelColorMap.value = {
+      'L1': '#52C41A',
+      'L2': '#FF7A00',
+      'L3': '#FF4D4F',
+    }
+  }
 }
 
 // 选项数据
@@ -818,6 +934,8 @@ async function loadOptions() {
     dataTypeOptions.value = ['PII', 'PHI', 'PCI', 'Financial', 'Public', 'Internal']
     levelOptions.value = [{ id: 1, name: 'L0' }, { id: 2, name: 'L1' }, { id: 3, name: 'L2' }, { id: 4, name: 'L3' }, { id: 5, name: 'L4' }]
   }
+  // 填充数据分级筛选选项
+  levelFilterOptions.value = levelOptions.value.map((l: any) => l.level_code || l.name).filter(Boolean)
 }
 
 // ========== 表级视图 ==========
@@ -869,30 +987,198 @@ function resetTableFilter() {
 // ========== 字段详情 ==========
 const columns = ref<any[]>([])
 const columnsLoading = ref(false)
+const selectedColumns = ref<any[]>([])
 const columnKeyword = ref('')
-const columnTableFilter = ref<number | null>(null)
-const columnStatusFilter = ref('')
+const columnAssetFilter = ref('')
+const columnDatabaseFilter = ref('')
+const columnTableFilter = ref('')
 const columnNameFilter = ref('')
 const commentFilter = ref('')
-const isConfirmedFilter = ref('')
-const hasHitFilter = ref('')
 const isSensitiveFilter = ref('')
+const isMaskedFilter = ref('')
+const isEncryptedFilter = ref('')
+const systemTypeFilter = ref('')
+const aiCategoryFilter = ref('')
+const manualTypeFilter = ref('')
+const levelFilter = ref('')
+
+// 新增类型状态筛选
+const manualTypeStatus = ref('')
+const systemTypeStatus = ref('')
+const aiTypeStatus = ref('')
+const manualTypeInput = ref('')
+const systemTypeInput = ref('')
+const aiTypeInput = ref('')
+
+// 筛选选项
+const systemTypeOptions = ref<string[]>([])
+const aiCategoryOptions = ref<string[]>([])
+const manualTypeOptions = ref<string[]>([])
+const levelFilterOptions = ref<string[]>([])
 const columnTotal = ref(0)
 const columnPage = ref(1)
 const columnPageSize = ref(20)
 
+// 筛选选项
+const assetOptions = ref<string[]>([])
+const databaseOptions = ref<string[]>([])
+const tableOptions = ref<string[]>([])
+const databasesByAsset = ref<Record<string, string[]>>({})
+const tablesByDatabase = ref<Record<string, string[]>>({})
+
+// 级联筛选后的选项
+const filteredDatabaseOptions = computed(() => {
+  if (columnAssetFilter.value && databasesByAsset.value[columnAssetFilter.value]) {
+    return databasesByAsset.value[columnAssetFilter.value]
+  }
+  return databaseOptions.value
+})
+
+const filteredTableOptions = computed(() => {
+  if (columnDatabaseFilter.value && tablesByDatabase.value[columnDatabaseFilter.value]) {
+    return tablesByDatabase.value[columnDatabaseFilter.value]
+  }
+  return tableOptions.value
+})
+
+function onAssetFilterChange() {
+  columnDatabaseFilter.value = ''
+  columnTableFilter.value = ''
+  resetColumnFilter()
+}
+
+function onDatabaseFilterChange() {
+  columnTableFilter.value = ''
+  resetColumnFilter()
+}
+
+function handleSelectionChange(selection: any[]) {
+  selectedColumns.value = selection
+}
+
+async function handleBatchConfirm() {
+  if (!selectedColumns.value.length) {
+    ElMessage.warning('请先选择字段')
+    return
+  }
+  try {
+    const column_ids = selectedColumns.value.map((c: any) => c.column_id)
+    await batchConfirm(taskId, { column_ids })
+    ElMessage.success('批量确认成功')
+    selectedColumns.value = []
+    fetchColumns()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '批量确认失败')
+  }
+}
+
+async function handleBatchChange() {
+  if (!selectedColumns.value.length) {
+    ElMessage.warning('请先选择字段')
+    return
+  }
+  // TODO: 批量变更需要选择目标类型
+  ElMessage.info('请在变更弹窗中选择目标类型')
+}
+
 async function fetchColumns() {
   columnsLoading.value = true
   try {
+    // 先用大page_size获取全部数据用于提取筛选选项
+    const allParams: Record<string, any> = { page: 1, page_size: 5000 }
+    if (columnKeyword.value.trim()) allParams.keyword = columnKeyword.value.trim()
+    if (columnAssetFilter.value) allParams.asset_name = columnAssetFilter.value
+    if (columnDatabaseFilter.value) allParams.database_name = columnDatabaseFilter.value
+    if (columnTableFilter.value) allParams.table_name = columnTableFilter.value
+    if (columnNameFilter.value.trim()) allParams.column_name = columnNameFilter.value.trim()
+    if (commentFilter.value.trim()) allParams.comment = commentFilter.value.trim()
+    if (isSensitiveFilter.value) allParams.is_sensitive = isSensitiveFilter.value
+    if (isMaskedFilter.value) allParams.is_masked = isMaskedFilter.value
+    if (isEncryptedFilter.value) allParams.is_encrypted = isEncryptedFilter.value
+    if (manualTypeStatus.value) allParams.manual_type_status = manualTypeStatus.value
+    if (manualTypeInput.value.trim()) allParams.manual_type_input = manualTypeInput.value.trim()
+    if (systemTypeStatus.value) allParams.system_type_status = systemTypeStatus.value
+    if (systemTypeInput.value.trim()) allParams.system_type_input = systemTypeInput.value.trim()
+    if (aiTypeStatus.value) allParams.ai_type_status = aiTypeStatus.value
+    if (aiTypeInput.value.trim()) allParams.ai_type_input = aiTypeInput.value.trim()
+    if (levelFilter.value) allParams.level_filter = levelFilter.value
+
+    const allRes = await getTaskColumns(taskId, allParams)
+    const allData = allRes.data?.items || allRes.data || []
+
+    // 提取筛选选项（去重）并构建级联关系
+    const assets = new Set<string>()
+    const databases = new Set<string>()
+    const tables = new Set<string>()
+    const dbByAsset: Record<string, Set<string>> = {}
+    const tblByDb: Record<string, Set<string>> = {}
+
+    for (const c of allData) {
+      const asset = c.asset_name || ''
+      const db = c.database_name || ''
+      const tbl = c.table_name || ''
+
+      if (asset) assets.add(asset)
+      if (db) databases.add(db)
+      if (tbl) tables.add(tbl)
+
+      if (asset && db) {
+        if (!dbByAsset[asset]) dbByAsset[asset] = new Set()
+        dbByAsset[asset].add(db)
+      }
+
+      if (db && tbl) {
+        if (!tblByDb[db]) tblByDb[db] = new Set()
+        tblByDb[db].add(tbl)
+      }
+    }
+
+    assetOptions.value = Array.from(assets).sort()
+    databaseOptions.value = Array.from(databases).sort()
+    tableOptions.value = Array.from(tables).sort()
+
+    databasesByAsset.value = {}
+    for (const [asset, dbs] of Object.entries(dbByAsset)) {
+      databasesByAsset.value[asset] = Array.from(dbs).sort()
+    }
+
+    tablesByDatabase.value = {}
+    for (const [db, tbls] of Object.entries(tblByDb)) {
+      tablesByDatabase.value[db] = Array.from(tbls).sort()
+    }
+
+    // 提取系统类型/AI类型/人工类型的选项（用API原始字段名）
+    const sysTypes = new Set<string>()
+    const aiTypes = new Set<string>()
+    const manTypes = new Set<string>()
+    for (const c of allData) {
+      if (c.data_type_name) sysTypes.add(c.data_type_name)
+      if (c.ai_category) aiTypes.add(c.ai_category)
+      if (c.data_type_name_manual) manTypes.add(c.data_type_name_manual)
+    }
+    systemTypeOptions.value = Array.from(sysTypes).sort()
+    aiCategoryOptions.value = Array.from(aiTypes).sort()
+    manualTypeOptions.value = Array.from(manTypes).sort()
+
+    // 再获取当前分页数据用于显示
     const params: Record<string, any> = { page: columnPage.value, page_size: columnPageSize.value }
     if (columnKeyword.value.trim()) params.keyword = columnKeyword.value.trim()
-    if (columnStatusFilter.value) params.status = columnStatusFilter.value
-    if (columnTableFilter.value) params.table_id = columnTableFilter.value
+    if (columnAssetFilter.value) params.asset_name = columnAssetFilter.value
+    if (columnDatabaseFilter.value) params.database_name = columnDatabaseFilter.value
+    if (columnTableFilter.value) params.table_name = columnTableFilter.value
     if (columnNameFilter.value.trim()) params.column_name = columnNameFilter.value.trim()
     if (commentFilter.value.trim()) params.comment = commentFilter.value.trim()
-    if (isConfirmedFilter.value) params.is_confirmed = isConfirmedFilter.value
-    if (hasHitFilter.value) params.has_hit = hasHitFilter.value
     if (isSensitiveFilter.value) params.is_sensitive = isSensitiveFilter.value
+    if (isMaskedFilter.value) params.is_masked = isMaskedFilter.value
+    if (isEncryptedFilter.value) params.is_encrypted = isEncryptedFilter.value
+    if (manualTypeStatus.value) params.manual_type_status = manualTypeStatus.value
+    if (manualTypeInput.value.trim()) params.manual_type_input = manualTypeInput.value.trim()
+    if (systemTypeStatus.value) params.system_type_status = systemTypeStatus.value
+    if (systemTypeInput.value.trim()) params.system_type_input = systemTypeInput.value.trim()
+    if (aiTypeStatus.value) params.ai_type_status = aiTypeStatus.value
+    if (aiTypeInput.value.trim()) params.ai_type_input = aiTypeInput.value.trim()
+    if (levelFilter.value) params.level_filter = levelFilter.value
+
     const res = await getTaskColumns(taskId, params)
     if (res.data && Array.isArray(res.data.items)) {
       columns.value = res.data.items
@@ -904,6 +1190,7 @@ async function fetchColumns() {
       columns.value = res.data || []
       columnTotal.value = 0
     }
+
     // Map API field names to template-expected field names
     columns.value = columns.value.map((col: any) => ({
       ...col,
@@ -919,6 +1206,7 @@ async function fetchColumns() {
     columnsLoading.value = false
   }
 }
+
 
 
 // ========== 变更弹窗 ==========
@@ -1055,6 +1343,25 @@ async function handleAcceptSystemType(row: any) {
 }
 
 // ========== 列确认/解锁 ==========
+// 快速确认：点击待确认直接把AI分类或系统类型填充到人工类型
+async function handleQuickConfirm(row: any) {
+  try {
+    // 优先使用AI分类，其次使用系统类型
+    const typeToConfirm = row.ai_category || row.system_type
+    if (!typeToConfirm) {
+      ElMessage.warning('无分类结果可确认')
+      return
+    }
+    await confirmResult(taskId, row.column_id, {
+      data_type_name_manual: typeToConfirm
+    })
+    ElMessage.success('已确认')
+    fetchColumns()
+  } catch (err: any) {
+    if (err !== 'cancel') ElMessage.error(err?.response?.data?.message || err?.message || '确认失败')
+  }
+}
+
 async function handleConfirmColumn(row: any) {
   try {
     await ElMessageBox.confirm(`确定确认字段 "${row.column_name}" 的分类结果吗？`, '确认', { type: 'info' })
@@ -1077,42 +1384,6 @@ async function handleUnlockColumn(row: any) {
   }
 }
 
-// ========== 批量操作 ==========
-const showBatchDialog = ref(false)
-const batchLoading = ref(false)
-const batchActionType = ref('confirm')
-const batchNoteContent = ref('')
-const batchChangeType = ref('')
-
-async function submitBatch() {
-  batchLoading.value = true
-  try {
-    const selectedIds = columns.value.filter((c: any) => !c.locked).map((c: any) => c.id)
-    if (!selectedIds.length) {
-      ElMessage.warning('没有可操作的字段')
-      return
-    }
-    if (batchActionType.value === 'confirm') {
-      await batchConfirm(taskId, { column_ids: selectedIds })
-      ElMessage.success('批量确认成功')
-    } else if (batchActionType.value === 'unlock') {
-      await batchUnlock(taskId, { column_ids: selectedIds })
-      ElMessage.success('批量解锁成功')
-    } else if (batchActionType.value === 'note') {
-      if (!batchNoteContent.value.trim()) { ElMessage.warning('请输入备注内容'); return }
-      await batchNote(taskId, { column_ids: selectedIds, note: batchNoteContent.value.trim() })
-      ElMessage.success('批量备注成功')
-    } else if (batchActionType.value === 'change') {
-      if (!batchChangeType.value) { ElMessage.warning('请选择目标类型'); return }
-      await batchChange(taskId, { column_ids: selectedIds, manual_type: batchChangeType.value })
-      ElMessage.success('批量变更成功')
-    }
-    showBatchDialog.value = false
-    fetchColumns()
-  } finally {
-    batchLoading.value = false
-  }
-}
 
 // ========== 样本 ==========
 const showSampleDialog = ref(false)
@@ -1194,10 +1465,16 @@ async function fetchCategoryView() {
 
 // ========== 统计 ==========
 const statsLoading = ref(false)
-const typeRatioCanvas = ref<HTMLCanvasElement | null>(null)
-const levelDistCanvas = ref<HTMLCanvasElement | null>(null)
+const typeRatioCanvas = ref<HTMLElement | null>(null)
+const levelDistCanvas = ref<HTMLElement | null>(null)
 const typeRatioChartData = reactive({ labels: [] as string[], values: [] as number[] })
 const levelDistChartData = reactive({ labels: [] as string[], values: [] as number[] })
+const statsData = reactive({
+  total_fields: 0,
+  classified_fields: 0,
+  sensitive_fields: 0,
+  sensitive_ratio: '0%',
+})
 let chartInstance1: echarts.ECharts | null = null
 let chartInstance2: echarts.ECharts | null = null
 
@@ -1210,6 +1487,10 @@ async function fetchStatistics() {
     typeRatioChartData.values = Object.values(stats.type_distribution || {})
     levelDistChartData.labels = Object.keys(stats.level_distribution || {})
     levelDistChartData.values = Object.values(stats.level_distribution || {})
+    statsData.total_fields = stats.total_fields || 0
+    statsData.classified_fields = stats.classified_fields || 0
+    statsData.sensitive_fields = stats.sensitive_fields || 0
+    statsData.sensitive_ratio = stats.sensitive_ratio || '0%'
     await nextTick()
     renderCharts()
   } finally {
@@ -1220,7 +1501,7 @@ async function fetchStatistics() {
 function renderCharts() {
   if (typeRatioCanvas.value && typeRatioChartData.labels.length) {
     if (chartInstance1) chartInstance1.dispose()
-    chartInstance1 = echarts.init(typeRatioCanvas.value)
+    chartInstance1 = echarts.init(typeRatioCanvas.value as HTMLDivElement)
     chartInstance1.setOption({
       tooltip: { trigger: 'item' },
       legend: { bottom: 0 },
@@ -1233,12 +1514,12 @@ function renderCharts() {
   }
   if (levelDistCanvas.value && levelDistChartData.labels.length) {
     if (chartInstance2) chartInstance2.dispose()
-    chartInstance2 = echarts.init(levelDistCanvas.value)
+    chartInstance2 = echarts.init(levelDistCanvas.value as HTMLDivElement)
     chartInstance2.setOption({
       tooltip: { trigger: 'axis' },
       xAxis: { type: 'category', data: levelDistChartData.labels },
       yAxis: { type: 'value' },
-      series: [{ type: 'bar', data: levelDistChartData.values, color: '#409EFF' }],
+      series: [{ type: 'bar', data: levelDistChartData.values, itemStyle: { color: '#409EFF' } }],
     })
   }
 }
@@ -1399,6 +1680,7 @@ onMounted(async () => {
   await loadOptions()
   await loadMaskingRules()
   await loadEncryptionTypes()
+  await loadLevelColors()
   // 首次加载当前标签页的数据
   await fetchTables()
   startProgressPolling()
@@ -1506,27 +1788,107 @@ onUnmounted(() => {
 .log-level-warn { color: var(--el-color-warning); }
 .log-level-error { color: var(--el-color-danger); }
 
+.level-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 16px;
+}
+
+.type-tag {
+  background: #ecf5ff;
+  color: #409eff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.manual-type {
+  background: #f0f9eb;
+  color: #67c23a;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+}
+
+.column-name {
+  color: #409eff;
+  cursor: default;
+}
+
 .log-msg {
   flex: 1;
   word-break: break-all;
 }
 
-.stats-grid {
+.stats-content {
+  padding: 16px 0;
+}
+
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.summary-card {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  color: #fff;
+}
+
+.summary-card .summary-label {
+  font-size: 13px;
+  opacity: 0.9;
+  margin-bottom: 8px;
+}
+
+.summary-card .summary-value {
+  font-size: 28px;
+  font-weight: 600;
+}
+
+.summary-card .summary-value.success {
+  color: #67c23a;
+}
+
+.summary-card .summary-value.danger {
+  color: #f56c6c;
+}
+
+.summary-card .summary-value.warning {
+  color: #e6a23c;
+}
+
+.stats-charts {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
 
-.chart-box {
-  background: #fafafa;
-  border-radius: 4px;
-  padding: 16px;
+.chart-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
 }
 
-.chart-box h4 {
-  margin: 0 0 12px;
-  font-size: 14px;
-  color: var(--el-text-color-primary);
+.chart-card h4 {
+  margin: 0 0 16px;
+  font-size: 15px;
+  color: #303133;
+  font-weight: 500;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.chart-container {
+  width: 100%;
 }
 
 .category-node {
@@ -1538,5 +1900,20 @@ onUnmounted(() => {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+
+.batch-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background: #f5f7fa;
+  border-radius: 4px;
+  margin-top: 12px;
+}
+
+.batch-actions span {
+  color: #606266;
+  font-size: 14px;
 }
 </style>

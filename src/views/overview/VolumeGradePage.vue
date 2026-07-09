@@ -142,7 +142,15 @@
     <el-drawer v-model="showRulesDrawer" title="量级定级规则" size="600px" direction="rtl">
       <div class="drawer-body">
         <div class="drawer-toolbar">
-          <el-button type="primary" size="small" @click="handleSync" :loading="syncing">
+          <el-select v-model="selectedTemplateId" placeholder="选择模板" size="small" style="width: 180px; margin-right: 8px" filterable>
+            <el-option
+              v-for="t in templateOptions"
+              :key="t.id"
+              :label="t.name"
+              :value="t.id"
+            />
+          </el-select>
+          <el-button type="primary" size="small" @click="handleSync" :loading="syncing" :disabled="!selectedTemplateId">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
             同步
           </el-button>
@@ -422,7 +430,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed } from 'vue'
+import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
 import { getDirectory, getLevelRatio, getStatistics } from '@/api/overview'
@@ -434,6 +442,21 @@ const pageLoading = ref(false)
 const refreshing = ref(false)
 const showRulesDrawer = ref(false)
 const showToolDrawer = ref(false)
+
+watch(showRulesDrawer, async (val) => {
+  if (val) {
+    // 抽屉打开时加载模板列表
+    try {
+      const res = await getTemplates({ is_active: 1 })
+      const list = res.data?.items || res.data || []
+      templateOptions.value = list
+      // 默认选中第一个
+      if (!selectedTemplateId.value && list.length > 0) {
+        selectedTemplateId.value = list[0].id
+      }
+    } catch { /* ignore */ }
+  }
+})
 const showReportDialog = ref(false)
 const showRuleEditDialog = ref(false)
 const ruleEditTitle = ref('编辑规则')
@@ -674,16 +697,10 @@ interface CategoryItem {
   name: string
   level_code: string
 }
-async function fetchDataTypesFromTemplate(): Promise<CategoryItem[]> {
+async function fetchDataTypesFromTemplate(templateId: number): Promise<CategoryItem[]> {
   try {
-    // 获取已激活的模板
-    const templatesRes = await getTemplates({ is_active: 1 })
-    const templates = templatesRes.data?.items || templatesRes.data || []
-    const activeTemplate = Array.isArray(templates) ? templates[0] : null
-    if (!activeTemplate?.id) return []
-
     // 获取分类树
-    const treeRes = await getCategoryTree(activeTemplate.id)
+    const treeRes = await getCategoryTree(templateId)
     const tree = treeRes.data || []
 
     // 收集所有二级分类的名称和级别
@@ -730,6 +747,8 @@ function buildRulesFromDataTypes(categories: CategoryItem[]) {
 }
 
 const rulesTable = ref<any[]>([])
+const templateOptions = ref<any[]>([])
+const selectedTemplateId = ref<number | null>(null)
 
 // ===== 统计卡片 =====
 const statCards = reactive([
@@ -1112,12 +1131,16 @@ function handleResize() {
 
 // ===== 同步 =====
 async function handleSync() {
+  if (!selectedTemplateId.value) {
+    ElMessage.warning('请先选择模板')
+    return
+  }
   syncing.value = true
   try {
-    // 1. 从模板获取分类目录（含级别信息）
-    const categories = await fetchDataTypesFromTemplate()
+    // 1. 从选中模板获取分类目录（含级别信息）
+    const categories = await fetchDataTypesFromTemplate(selectedTemplateId.value)
     if (categories.length === 0) {
-      ElMessage.warning('未从模板中获取到数据类型，请先在分类模板中配置')
+      ElMessage.warning('选中模板中未获取到数据类型，请先在分类模板中配置')
       return
     }
 

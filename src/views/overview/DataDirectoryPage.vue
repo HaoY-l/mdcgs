@@ -12,7 +12,7 @@
             <el-form-item label="关键词">
               <el-input
                 v-model="filterForm.keyword"
-                placeholder="字段名 / 注释 / 类型"
+                placeholder="字段名 / 注释"
                 clearable
                 @keyup.enter="handleSearch"
                 @clear="handleSearch"
@@ -20,14 +20,79 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="数据类型">
+            <el-form-item label="资产">
               <el-select
-                v-model="filterForm.data_type"
+                v-model="filterForm.asset"
                 placeholder="全部"
                 clearable
                 style="width: 100%"
+                filterable
+                @change="onAssetChange"
+              >
+                <el-option
+                  v-for="a in assetOptions"
+                  :key="a"
+                  :label="a"
+                  :value="a"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+            <el-form-item label="数据库">
+              <el-select
+                v-model="filterForm.database_name"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+                filterable
+                :disabled="!filterForm.asset"
+                @change="onDatabaseChange"
+              >
+                <el-option
+                  v-for="d in filteredDatabaseOptions"
+                  :key="d"
+                  :label="d"
+                  :value="d"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+            <el-form-item label="表">
+              <el-select
+                v-model="filterForm.table_name"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+                filterable
+                :disabled="!filterForm.database_name"
                 @change="handleSearch"
               >
+                <el-option
+                  v-for="t in filteredTableOptions"
+                  :key="t"
+                  :label="t"
+                  :value="t"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+            <el-form-item label="数据类型">
+              <el-select
+                v-model="filterForm.data_type_status"
+                placeholder="全部"
+                clearable
+                filterable
+                style="width: 100%"
+                @change="handleSearch"
+              >
+                <el-option label="未确认" value="unconfirmed" />
+                <el-option label="已确认" value="confirmed" />
                 <el-option
                   v-for="t in dataTypeOptions"
                   :key="t"
@@ -38,7 +103,7 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="数据分级">
+            <el-form-item label="分级">
               <el-select
                 v-model="filterForm.level"
                 placeholder="全部"
@@ -51,47 +116,6 @@
                   :key="l"
                   :label="l"
                   :value="l"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="分类路径">
-              <el-select
-                v-model="filterForm.category_path"
-                placeholder="全部"
-                clearable
-                style="width: 100%"
-                filterable
-                @change="handleSearch"
-              >
-                <el-option
-                  v-for="path in categoryPathOptions"
-                  :key="path"
-                  :label="path"
-                  :value="path"
-                />
-              </el-select>
-            </el-form-item>
-          </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="数据资产">
-              <el-select
-                v-model="filterForm.asset"
-                placeholder="全部"
-                clearable
-                style="width: 100%"
-                filterable
-                @change="handleSearch"
-              >
-                <el-option
-                  v-for="a in assetOptions"
-                  :key="a"
-                  :label="a"
-                  :value="a"
                 />
               </el-select>
             </el-form-item>
@@ -111,7 +135,7 @@
             </el-form-item>
           </el-col>
           <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="脱敏状态">
+            <el-form-item label="脱敏">
               <el-select
                 v-model="filterForm.is_masked"
                 placeholder="全部"
@@ -119,13 +143,16 @@
                 style="width: 100%"
                 @change="handleSearch"
               >
-                <el-option label="已脱敏" value="confirmed" />
-                <el-option label="未脱敏" value="none" />
+                <el-option label="是" value="confirmed" />
+                <el-option label="否" value="none" />
               </el-select>
             </el-form-item>
           </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
           <el-col :xs="24" :sm="12" :md="8" :lg="6">
-            <el-form-item label="加密状态">
+            <el-form-item label="加密">
               <el-select
                 v-model="filterForm.is_encrypted"
                 placeholder="全部"
@@ -133,8 +160,27 @@
                 style="width: 100%"
                 @change="handleSearch"
               >
-                <el-option label="已加密" value="confirmed" />
-                <el-option label="未加密" value="none" />
+                <el-option label="是" value="confirmed" />
+                <el-option label="否" value="none" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+            <el-form-item label="分类路径">
+              <el-select
+                v-model="filterForm.category_path"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+                filterable
+                @change="handleSearch"
+              >
+                <el-option
+                  v-for="path in categoryPathOptions"
+                  :key="path"
+                  :label="path"
+                  :value="path"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -171,11 +217,10 @@
         border
         size="small"
       >
-        <el-table-column type="index" label="#" width="45" fixed />
-        <el-table-column prop="field_name" label="字段名" min-width="100" fixed />
-        <el-table-column prop="field_comment" label="字段注释" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="data_type" label="数据类型" min-width="90" />
-        <el-table-column prop="level" label="分级" width="65" align="center">
+        <el-table-column type="index" label="序号" min-width="50" fixed />
+        <el-table-column prop="field_name" label="字段名" min-width="100" fixed show-overflow-tooltip />
+        <el-table-column prop="data_type" label="数据类型" min-width="80" show-overflow-tooltip />
+        <el-table-column prop="level" label="分级" min-width="65" align="center">
           <template #default="{ row }">
             <span
               v-if="row.level"
@@ -187,32 +232,33 @@
             <span v-else style="color:#d1d5db">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="database_name" label="数据库" min-width="90" show-overflow-tooltip />
-        <el-table-column prop="table_name" label="表" min-width="90" show-overflow-tooltip />
-        <el-table-column prop="asset_name" label="资产" min-width="90" show-overflow-tooltip />
-        <el-table-column prop="category_path" label="分类路径" min-width="150" show-overflow-tooltip />
-        <el-table-column label="敏感" width="60" align="center">
+        <el-table-column label="敏感" min-width="60" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_sensitive ? 'danger' : 'info'" size="small">
               {{ row.is_sensitive ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="脱敏" width="60" align="center">
+        <el-table-column label="脱敏" min-width="60" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_masked === 'confirmed' ? 'success' : 'info'" size="small">
               {{ row.is_masked === 'confirmed' ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="加密" width="60" align="center">
+        <el-table-column label="加密" min-width="60" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_encrypted === 'confirmed' ? 'warning' : 'info'" size="small">
               {{ row.is_encrypted === 'confirmed' ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="risk_suggestion" label="安全建议" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="category_path" label="分类路径" min-width="120" show-overflow-tooltip />
+        <el-table-column prop="asset_name" label="资产" min-width="80" show-overflow-tooltip />
+        <el-table-column prop="database_name" label="数据库" min-width="80" show-overflow-tooltip />
+        <el-table-column prop="table_name" label="表" min-width="80" show-overflow-tooltip />
+        <el-table-column prop="field_comment" label="字段注释" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="risk_suggestion" label="安全建议" min-width="100" show-overflow-tooltip />
       </el-table>
 
       <div class="pagination-wrapper" v-if="total > 0">
@@ -231,7 +277,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDirectory } from '@/api/overview'
 import { getLevels } from '@/api/classification'
@@ -249,7 +295,12 @@ async function loadLevelColors() {
         levelColorMap[l.level_code] = l.color
       }
     }
-  } catch { /* ignore */ }
+  } catch {
+    // fallback 颜色：L1绿色、L2橙色、L3红色
+    levelColorMap['L1'] = '#52C41A'
+    levelColorMap['L2'] = '#FF7A00'
+    levelColorMap['L3'] = '#FF4D4F'
+  }
 }
 
 // ===== State =====
@@ -265,16 +316,37 @@ const categoryPathOptions = ref<string[]>([])
 const assetOptions = ref<string[]>([])
 const dataTypeOptions = ref<string[]>([])
 const levelOptions = ref<string[]>([])
+const databaseOptions = ref<string[]>([])
+const tableOptions = ref<string[]>([])
+const databasesByAsset = ref<Record<string, string[]>>({})
+const tablesByDatabase = ref<Record<string, string[]>>({})
+
+// 联动筛选计算属性
+const filteredDatabaseOptions = computed(() => {
+  if (filterForm.asset && databasesByAsset.value[filterForm.asset]) {
+    return databasesByAsset.value[filterForm.asset]
+  }
+  return databaseOptions.value
+})
+
+const filteredTableOptions = computed(() => {
+  if (filterForm.database_name && tablesByDatabase.value[filterForm.database_name]) {
+    return tablesByDatabase.value[filterForm.database_name]
+  }
+  return tableOptions.value
+})
 
 const filterForm = reactive({
   keyword: '',
-  data_type: '',
-  level: '',
-  category_path: '',
   asset: '',
+  database_name: '',
+  table_name: '',
+  data_type_status: '',
+  level: '',
   is_sensitive: null as number | null,
   is_masked: '',
   is_encrypted: '',
+  category_path: '',
 })
 
 // ===== Helpers =====
@@ -305,13 +377,15 @@ function buildParams(): Record<string, any> {
     page_size: pageSize.value,
   }
   if (filterForm.keyword.trim()) params.keyword = filterForm.keyword.trim()
-  if (filterForm.data_type) params.data_type = filterForm.data_type
+  if (filterForm.database_name) params.database = filterForm.database_name
+  if (filterForm.table_name) params.table_name = filterForm.table_name
+  if (filterForm.data_type_status) params.data_type_status = filterForm.data_type_status
   if (filterForm.level) params.level = filterForm.level
-  if (filterForm.category_path) params.category_path = filterForm.category_path
-  if (filterForm.asset) params.asset = filterForm.asset
   if (filterForm.is_sensitive !== null) params.is_sensitive = filterForm.is_sensitive
   if (filterForm.is_masked) params.is_masked = filterForm.is_masked
   if (filterForm.is_encrypted) params.is_encrypted = filterForm.is_encrypted
+  if (filterForm.category_path) params.category_path = filterForm.category_path
+  if (filterForm.asset) params.asset = filterForm.asset
   return params
 }
 
@@ -332,7 +406,10 @@ async function fetchDirectory(params: Record<string, any>) {
 
 async function fetchFilterOptions() {
   try {
-    const res: any = await client.get('/directory/options')
+    const params: Record<string, any> = {}
+    if (filterForm.asset) params.asset = filterForm.asset
+    if (filterForm.database_name) params.database = filterForm.database_name
+    const res: any = await client.get('/directory/options', { params })
     const d = res.data || {}
     if (d.category_paths) {
       categoryPathOptions.value = d.category_paths
@@ -346,9 +423,36 @@ async function fetchFilterOptions() {
     if (d.level_options) {
       levelOptions.value = d.level_options
     }
+    if (d.database_options) {
+      databaseOptions.value = d.database_options
+    }
+    if (d.table_options) {
+      tableOptions.value = d.table_options
+    }
+    if (d.databases_by_asset) {
+      databasesByAsset.value = d.databases_by_asset
+    }
+    if (d.tables_by_database) {
+      tablesByDatabase.value = d.tables_by_database
+    }
   } catch {
     // silently fail
   }
+}
+
+// ===== Cascading Select =====
+function onAssetChange() {
+  // 选择资产后，清空数据库和表的选中值，重新加载联动数据
+  filterForm.database_name = ''
+  filterForm.table_name = ''
+  fetchFilterOptions()
+  handleSearch()
+}
+
+function onDatabaseChange() {
+  // 选择数据库后，清空表的选中值
+  filterForm.table_name = ''
+  handleSearch()
 }
 
 // ===== Search =====
@@ -359,14 +463,17 @@ function handleSearch() {
 
 function handleReset() {
   filterForm.keyword = ''
-  filterForm.data_type = ''
-  filterForm.level = ''
-  filterForm.category_path = ''
   filterForm.asset = ''
+  filterForm.database_name = ''
+  filterForm.table_name = ''
+  filterForm.data_type_status = ''
+  filterForm.level = ''
   filterForm.is_sensitive = null
   filterForm.is_masked = ''
   filterForm.is_encrypted = ''
+  filterForm.category_path = ''
   currentPage.value = 1
+  fetchFilterOptions()
   handleSearch()
 }
 

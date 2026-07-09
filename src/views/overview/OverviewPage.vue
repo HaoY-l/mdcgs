@@ -64,6 +64,22 @@ import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
 import { getStatistics, getTrend, getTypeRatio, getLevelRatio, getCategoryRatio, invalidateOverviewCache } from '@/api/overview'
 import { getSettings, getBasicSettings } from '@/api/system'
+import { getLevels } from '@/api/classification'
+
+// 级别颜色映射（动态加载）
+const levelColorMap = ref<Record<string, string>>({})
+
+async function loadLevelColors() {
+  try {
+    const res = await getLevels()
+    const data = res.data || []
+    const map: Record<string, string> = {}
+    for (const l of data) {
+      map[l.level_code] = l.color
+    }
+    levelColorMap.value = map
+  } catch { /* ignore */ }
+}
 
 const pageLoading = ref(false)
 const refreshing = ref(false)
@@ -162,10 +178,10 @@ async function fetchTypeRatio() {
     }
     typeRatioChart?.setOption({
       tooltip: { trigger: 'item', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, formatter: '{b}: {c} ({d}%)' },
-      legend: { orient: 'vertical', right: 8, top: 'center', textStyle: { fontSize: 12, color: '#6b7280' }, itemWidth: 10, itemHeight: 10 },
       series: [{
-        type: 'pie', radius: ['42%', '68%'], center: ['40%', '50%'],
-        label: { show: false }, emphasis: { label: { show: true, fontSize: 13 } },
+        type: 'pie', radius: ['42%', '68%'], center: ['50%', '50%'],
+        label: { show: true, formatter: '{b}\n{d}%', fontSize: 12, color: '#374151' },
+        emphasis: { label: { show: true, fontSize: 13 } },
         itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
         data: data.map((d: any, i: number) => ({ name: d.name, value: d.count, itemStyle: { color: chartColors[i % chartColors.length] } }))
       }]
@@ -183,15 +199,15 @@ async function fetchLevelRatio() {
     }
     levelRatioChart?.setOption({
       tooltip: { trigger: 'item', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, formatter: '{b}: {c} ({d}%)' },
-      legend: { orient: 'vertical', right: 8, top: 'center', textStyle: { fontSize: 12, color: '#6b7280' }, itemWidth: 10, itemHeight: 10 },
       series: [{
-        type: 'pie', radius: ['42%', '68%'], center: ['40%', '50%'],
-        label: { show: false }, emphasis: { label: { show: true, fontSize: 13 } },
+        type: 'pie', radius: ['42%', '68%'], center: ['50%', '50%'],
+        label: { show: true, formatter: '{b}\n{d}%', fontSize: 12, color: '#374151' },
+        emphasis: { label: { show: true, fontSize: 13 } },
         itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
         data: data.map((d: any, i: number) => ({
           name: d.level_code || '',
           value: d.count,
-          itemStyle: { color: d.level_code === 'L1' ? '#ef4444' : d.level_code === 'L2' ? '#f59e0b' : d.level_code === 'L3' ? '#f97316' : d.level_code === 'L4' ? '#10b981' : d.level_code === 'L5' ? '#06b6d4' : chartColors[i % chartColors.length] }
+          itemStyle: { color: levelColorMap.value[d.level_code] || chartColors[i % chartColors.length] }
         }))
       }]
     }, true)
@@ -268,6 +284,7 @@ async function loadRefreshInterval() {
 }
 
 onMounted(async () => {
+  await loadLevelColors()
   await loadAll()
   await loadRefreshInterval()
   window.addEventListener('resize', handleResize)

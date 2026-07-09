@@ -1,5 +1,26 @@
 import client from './client'
 
+// ===== 数量分级 =====
+export async function getVolumeGradeRecords() {
+  return client.get('/volume-grade/records')
+}
+
+export async function saveVolumeGradeRecord(data: Record<string, any>) {
+  return client.post('/volume-grade/records', data)
+}
+
+export async function getVolumeGradeSchedule() {
+  return client.get('/volume-grade/schedule')
+}
+
+export async function saveVolumeGradeSchedule(data: Record<string, any>) {
+  return client.post('/volume-grade/schedule', data)
+}
+
+export async function executeVolumeGradeEvaluation() {
+  return client.post('/volume-grade/evaluate')
+}
+
 // ===== 概览统计 =====
 export async function getStatistics(params: Record<string, any> = {}) {
   return client.get('/overview/statistics', { params })

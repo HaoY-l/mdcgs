@@ -32,7 +32,9 @@
         </el-table-column>
         <el-table-column label="状态" width="100">
           <template #default="{ row }">
-            <el-tag :type="taskStatusType(row.status)" size="small">{{ taskStatusLabel(row.status) }}</el-tag>
+            <el-tooltip :content="row.error_message || ''" placement="top" :disabled="!row.error_message">
+              <el-tag :type="taskStatusType(row.status)" size="small">{{ taskStatusLabel(row.status) }}</el-tag>
+            </el-tooltip>
           </template>
         </el-table-column>
         <el-table-column prop="progress" label="进度" width="160">
@@ -62,7 +64,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTasks, deleteTask, startTask, stopTask } from '@/api/task'
@@ -76,6 +78,12 @@ const pageSize = ref(20)
 const searchKeyword = ref('')
 const filterStatus = ref('')
 const filterExecuteType = ref('')
+
+// 自动刷新定时器
+let refreshTimer: number | null = null
+
+// 是否有正在运行的任务
+const hasRunningTasks = computed(() => tasks.value.some(t => t.status === 'running' || t.status === 'processing'))
 
 const taskStatusMap: Record<string, { label: string; type: string }> = {
   pending: { label: '待处理', type: 'warning' },
@@ -105,6 +113,28 @@ async function fetchTasks() {
   } finally { loading.value = false }
 }
 
+// 自动刷新：页面可见时每5秒轮询一次，有运行中任务则自动刷新列表
+function startAutoRefresh() {
+  if (refreshTimer) return
+  refreshTimer = window.setInterval(() => {
+    if (tasks.value.some(t => t.status === 'running' || t.status === 'processing')) {
+      fetchTasks()
+    }
+  }, 5000)
+}
+
+onMounted(() => {
+  fetchTasks()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+})
+
 function handleKeywordSearch() { currentPage.value = 1; fetchTasks() }
 function handleStatusFilter() { currentPage.value = 1; fetchTasks() }
 function handleExecuteTypeFilter() { currentPage.value = 1; fetchTasks() }
@@ -118,10 +148,18 @@ function handleEditTask(row: any) { router.push(`/classification/tasks/${row.id}
 async function handleStartTask(row: any) {
   try {
     await ElMessageBox.confirm(`确定启动任务 "${row.name}" 吗？`, '确认', { type: 'info' })
-    await startTask(row.id)
-    ElMessage.success('任务已启动')
+    const res = await startTask(row.id)
+    if (res.data?.message) {
+      ElMessage.warning(res.data.message)
+    } else {
+      ElMessage.success('任务已启动')
+    }
     fetchTasks()
-  } catch {}
+  } catch (err: any) {
+    if (err !== 'cancel') {
+      ElMessage.error(err?.response?.data?.message || err?.message || '启动任务失败')
+    }
+  }
 }
 
 async function handleStopTask(row: any) {

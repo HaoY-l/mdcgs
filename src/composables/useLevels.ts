@@ -54,9 +54,9 @@ export async function loadLevels() {
     // 失败时使用默认颜色
     levelColorMap.value = {
       'L0': '#909399',
-      'L1': '#FF4D4F',
+      'L1': '#52C41A',
       'L2': '#FF7A00',
-      'L3': '#FFC000',
+      'L3': '#FF4D4F',
       'L4': '#92D050',
       'L5': '#00B0F0',
       'L6': '#A6A6A6',

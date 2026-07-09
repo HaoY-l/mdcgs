@@ -111,7 +111,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import client from '@/api/client'
@@ -129,6 +129,9 @@ const showDialog = ref(false)
 
 const maskingRules = ref<any[]>([])
 const encryptionTypes = ref<any[]>([])
+
+// 自动刷新定时器
+let refreshTimer: number | null = null
 
 const form = reactive({ name: '', execute_type: 'manual', cron_expression: '', ip_range: '', port_range: '', masking_rule_id: null, encryption_type_id: null })
 
@@ -236,7 +239,29 @@ async function loadEncryptionTypes() {
   } catch { encryptionTypes.value = [] }
 }
 
-onMounted(() => { fetchTasks(); loadMaskingRules(); loadEncryptionTypes() })
+onMounted(() => {
+  fetchTasks()
+  loadMaskingRules()
+  loadEncryptionTypes()
+  startAutoRefresh()
+})
+
+onUnmounted(() => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+})
+
+// 自动刷新：每5秒轮询一次，有运行中任务才刷新
+function startAutoRefresh() {
+  if (refreshTimer) return
+  refreshTimer = window.setInterval(() => {
+    if (tasks.value.some(t => t.status === 'running')) {
+      fetchTasks()
+    }
+  }, 5000)
+}
 </script>
 
 <style scoped>

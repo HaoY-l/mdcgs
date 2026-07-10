@@ -68,6 +68,19 @@ export async function getUnmatchedFeatures(params: Record<string, any> = {}) {
   return client.get('/overview/unmatched-features', params)
 }
 
+// ===== 敏感表盘 =====
+export async function getSensitiveTables(params: Record<string, any> = {}) {
+  return client.get('/overview/sensitive-tables', { params })
+}
+
+export async function getSensitiveTableRules() {
+  return client.get('/overview/sensitive-tables/rules')
+}
+
+export async function saveSensitiveTableRules(data: Record<string, any>[]) {
+  return client.post('/overview/sensitive-tables/rules', data)
+}
+
 // ===== 刷新缓存 =====
 export async function invalidateOverviewCache() {
   return client.post('/overview/cache/invalidate')

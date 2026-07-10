@@ -46,6 +46,10 @@
             style="width: 200px"
           />
         </div>
+        <div class="info-item" v-if="taskDetail.current_step">
+          <span class="info-label">当前步骤</span>
+          <span class="info-value">{{ taskDetail.current_step }}</span>
+        </div>
       </div>
       <div class="info-stats">
         <div class="stat-item">
@@ -1652,6 +1656,7 @@ function startProgressPolling() {
         const res = await getTaskProgress(taskId)
         if (res.data) {
           taskDetail.value.progress = res.data.progress ?? taskDetail.value.progress
+          taskDetail.value.current_step = res.data.current_step ?? taskDetail.value.current_step
           taskStats.total_tables = res.data.total_tables ?? taskStats.total_tables
           taskStats.processed_tables = res.data.processed_tables ?? taskStats.processed_tables
           taskStats.sensitive_tables = res.data.sensitive_tables ?? taskStats.sensitive_tables

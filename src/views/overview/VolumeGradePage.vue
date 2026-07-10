@@ -450,9 +450,10 @@ watch(showRulesDrawer, async (val) => {
       const res = await getTemplates({ is_active: 1 })
       const list = res.data?.items || res.data || []
       templateOptions.value = list
-      // 默认选中第一个
+      // 默认选中第一个有分类数据的模板（而非列表第一个）
       if (!selectedTemplateId.value && list.length > 0) {
-        selectedTemplateId.value = list[0].id
+        const firstWithCategories = list.find((t: any) => (t.category_count || 0) > 0)
+        selectedTemplateId.value = firstWithCategories?.id || list[0].id
       }
     } catch { /* ignore */ }
   }

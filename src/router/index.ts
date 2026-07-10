@@ -37,6 +37,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '数量分级', icon: 'TrendCharts' },
       },
       {
+        path: 'overview/sensitive-tables',
+        name: 'SensitiveTableDashboard',
+        component: () => import('@/views/overview/SensitiveTableDashboard.vue'),
+        meta: { title: '敏感表盘', icon: 'Collection' },
+      },
+      {
         path: 'assets',
         name: 'AssetList',
         component: () => import('@/views/assets/AssetListPage.vue'),

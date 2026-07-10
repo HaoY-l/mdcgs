@@ -21,6 +21,7 @@ const ALL_MENU_ITEMS: MenuItem[] = [
       { path: '/overview', title: '数据概览', icon: 'DataAnalysis', permission: 'overview_view' },
       { path: '/overview/directory', title: '数据目录', icon: 'List', permission: 'overview_view' },
       { path: '/overview/volume-grade', title: '数量分级', icon: 'TrendCharts', permission: 'overview_view' },
+      { path: '/overview/sensitive-tables', title: '敏感表盘', icon: 'Collection', permission: 'overview_view' },
     ],
   },
   {

@@ -513,19 +513,17 @@ function renderCharts(chartData: any) {
     }, true)
   }
 
-  // 各级别敏感表数量（堆叠柱状图）
+  // 各级别敏感表数量（柱状图 - 只展示敏感表数量）
   if (levelSensitivityChartRef.value) {
     if (!levelSensitivityChart) levelSensitivityChart = echarts.init(levelSensitivityChartRef.value)
     const detail = chartData.level_sensitivity_detail || []
     levelSensitivityChart.setOption({
-      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
-      legend: { data: ['非敏感表', '敏感表'], bottom: 0, icon: 'roundRect', itemWidth: 10, itemHeight: 10 },
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, formatter: '{b}: {c} 表' },
       grid: { left: 50, right: 16, top: 16, bottom: 40 },
       xAxis: { type: 'category', data: detail.map((d: any) => d.level_code), axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { fontSize: 12, color: '#6b7280' } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
       series: [
-        { name: '非敏感表', type: 'bar', stack: 'total', barWidth: 36, itemStyle: { color: '#d1d5db' }, data: detail.map((d: any) => d.non_sensitive || 0) },
-        { name: '敏感表', type: 'bar', stack: 'total', barWidth: 36, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#ef4444' }, { offset: 1, color: '#f87171' }]), borderRadius: [4, 4, 0, 0] }, data: detail.map((d: any) => d.sensitive || 0) },
+        { name: '敏感表数量', type: 'bar', barWidth: 36, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#ef4444' }, { offset: 1, color: '#f87171' }]), borderRadius: [4, 4, 0, 0] }, data: detail.map((d: any) => d.sensitive || 0) },
       ],
     }, true)
   }

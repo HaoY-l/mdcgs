@@ -136,6 +136,12 @@ export async function compareHistory(taskId: number, historyId1: number, history
   })
 }
 
+// ===== AI 分类 =====
+
+export async function aiClassify(taskId: number) {
+  return client.post(`/classification-tasks/${taskId}/ai-classify`)
+}
+
 // ===== 样本数据 =====
 
 export async function getColumnSample(taskId: number, columnId: number) {

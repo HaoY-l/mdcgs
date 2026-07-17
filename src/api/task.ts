@@ -22,8 +22,8 @@ export async function deleteTask(id: number) {
   return client.delete(`/classification-tasks/${id}`)
 }
 
-export async function startTask(id: number) {
-  return client.post(`/classification-tasks/${id}/start`)
+export async function startTask(id: number): Promise<Record<string, any>> {
+  return client.post(`/classification-tasks/${id}/start`) as any
 }
 
 export async function stopTask(id: number) {

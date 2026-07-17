@@ -215,13 +215,36 @@
                   <el-input v-model="configForm.config_name" placeholder="输入配置名称" />
                 </el-form-item>
                 <el-row :gutter="16">
-                  <el-col :span="12">
-                    <el-form-item label="模型名称" required>
-                      <el-input v-model="configForm.model_name" placeholder="如 gpt-4o / claude-sonnet-4" />
+                  <el-col :span="8">
+                    <el-form-item label="Provider">
+                      <template #label>
+                        <span>Provider</span>
+                        <el-tooltip content="模型提供商前缀，参考：openai / deepseek / claude / anthropic / gemini 等。API代理（如 OneAPI）通常填 openai" placement="top">
+                          <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
+                      <el-input v-model="configForm.provider" placeholder="如 openai" />
                     </el-form-item>
                   </el-col>
-                  <el-col :span="12">
+                  <el-col :span="8">
+                    <el-form-item label="模型名称" required>
+                      <template #label>
+                        <span>模型名称</span>
+                        <el-tooltip content="在 AI 服务商后台或代理平台（如 OneAPI）中配置的模型名称，如 gpt-4o / deepseek-chat 等" placement="top">
+                          <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
+                      <el-input v-model="configForm.model_name" placeholder="如 gpt-4o / deepseek-chat" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
                     <el-form-item label="API地址">
+                      <template #label>
+                        <span>API地址</span>
+                        <el-tooltip content="AI服务商的 API 地址。有代理时填代理地址（如 https://your-proxy.com/v1/chat/completions），直连时填服务商地址，留空用 LiteLLM 默认" placement="top">
+                          <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
                       <el-input v-model="configForm.api_base" placeholder="留空使用LiteLLM默认" />
                     </el-form-item>
                   </el-col>
@@ -342,6 +365,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import {
   getSettings, updateSettings, uploadLogo,
   getLdapSettings, updateLdapSettings, testLdapConnection,
@@ -632,6 +656,7 @@ const testingConfig = ref(false)
 const defaultConfigForm = {
   config_name: '',
   model_name: '',
+  provider: '',
   api_base: '',
   api_key: '',
   max_tokens: 4096,
@@ -691,6 +716,7 @@ function handleEditConfig(row: any) {
   editingConfigId.value = row.id
   configForm.config_name = row.config_name
   configForm.model_name = row.model_name
+  configForm.provider = row.provider || ''
   configForm.api_base = row.api_base || ''
   configForm.api_key = ''
   configForm.max_tokens = row.max_tokens || 4096

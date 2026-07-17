@@ -121,6 +121,40 @@ mv .env-example .env
 # 启动所有服务（前端 + 后端 + MySQL + Redis + Celery）
 docker-compose up -d
 ```
+> **注意**：请正确配置env文件，需要自行启动mysql和redis
+> 给出容器快速启动命令：
+```bash
+# 起mysql容器，账号root，密码123456
+docker run -d --name mysql -p 3306:3306  -e MYSQL_ROOT_PASSWORD=123456 -e MYSQL_ROOT_HOST=%  mysql 
+# 创建库mdcgs
+docker exec -it mysql mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS mdcgs DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# 起redis容器，密码123456
+docker run -d --name redis -p 6379:6379  --restart always redis:7-alpine redis-server --requirepass "123456" --appendonly yes
+```
+> .env配置示例
+```bash
+# ========== MySQL（必填）==========
+DB_HOST=宿主机IP，不要127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=123456
+DB_NAME=mdcgs
+DATABASE_URL=mysql+pymysql://root:123456.com@宿主机IP:3306/mdcgs
+
+
+# ========== Redis（必填）==========
+REDIS_URL=redis://宿主机IP:6379/0
+REDIS_PASSWORD=123456
+CELERY_BROKER_URL=redis://宿主机IP:6379/1
+CELERY_RESULT_BACKEND=redis://宿主机IP:6379/2
+
+# ========== 安全（必填，建议随机生成）==========
+SECRET_KEY=your-random-secret-key-here-change-me
+ENCRYPT_KEY=your-32-byte-encryption-key-here
+```
+
+
 
 服务地址：
 - 前端：http://localhost:7785

@@ -3,6 +3,12 @@
     <template #header-actions>
       <el-input v-model="searchKeyword" placeholder="搜索资产名称" clearable size="small"
         style="width: 200px; margin-right: 12px" @clear="fetchAssets" @keyup.enter="fetchAssets" />
+      <el-select v-model="filterBusinessDept" placeholder="业务部门" clearable size="small" style="width: 140px" @change="fetchAssets">
+        <el-option v-for="d in businessDeptOptions" :key="d" :label="d" :value="d" />
+      </el-select>
+      <el-select v-model="filterAppSystem" placeholder="应用系统" clearable size="small" style="width: 140px" @change="fetchAssets">
+        <el-option v-for="a in appSystemOptions" :key="a" :label="a" :value="a" />
+      </el-select>
       <el-button type="primary" size="small" @click="handleAdd">新增资产</el-button>
       <el-button size="small" @click="fetchAssets">刷新</el-button>
     </template>
@@ -76,6 +82,18 @@
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="业务部门">
+              <el-input v-model="form.business_dept" placeholder="如：研发部、财务部" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="应用系统">
+              <el-input v-model="form.app_system" placeholder="如：ERP、CRM" />
+            </el-form-item>
+          </el-col>
+        </el-row>
         <el-form-item>
           <el-button size="small" @click="testConnectionHandler">测试连接</el-button>
         </el-form-item>
@@ -97,6 +115,7 @@ import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLab
 import PageShell from '@/components/common/PageShell.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
+import client from '@/api/client'
 
 const router = useRouter()
 const route = useRoute()
@@ -109,12 +128,17 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const searchKeyword = ref('')
+const filterBusinessDept = ref('')
+const filterAppSystem = ref('')
+const businessDeptOptions = ref<string[]>([])
+const appSystemOptions = ref<string[]>([])
 const showDialog = ref(false)
 const isEdit = ref(false)
 const editId = ref<number | null>(null)
 const form = reactive({
   name: '', asset_type: 'mysql', host: '127.0.0.1', port: 3306,
   database_name: '', username: 'root', password: '',
+  business_dept: '', app_system: '',
 })
 
 // 资产类型切换时自动更新默认端口和用户名
@@ -130,10 +154,28 @@ async function fetchAssets() {
   try {
     const params: any = { page: currentPage.value, page_size: pageSize.value }
     if (searchKeyword.value.trim()) params.keyword = searchKeyword.value.trim()
+    if (filterBusinessDept.value) params.business_dept = filterBusinessDept.value
+    if (filterAppSystem.value) params.app_system = filterAppSystem.value
     const res = await getAssets(params)
     assets.value = res.data?.items || []
     total.value = res.data?.total || 0
   } finally { loading.value = false }
+}
+
+// 从后端获取业务部门和应用系统选项（用于筛选下拉框）
+async function fetchFilterOptions() {
+  try {
+    const res = await getAssets({ page: 1, page_size: 100 })
+    const items = res.data?.items || []
+    const deptSet = new Set<string>()
+    const appSet = new Set<string>()
+    for (const a of items) {
+      if (a.business_dept) deptSet.add(a.business_dept)
+      if (a.app_system) appSet.add(a.app_system)
+    }
+    businessDeptOptions.value = Array.from(deptSet).sort()
+    appSystemOptions.value = Array.from(appSet).sort()
+  } catch { /* 忽略 */ }
 }
 
 function handlePageChange({ page, pageSize: size }: { page: number; pageSize: number }) {
@@ -145,6 +187,7 @@ function handlePageChange({ page, pageSize: size }: { page: number; pageSize: nu
 function resetForm() {
   form.name = ''; form.asset_type = 'mysql'; form.host = '127.0.0.1'; form.port = 3306
   form.database_name = ''; form.username = 'root'; form.password = ''
+  form.business_dept = ''; form.app_system = ''
   isEdit.value = false; editId.value = null
   // 重置时同步默认端口和用户名
   form.port = getDefaultPort(form.asset_type)
@@ -160,6 +203,8 @@ function handleEdit(row: any) {
   form.name = row.name; form.asset_type = row.asset_type; form.host = row.host
   form.port = row.port; form.database_name = row.database_name || ''
   form.username = row.username || ''; form.password = ''
+  form.business_dept = row.business_dept || ''
+  form.app_system = row.app_system || ''
   showDialog.value = true
 }
 
@@ -246,6 +291,7 @@ function getAssetActions(row: any) {
 
 onMounted(() => {
   fetchAssets()
+  fetchFilterOptions()
   // 来自扫描结果页的快速创建
   const quickHost = route.query.quick_host as string
   const quickPort = route.query.quick_port as string

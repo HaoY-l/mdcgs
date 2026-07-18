@@ -101,6 +101,18 @@
             <el-option v-for="e in encryptionTypes" :key="e.id" :label="e.name" :value="e.id" />
           </el-select>
         </el-form-item>
+        <el-row :gutter="16">
+          <el-col :span="12">
+            <el-form-item label="业务部门">
+              <el-input v-model="form.business_dept" placeholder="如：研发部、财务部" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="应用系统">
+              <el-input v-model="form.app_system" placeholder="如：ERP、CRM" />
+            </el-form-item>
+          </el-col>
+        </el-row>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
@@ -133,7 +145,7 @@ const encryptionTypes = ref<any[]>([])
 // 自动刷新定时器
 let refreshTimer: number | null = null
 
-const form = reactive({ name: '', execute_type: 'manual', cron_expression: '', ip_range: '', port_range: '', masking_rule_id: null, encryption_type_id: null })
+const form = reactive({ name: '', execute_type: 'manual', cron_expression: '', ip_range: '', port_range: '', masking_rule_id: null, encryption_type_id: null, business_dept: '', app_system: '' })
 
 // 查看结果
 const showResultDialog = ref(false)
@@ -164,7 +176,7 @@ async function fetchTasks() {
 }
 
 function handleAdd() {
-  form.name = ''; form.execute_type = 'manual'; form.cron_expression = ''; form.ip_range = ''; form.port_range = ''; form.masking_rule_id = null; form.encryption_type_id = null
+  form.name = ''; form.execute_type = 'manual'; form.cron_expression = ''; form.ip_range = ''; form.port_range = ''; form.masking_rule_id = null; form.encryption_type_id = null; form.business_dept = ''; form.app_system = ''
   showDialog.value = true
 }
 

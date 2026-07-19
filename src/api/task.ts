@@ -22,8 +22,8 @@ export async function deleteTask(id: number) {
   return client.delete(`/classification-tasks/${id}`)
 }
 
-export async function startTask(id: number) {
-  return client.post(`/classification-tasks/${id}/start`)
+export async function startTask(id: number): Promise<Record<string, any>> {
+  return client.post(`/classification-tasks/${id}/start`) as any
 }
 
 export async function stopTask(id: number) {
@@ -134,6 +134,12 @@ export async function compareHistory(taskId: number, historyId1: number, history
   return client.get(`/classification-tasks/${taskId}/history/compare`, {
     params: { id1: historyId1, id2: historyId2 },
   })
+}
+
+// ===== AI 分类 =====
+
+export async function aiClassify(taskId: number) {
+  return client.post(`/classification-tasks/${taskId}/ai-classify`)
 }
 
 // ===== 样本数据 =====

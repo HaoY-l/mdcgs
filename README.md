@@ -1,6 +1,6 @@
 # MDCGS - 数据分类分级系统
 
-> 企业级数据资产分类分级管理平台，自动化识别敏感数据、精准定级、合规溯源，让数据治理从"盲抓"变为"可控"。
+> 企业级数据资产分类分级管理平台，自动化（规则+AI模型）识别敏感数据、精准定级、合规溯源，让数据治理从"盲抓"变为"可控"。
 
 > 在线演示地址：[https://mdcgs.hyinfo.cc/](https://mdcgs.hyinfo.cc/)   
 > 账号密码：admin/admin123
@@ -10,7 +10,7 @@
 
 **数据已是企业核心资产，但也是最大风险敞口。**
 
-《数据安全法》《个人信息保护法》《网络安全法》连续落地，监管明确要求企业**"对数据实行分类分级保护"**。2023 年以来，金融、医疗、政务、交通等行业的监管处罚案例中，超过 60% 涉及**数据分类不清、分级不当或敏感数据泄露**。
+《数据安全法》《个人信息保护法》《网络安全法》连续落地，**监管明确要求企业"对数据实行分类分级保护"**。2023 年以来，金融、医疗、政务、交通等行业的监管处罚案例中，超过 60% 涉及**数据分类不清、分级不当或敏感数据泄露**。
 
 企业面临的现实困境：
 
@@ -20,8 +20,6 @@
 - **权限控制无依据** — 谁能查、谁能导、谁能改，没有和数据级别挂钩的决策依据
 - **数据流转不可追溯** — 某个敏感字段被谁在什么时间访问过，审计查不到
 
-MDCGS 正是为解决这些问题而生。
-
 ---
 
 ## 💡 核心能力
@@ -29,7 +27,7 @@ MDCGS 正是为解决这些问题而生。
 | 能力 | 说明 |
 |------|------|
 | **数据资产自动发现** | 支持主流数据库（MySQL、PostgreSQL、Oracle、Sql Server等）的表结构扫描，自动发现数据资产，告别手工台账 |
-| **字段级智能分类** | 基于规则引擎 + 正则匹配，自动识别姓名、手机号、身份证、银行卡、邮箱等敏感字段 |
+| **三重维度智能分类** | 基于规则引擎 + 正则匹配 + AI模型，自动识别字段名、注释、字段内容中的姓名、手机号、身份证、银行卡、邮箱等敏感字段 |
 | **多级分类分级体系** | 内置分类+分级的可配置模板，支持按业务定制 |
 | **批量任务执行** | 支持对全库成千上万张表批量发起分类任务，异步执行、进度实时可见 |
 | **一键合规报告** | 自动生成符合监管格式的数据资产报告、可视化图表，导出 PDF/Excel |
@@ -121,6 +119,59 @@ mv .env-example .env
 # 启动所有服务（前端 + 后端 + MySQL + Redis + Celery）
 docker-compose up -d
 ```
+> **注意**：请正确配置env文件，需要自行启动mysql和redis
+> 给出容器快速启动命令：
+```bash
+# 起mysql容器，账号root，密码123456
+docker run -d --name mysql -p 3306:3306  -e MYSQL_ROOT_PASSWORD=123456 -e MYSQL_ROOT_HOST=%  mysql 
+# 创建库mdcgs
+docker exec -it mysql mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS mdcgs DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# 起redis容器，密码123456
+docker run -d --name redis -p 6379:6379  --restart always redis:7-alpine redis-server --requirepass "123456" --appendonly yes
+```
+> .env配置示例
+```bash
+# ========== MySQL（必填）==========
+DB_HOST=宿主机IP，不要127.0.0.1
+DB_PORT=3306
+DB_USER=root
+DB_PASSWORD=123456
+DB_NAME=mdcgs
+DATABASE_URL=mysql+pymysql://root:123456.com@宿主机IP:3306/mdcgs
+
+
+# ========== Redis（必填）==========
+REDIS_URL=redis://宿主机IP:6379/0
+REDIS_PASSWORD=123456
+CELERY_BROKER_URL=redis://Redis密码@宿主机IP:6379/1
+CELERY_RESULT_BACKEND=redis://Redis密码@宿主机IP:6379/2
+
+# ========== 安全（必填，建议随机生成）==========
+SECRET_KEY=your-random-secret-key-here-change-me
+ENCRYPT_KEY=your-32-byte-encryption-key-here
+```
+
+> 如果镜像pull不下来，请尝试替换以下docker源尝试，或者科学上网
+```bash
+sudo mkdir -p /etc/docker && sudo tee /etc/docker/daemon.json <<EOF
+{
+  "registry-mirrors": [
+    "https://docker.xuanyuan.me",
+    "https://docker.1ms.run",
+    "https://docker.m.daocloud.io",
+    "https://docker.1panel.live",
+    "https://docker.hlmirror.com",
+    "https://hub.rat.dev",
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://docker-0.unsee.tech"
+  ]
+}
+EOF
+
+sudo systemctl daemon-reload && sudo systemctl restart docker
+```
+
 
 服务地址：
 - 前端：http://localhost:7785

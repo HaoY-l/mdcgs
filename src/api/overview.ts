@@ -85,3 +85,8 @@ export async function saveSensitiveTableRules(data: Record<string, any>[]) {
 export async function invalidateOverviewCache() {
   return client.post('/overview/cache/invalidate')
 }
+
+// ===== 级别分布（按业务部门/应用系统分组） =====
+export async function getLevelDistribution(params: Record<string, any> = {}) {
+  return client.get('/overview/level-distribution', { params })
+}

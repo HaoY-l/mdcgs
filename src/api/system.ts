@@ -4,8 +4,8 @@ import client from './client'
 // 系统设置
 // ============================================================
 
-export async function getSettings() {
-  return client.get('/settings')
+export async function getSettings(params?: Record<string, any>) {
+  return client.get('/settings', { params })
 }
 
 export async function getBasicSettings() {
@@ -315,4 +315,69 @@ export async function activateLicense(license_key: string) {
 
 export async function deactivateLicense() {
   return client.post('/license/deactivate')
+}
+
+// ============================================================
+// AI 模型配置
+// ============================================================
+
+export async function getAiSettings() {
+  return client.get('/ai-settings')
+}
+
+export async function saveAiSettings(data: Record<string, any>) {
+  return client.put('/ai-settings', data)
+}
+
+export async function getAiModelConfigs() {
+  return client.get('/ai-model-configs')
+}
+
+export async function getAiModelConfig(id: number) {
+  return client.get(`/ai-model-configs/${id}`)
+}
+
+export async function createAiModelConfig(data: Record<string, any>) {
+  return client.post('/ai-model-configs', data)
+}
+
+export async function updateAiModelConfig(id: number, data: Record<string, any>) {
+  return client.put(`/ai-model-configs/${id}`, data)
+}
+
+export async function deleteAiModelConfig(id: number) {
+  return client.delete(`/ai-model-configs/${id}`)
+}
+
+export async function activateAiModelConfig(id: number) {
+  return client.post(`/ai-model-configs/${id}/activate`)
+}
+
+export async function testAiModelConfig(id: number) {
+  return client.post(`/ai-model-configs/${id}/test`)
+}
+
+export async function testAiModelConnection(data: Record<string, any>) {
+  return client.post('/ai-model-configs/test-connection', data)
+}
+
+// ============================================================
+// AI 知识库
+// ============================================================
+
+export async function getAiKnowledge(params?: Record<string, any>) {
+  return client.get('/ai-knowledge', { params })
+}
+
+export async function uploadAiKnowledge(file: File, title?: string) {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (title) formData.append('title', title)
+  return client.post('/ai-knowledge/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export async function deleteAiKnowledge(id: number) {
+  return client.delete(`/ai-knowledge/${id}`)
 }

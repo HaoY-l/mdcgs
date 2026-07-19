@@ -40,17 +40,25 @@
           </div>
           <div ref="levelDistChartRef" class="chart-body" v-loading="chartLoading"></div>
         </div>
-        <div class="chart-card chart-narrow">
-          <div class="chart-header">
-            <span class="chart-title">敏感占比</span>
-          </div>
-          <div ref="sensitiveRatioChartRef" class="chart-body" v-loading="chartLoading"></div>
-        </div>
         <div class="chart-card">
           <div class="chart-header">
             <span class="chart-title">各级别敏感表数量</span>
           </div>
           <div ref="levelSensitivityChartRef" class="chart-body" v-loading="chartLoading"></div>
+        </div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">各系统敏感表数</span>
+          </div>
+          <div ref="systemSensitiveChartRef" class="chart-body" v-loading="chartLoading"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">各部门敏感表数</span>
+          </div>
+          <div ref="deptSensitiveChartRef" class="chart-body" v-loading="chartLoading"></div>
         </div>
       </div>
 
@@ -393,10 +401,12 @@ const levelOptions = computed(() => {
 
 // 图表 refs
 const levelDistChartRef = ref<HTMLElement | null>(null)
-const sensitiveRatioChartRef = ref<HTMLElement | null>(null)
+const deptSensitiveChartRef = ref<HTMLElement | null>(null)
+const systemSensitiveChartRef = ref<HTMLElement | null>(null)
 const levelSensitivityChartRef = ref<HTMLElement | null>(null)
 let levelDistChart: echarts.ECharts | null = null
-let sensitiveRatioChart: echarts.ECharts | null = null
+let deptSensitiveChart: echarts.ECharts | null = null
+let systemSensitiveChart: echarts.ECharts | null = null
 let levelSensitivityChart: echarts.ECharts | null = null
 
 // ===== 辅助函数 =====
@@ -495,21 +505,31 @@ function renderCharts(chartData: any) {
     }, true)
   }
 
-  // 敏感占比（环形图）
-  if (sensitiveRatioChartRef.value) {
-    if (!sensitiveRatioChart) sensitiveRatioChart = echarts.init(sensitiveRatioChartRef.value)
-    const ratio = chartData.sensitivity_ratio || {}
-    sensitiveRatioChart.setOption({
-      tooltip: { trigger: 'item', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, formatter: '{b}: {c} 表 ({d}%)' },
-      series: [{
-        type: 'pie', radius: ['42%', '68%'], center: ['50%', '50%'],
-        label: { show: true, formatter: '{b}\n{d}%', fontSize: 12, color: '#374151' },
-        itemStyle: { borderRadius: 4, borderColor: '#fff', borderWidth: 2 },
-        data: [
-          { name: '敏感表', value: ratio.sensitive || 0, itemStyle: { color: '#ef4444' } },
-          { name: '非敏感表', value: ratio.non_sensitive || 0, itemStyle: { color: '#e5e7eb' } },
-        ],
-      }],
+  // 各部门敏感表数（柱状图）
+  if (deptSensitiveChartRef.value) {
+    if (!deptSensitiveChart) deptSensitiveChart = echarts.init(deptSensitiveChartRef.value)
+    const deptData = chartData.dept_sensitive_counts || []
+    if (!deptData.length) { deptSensitiveChart.setOption({ series: [] }, true); return }
+    deptSensitiveChart.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
+      grid: { left: 50, right: 16, top: 12, bottom: 36 },
+      xAxis: { type: 'category', data: deptData.map((d: any) => d.group), axisLabel: { fontSize: 11, color: '#9ca3af', rotate: deptData.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 64 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
+      series: [{ type: 'bar', barWidth: 28, data: deptData.map((d: any) => ({ value: d.count, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#ef4444' }, { offset: 1, color: '#f87171' }]), borderRadius: [4, 4, 0, 0] } })) }],
+    }, true)
+  }
+
+  // 各系统敏感表数（柱状图）
+  if (systemSensitiveChartRef.value) {
+    if (!systemSensitiveChart) systemSensitiveChart = echarts.init(systemSensitiveChartRef.value)
+    const sysData = chartData.system_sensitive_counts || []
+    if (!sysData.length) { systemSensitiveChart.setOption({ series: [] }, true); return }
+    systemSensitiveChart.setOption({
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' }, backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
+      grid: { left: 50, right: 16, top: 12, bottom: 36 },
+      xAxis: { type: 'category', data: sysData.map((d: any) => d.group), axisLabel: { fontSize: 11, color: '#9ca3af', rotate: sysData.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 64 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
+      series: [{ type: 'bar', barWidth: 28, data: sysData.map((d: any) => ({ value: d.count, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: '#f59e0b' }, { offset: 1, color: '#fbbf24' }]), borderRadius: [4, 4, 0, 0] } })) }],
     }, true)
   }
 
@@ -694,7 +714,8 @@ function handleAutoRefreshChange() {
 
 function handleResize() {
   levelDistChart?.resize()
-  sensitiveRatioChart?.resize()
+  deptSensitiveChart?.resize()
+  systemSensitiveChart?.resize()
   levelSensitivityChart?.resize()
 }
 
@@ -719,7 +740,8 @@ onMounted(async () => {
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   levelDistChart?.dispose()
-  sensitiveRatioChart?.dispose()
+  deptSensitiveChart?.dispose()
+  systemSensitiveChart?.dispose()
   levelSensitivityChart?.dispose()
   if (refreshTimer) clearInterval(refreshTimer)
 })
@@ -745,7 +767,7 @@ onBeforeUnmount(() => {
 @media (max-width: 1200px) { .stat-cards { grid-template-columns: repeat(2, 1fr); } }
 
 /* 图表区域 */
-.charts-row { display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 16px; margin-bottom: 16px; }
+.charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
 .chart-card { background: #fff; border: 1px solid #e5e6eb; border-radius: 8px; overflow: hidden; }
 .chart-header { display: flex; align-items: center; justify-content: space-between; padding: 12px 16px; border-bottom: 1px solid #f2f3f5; }
 .chart-title { font-size: 14px; font-weight: 600; color: #1d2129; }

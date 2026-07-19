@@ -1123,14 +1123,14 @@ async function fetchDeptLevelChart() {
     const colors = levelCodes.map((lc: string) => levelColorMap.value[lc] || '#6b7280')
     deptLevelChart?.setOption({
       tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
-      legend: { data: levelCodes, bottom: 0, textStyle: { fontSize: 11, color: '#6b7280' } },
+      legend: { show: false },
       grid: { left: 50, right: 16, top: 12, bottom: 44 },
       xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 72 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
       series: levelCodes.map((lc: string, i: number) => ({
-        name: lc, type: 'bar', barCategoryGap: '30%',
+        name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
         data: groups.map((g: any) => g[lc] || 0),
-        itemStyle: { color: colors[i], borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: colors[i], borderRadius: [0, 0, 0, 0] },
       })),
     }, true)
   } finally { deptLevelLoading.value = false }
@@ -1151,14 +1151,14 @@ async function fetchSystemLevelChart() {
     const colors = levelCodes.map((lc: string) => levelColorMap.value[lc] || '#6b7280')
     systemLevelChart?.setOption({
       tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
-      legend: { data: levelCodes, bottom: 0, textStyle: { fontSize: 11, color: '#6b7280' } },
+      legend: { show: false },
       grid: { left: 50, right: 16, top: 12, bottom: 44 },
       xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 72 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
       series: levelCodes.map((lc: string, i: number) => ({
-        name: lc, type: 'bar', barCategoryGap: '30%',
+        name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
         data: groups.map((g: any) => g[lc] || 0),
-        itemStyle: { color: colors[i], borderRadius: [4, 4, 0, 0] },
+        itemStyle: { color: colors[i], borderRadius: [0, 0, 0, 0] },
       })),
     }, true)
   } finally { systemLevelLoading.value = false }

@@ -154,6 +154,25 @@ SECRET_KEY=your-random-secret-key-here-change-me
 ENCRYPT_KEY=your-32-byte-encryption-key-here
 ```
 
+> 如果镜像pull不下来，请尝试替换以下docker源尝试，活着科学上网
+```bash
+sudo mkdir -p /etc/docker && sudo tee /etc/docker/daemon.json <<EOF
+{
+  "registry-mirrors": [
+    "https://docker.xuanyuan.me",
+    "https://docker.1ms.run",
+    "https://docker.m.daocloud.io",
+    "https://docker.1panel.live",
+    "https://docker.hlmirror.com",
+    "https://hub.rat.dev",
+    "https://docker.mirrors.ustc.edu.cn",
+    "https://docker-0.unsee.tech"
+  ]
+}
+EOF
+
+sudo systemctl daemon-reload && sudo systemctl restart docker
+```
 
 
 服务地址：

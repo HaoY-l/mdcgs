@@ -360,3 +360,24 @@ export async function testAiModelConfig(id: number) {
 export async function testAiModelConnection(data: Record<string, any>) {
   return client.post('/ai-model-configs/test-connection', data)
 }
+
+// ============================================================
+// AI 知识库
+// ============================================================
+
+export async function getAiKnowledge(params?: Record<string, any>) {
+  return client.get('/ai-knowledge', { params })
+}
+
+export async function uploadAiKnowledge(file: File, title?: string) {
+  const formData = new FormData()
+  formData.append('file', file)
+  if (title) formData.append('title', title)
+  return client.post('/ai-knowledge/upload', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export async function deleteAiKnowledge(id: number) {
+  return client.delete(`/ai-knowledge/${id}`)
+}

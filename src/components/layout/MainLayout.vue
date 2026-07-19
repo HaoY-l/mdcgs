@@ -102,7 +102,7 @@
       <!-- Main Content -->
       <main class="app-content">
         <router-view v-slot="{ Component }">
-          <transition name="fade-slide" mode="out-in">
+          <transition name="fade-slide">
             <component :is="Component" />
           </transition>
         </router-view>

@@ -54,6 +54,20 @@
           <div ref="categoryRatioChartRef" class="chart-body" v-loading="categoryRatioLoading"></div>
         </div>
       </div>
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">按业务部门分布</span>
+          </div>
+          <div ref="businessDeptDistChartRef" class="chart-body" v-loading="businessDeptLoading"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">按应用系统分布</span>
+          </div>
+          <div ref="appSystemDistChartRef" class="chart-body" v-loading="appSystemLoading"></div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -62,7 +76,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick } from 'vue'
 import * as echarts from 'echarts'
 import { ElMessage } from 'element-plus'
-import { getStatistics, getTrend, getTypeRatio, getLevelRatio, getCategoryRatio, invalidateOverviewCache } from '@/api/overview'
+import { getStatistics, getTrend, getTypeRatio, getLevelRatio, getCategoryRatio, getDistribution, invalidateOverviewCache } from '@/api/overview'
 import { getSettings, getBasicSettings } from '@/api/system'
 import { getLevels } from '@/api/classification'
 
@@ -102,15 +116,21 @@ const trendChartRef = ref<HTMLElement | null>(null)
 const typeRatioChartRef = ref<HTMLElement | null>(null)
 const levelRatioChartRef = ref<HTMLElement | null>(null)
 const categoryRatioChartRef = ref<HTMLElement | null>(null)
+const businessDeptDistChartRef = ref<HTMLElement | null>(null)
+const appSystemDistChartRef = ref<HTMLElement | null>(null)
 const trendLoading = ref(false)
 const typeRatioLoading = ref(false)
 const levelRatioLoading = ref(false)
 const categoryRatioLoading = ref(false)
+const businessDeptLoading = ref(false)
+const appSystemLoading = ref(false)
 
 let trendChart: echarts.ECharts | null = null
 let typeRatioChart: echarts.ECharts | null = null
 let levelRatioChart: echarts.ECharts | null = null
 let categoryRatioChart: echarts.ECharts | null = null
+let businessDeptDistChart: echarts.ECharts | null = null
+let appSystemDistChart: echarts.ECharts | null = null
 
 const chartColors = ['#2563eb', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f97316', '#ec4899']
 
@@ -237,12 +257,72 @@ async function fetchCategoryRatio() {
   } finally { categoryRatioLoading.value = false }
 }
 
+async function fetchDistribution(groupBy: string) {
+  try {
+    const res = await getDistribution({ group_by: groupBy })
+    return (res.data?.distribution || []) as any[]
+  } catch { return [] }
+}
+
+async function fetchBusinessDeptDist() {
+  businessDeptLoading.value = true
+  try {
+    const data = await fetchDistribution('business_dept')
+    const names = data.map((d: any) => d.group)
+    const totalVals = data.map((d: any) => d.total_columns)
+    const sensitiveVals = data.map((d: any) => d.sensitive_columns)
+    const nonSensitiveVals = totalVals.map((v: number, i: number) => v - sensitiveVals[i])
+    if (!businessDeptDistChart && businessDeptDistChartRef.value) {
+      businessDeptDistChart = echarts.init(businessDeptDistChartRef.value)
+    }
+    if (names.length === 0) { businessDeptDistChart?.setOption({ series: [] }, true); return }
+    businessDeptDistChart?.setOption({
+      tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
+      legend: { data: ['非敏感', '敏感'], bottom: 0, textStyle: { fontSize: 11, color: '#6b7280' } },
+      grid: { left: 50, right: 16, top: 12, bottom: 44 },
+      xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 64 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
+      series: [
+        { name: '非敏感', type: 'bar', stack: 'total', barWidth: 28, data: nonSensitiveVals, itemStyle: { color: '#93c5fd', borderRadius: [0, 0, 0, 0] } },
+        { name: '敏感', type: 'bar', stack: 'total', barWidth: 28, data: sensitiveVals, itemStyle: { color: '#f87171', borderRadius: [4, 4, 0, 0] } },
+      ]
+    }, true)
+  } finally { businessDeptLoading.value = false }
+}
+
+async function fetchAppSystemDist() {
+  appSystemLoading.value = true
+  try {
+    const data = await fetchDistribution('app_system')
+    const names = data.map((d: any) => d.group)
+    const totalVals = data.map((d: any) => d.total_columns)
+    const sensitiveVals = data.map((d: any) => d.sensitive_columns)
+    const nonSensitiveVals = totalVals.map((v: number, i: number) => v - sensitiveVals[i])
+    if (!appSystemDistChart && appSystemDistChartRef.value) {
+      appSystemDistChart = echarts.init(appSystemDistChartRef.value)
+    }
+    if (names.length === 0) { appSystemDistChart?.setOption({ series: [] }, true); return }
+    appSystemDistChart?.setOption({
+      tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
+      legend: { data: ['非敏感', '敏感'], bottom: 0, textStyle: { fontSize: 11, color: '#6b7280' } },
+      grid: { left: 50, right: 16, top: 12, bottom: 44 },
+      xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 64 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
+      series: [
+        { name: '非敏感', type: 'bar', stack: 'total', barWidth: 28, data: nonSensitiveVals, itemStyle: { color: '#93c5fd', borderRadius: [0, 0, 0, 0] } },
+        { name: '敏感', type: 'bar', stack: 'total', barWidth: 28, data: sensitiveVals, itemStyle: { color: '#f87171', borderRadius: [4, 4, 0, 0] } },
+      ]
+    }, true)
+  } finally { appSystemLoading.value = false }
+}
+
 async function loadAll() {
   pageLoading.value = true
   try {
     await Promise.all([
       fetchStatistics(), fetchTrend(), fetchTypeRatio(),
       fetchLevelRatio(), fetchCategoryRatio(),
+      fetchBusinessDeptDist(), fetchAppSystemDist(),
     ])
   } finally { pageLoading.value = false }
   nextTick(() => {
@@ -250,11 +330,13 @@ async function loadAll() {
     typeRatioChart?.resize()
     levelRatioChart?.resize()
     categoryRatioChart?.resize()
+    businessDeptDistChart?.resize()
+    appSystemDistChart?.resize()
   })
 }
 
 function handleFilterChange() { loadAll() }
-function handleResize() { [trendChart, typeRatioChart, levelRatioChart, categoryRatioChart].forEach(c => c?.resize()) }
+function handleResize() { [trendChart, typeRatioChart, levelRatioChart, categoryRatioChart, businessDeptDistChart, appSystemDistChart].forEach(c => c?.resize()) }
 
 async function handleRefresh() {
   refreshing.value = true
@@ -291,7 +373,7 @@ onMounted(async () => {
 })
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
-  ;[trendChart, typeRatioChart, levelRatioChart, categoryRatioChart].forEach(c => c?.dispose())
+  ;[trendChart, typeRatioChart, levelRatioChart, categoryRatioChart, businessDeptDistChart, appSystemDistChart].forEach(c => c?.dispose())
   if (refreshTimer) clearInterval(refreshTimer)
 })
 </script>

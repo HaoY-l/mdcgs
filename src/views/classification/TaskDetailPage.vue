@@ -333,27 +333,41 @@
               </template>
             </el-table-column>
             <el-table-column prop="comment" label="注释" min-width="120" show-overflow-tooltip />
-            <el-table-column prop="system_type" label="系统类型" min-width="90" show-overflow-tooltip>
+            <el-table-column label="系统分类" min-width="90" show-overflow-tooltip>
               <template #default="{ row }">
-                <span v-if="row.system_type" class="type-tag">{{ row.system_type }}</span>
+                <span
+                  v-if="row.system_type"
+                  :class="['dblclick-confirm', { 'is-locked': row.manual_type }]"
+                  :title="row.manual_type ? '已变更或确认' : '双击确认'"
+                  @dblclick.stop="!row.manual_type && handleConfirmWithSource(row, 'system')"
+                >{{ row.system_type }}</span>
                 <span v-else style="color:#999">-</span>
               </template>
             </el-table-column>
             <el-table-column label="AI分类" min-width="100" show-overflow-tooltip>
               <template #default="{ row }">
-                <span v-if="row.ai_category" class="ai-category">{{ row.ai_category }}</span>
+                <span
+                  v-if="row.ai_category && row.ai_category !== '{}'"
+                  :class="['dblclick-confirm', { 'is-locked': row.manual_type || !isAiCategoryMatched(row.ai_category) }]"
+                  :title="row.manual_type ? '已变更或确认' : (isAiCategoryMatched(row.ai_category) ? '双击确认' : '无匹配分类')"
+                  @dblclick.stop="!row.manual_type && isAiCategoryMatched(row.ai_category) && handleConfirmWithSource(row, 'ai')"
+                >
+                  <el-tooltip :content="getFullAiCategory(row.ai_category)" placement="top" :enterable="false">
+                    <span>{{ getDisplayAiCategory(row.ai_category) }}</span>
+                  </el-tooltip>
+                </span>
                 <span v-else style="color:#c0c4cc">-</span>
               </template>
             </el-table-column>
-            <el-table-column label="人工类型" min-width="100" show-overflow-tooltip>
+            <el-table-column label="人工确认" min-width="100" show-overflow-tooltip>
               <template #default="{ row }">
-                <span v-if="row.manual_type" class="manual-type">{{ row.manual_type }}</span>
+                <el-tag v-if="row.manual_type" type="success" size="small" effect="plain" class="manual-tag">{{ row.manual_type }}</el-tag>
                 <el-button
                   v-else
                   type="primary"
                   link
                   size="small"
-                  @click="handleQuickConfirm(row)"
+                  @click="openConfirmDialog(row)"
                 >
                   待确认
                 </el-button>
@@ -380,7 +394,7 @@
             </el-table-column>
             <el-table-column label="数据分类" min-width="100" show-overflow-tooltip>
               <template #default="{ row }">
-                <span>{{ (row.category_path_manual || row.category_path || '').split('/')[0] || '-' }}</span>
+                <span>{{ (row.category_path_manual || row.category_path || '').split('>')[0] || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column label="是否脱敏" min-width="80" align="center">
@@ -408,6 +422,10 @@
           </el-table>
           <div class="batch-actions" v-if="selectedColumns.length > 0">
             <span>已选择 {{ selectedColumns.length }} 项</span>
+            <el-select v-model="batchConfirmSource" placeholder="选择确认来源" size="small" style="width: 160px; margin-right: 8px">
+              <el-option label="系统分类确认" value="system" />
+              <el-option label="AI分类确认" value="ai" />
+            </el-select>
             <el-button size="small" type="success" @click="handleBatchConfirm">批量确认</el-button>
             <el-button size="small" type="warning" @click="handleBatchChange">批量变更</el-button>
           </div>
@@ -638,6 +656,63 @@
       </div>
     </el-dialog>
 
+    <!-- 确认选择弹窗（待确认点击后展示） -->
+    <el-dialog v-model="showConfirmDialog" title="确认分类" width="520px" @close="clearConfirmDialog">
+      <div v-if="confirmDialogRow" class="confirm-options">
+        <!-- 系统分类选项（待确认弹窗或双击系统分类时显示） -->
+        <div
+          v-if="confirmDialogRow.system_type && (confirmDialogShowSource === 'both' || confirmDialogShowSource === 'system')"
+          class="confirm-option-card"
+          :class="{ selected: confirmDialogSelected === 'system' }"
+          @click="confirmDialogSelected = 'system'"
+          @dblclick="handleConfirmFromDialog('system')"
+        >
+          <div class="confirm-option-header">
+            <el-tag type="primary" size="small" effect="dark">系统分类</el-tag>
+            <span class="confirm-option-hint">双击确认</span>
+          </div>
+          <div class="confirm-option-body">
+            <span class="confirm-option-type">{{ confirmDialogRow.system_type }}</span>
+            <span class="confirm-option-detail">
+              级别: {{ confirmDialogRow.level_code || '-' }} | 敏感: {{ confirmDialogRow.is_sensitive ? '是' : '否' }}
+            </span>
+          </div>
+        </div>
+        <!-- AI分类选项（待确认弹窗或双击AI分类时显示） -->
+        <div
+          v-if="confirmDialogRow.ai_category && confirmDialogRow.ai_category !== '{}' && (confirmDialogShowSource === 'both' || confirmDialogShowSource === 'ai')"
+          class="confirm-option-card"
+          :class="{ selected: confirmDialogSelected === 'ai' }"
+          @click="confirmDialogSelected = 'ai'"
+          @dblclick="handleConfirmFromDialog('ai')"
+        >
+          <div class="confirm-option-header">
+            <el-tag type="warning" size="small" effect="dark">AI分类</el-tag>
+            <span class="confirm-option-hint">双击确认</span>
+          </div>
+          <div class="confirm-option-body">
+            <span class="confirm-option-type">{{ getAiParentChild(confirmDialogRow.ai_category) }}</span>
+            <span class="confirm-option-detail">
+              级别: {{ getAiLevelFromCategory(confirmDialogRow.ai_category) }} | 敏感: {{ getAiSensitiveFromCategory(confirmDialogRow.ai_category) ? '是' : '否' }}
+            </span>
+          </div>
+        </div>
+        <el-empty v-if="!confirmDialogRow.system_type && (!confirmDialogRow.ai_category || confirmDialogRow.ai_category === '{}')" description="无分类结果可确认" />
+      </div>
+      <template #footer>
+        <div v-if="confirmDialogShowSource !== 'both'" style="display: flex; align-items: center; margin-right: auto;">
+          <el-checkbox v-model="skipConfirmDialog">跳过弹窗确认</el-checkbox>
+        </div>
+        <div v-else style="flex: 1;"></div>
+        <el-button @click="showConfirmDialog = false">取消</el-button>
+        <el-button
+          type="primary"
+          :disabled="!confirmDialogSelected"
+          @click="handleConfirmFromDialog(confirmDialogSelected)"
+        >确认{{ confirmDialogSelected === 'system' ? '系统' : 'AI' }}分类</el-button>
+      </template>
+    </el-dialog>
+
     <!-- 历史详情弹窗 -->
     <el-dialog v-model="showHistoryDialog" title="历史详情" width="700px">
       <div v-loading="historyDetailLoading">
@@ -717,6 +792,7 @@ import {
 } from '@/api/task'
 import { getLevels, getMaskingRules, getEncryptionTypes } from '@/api/classification'
 import { confirmMask, confirmEncrypt } from '@/api/task'
+import { getSettings } from '@/api/system'
 import * as echarts from 'echarts'
 
 const route = useRoute()
@@ -795,6 +871,195 @@ function levelTag(level: string): 'success' | 'warning' | 'info' | 'danger' | 'p
 
 // 级别颜色映射
 const levelColorMap = ref<Record<string, string>>({})
+
+// ========== AI分类解析辅助函数 ==========
+// 是否仅用模版分类数据（从系统设置获取）
+const onlyTemplateCategories = ref(false)
+
+// 从系统设置加载 onlyTemplateCategories
+async function loadOnlyTemplateSetting() {
+  try {
+    const res = await getSettings()
+    if (res.data?.ai?.only_template_categories !== undefined) {
+      onlyTemplateCategories.value = res.data.ai.only_template_categories === 'true'
+    }
+  } catch { /* ignore */ }
+}
+
+// 解析AI分类JSON，提取父类和子类用于表格显示
+function getDisplayAiCategory(aiCategory: any): string {
+  if (!aiCategory || aiCategory === '{}') return ''
+  try {
+    const data = typeof aiCategory === 'string' ? JSON.parse(aiCategory) : aiCategory
+    // 如果没匹配到模板（unmatched=true），但有category_path，则解析显示
+    if (data.unmatched) {
+      const path = data.category_path || ''
+      if (path && path !== '无') {
+        // 格式是 "无 > 子类"，提取子类显示
+        const parts = path.split('>').filter(Boolean)
+        if (parts.length >= 2) {
+          return parts[parts.length - 1]  // 返回AI的子类
+        }
+        // 只有一级的情况（如"无 > 通知内容"），显示最后一部分
+        return parts[parts.length - 1] || '无'
+      }
+      return '无'
+    }
+    const path = data.category_path || ''
+    if (!path) {
+      // 没有路径但有AI推荐的类型名，显示推荐类型
+      return data.data_type_name || '无'
+    }
+    const parts = path.split('>').filter(Boolean)
+    // 只显示子类（二级分类）
+    if (parts.length >= 2) {
+      return parts[parts.length - 1]  // 取最后一个（子类）
+    }
+    // 只有一级分类的情况
+    return data.data_type_name || parts[parts.length - 1] || '无'
+  } catch {
+    return typeof aiCategory === 'string' ? aiCategory : ''
+  }
+}
+
+// 获取完整的AI分类信息（用于tooltip），显示父类和子类
+function getFullAiCategory(aiCategory: any): string {
+  if (!aiCategory || aiCategory === '{}') return ''
+  try {
+    const data = typeof aiCategory === 'string' ? JSON.parse(aiCategory) : aiCategory
+    const parts: string[] = []
+
+    // 如果没匹配到模板（unmatched），但有category_path则解析显示
+    if (data.unmatched) {
+      const path = data.category_path || ''
+      if (path && path !== '无') {
+        const pathParts = path.split('>').filter(Boolean)
+        // 父类 = 第一个（可能是"无"）
+        const parentClass = pathParts[0] || '无'
+        // 子类优先使用 data_type_name，其次使用路径的最后一部分
+        const childClass = data.data_type_name || (pathParts[pathParts.length - 1] || '无')
+        parts.push('父类: ' + parentClass)
+        parts.push('子类: ' + childClass)
+      } else {
+        parts.push('父类: 无')
+        parts.push('子类: ' + (data.data_type_name || '无'))
+      }
+      if (data.level_code) {
+        parts.push('级别: ' + data.level_code)
+      }
+      return parts.join(' | ')
+    }
+
+    const path = data.category_path || ''
+
+    if (path) {
+      const pathParts = path.split('>').filter(Boolean)
+      // 父类 = 第一个
+      const parentClass = pathParts[0] || ''
+      // 子类 = 最后一个，但优先使用 data_type_name
+      const childClass = data.data_type_name || (pathParts[pathParts.length - 1] || '')
+
+      parts.push('父类: ' + parentClass)
+      parts.push('子类: ' + childClass)
+    }
+
+    // 级别
+    if (data.level_code) {
+      parts.push('级别: ' + data.level_code)
+    }
+    return parts.join(' | ')
+  } catch {
+    return typeof aiCategory === 'string' ? aiCategory : ''
+  }
+}
+
+// 检查AI分类是否匹配到模板（用于判断是否能双击确认）
+function isAiCategoryMatched(aiCategory: any): boolean {
+  if (!aiCategory || aiCategory === '{}') return false
+  try {
+    const data = typeof aiCategory === 'string' ? JSON.parse(aiCategory) : aiCategory
+    // unmatched=true 表示没匹配到模板，但如果AI返回了category_path或data_type_name，也允许确认
+    if (data.unmatched) {
+      const path = data.category_path || ''
+      // 只要有有效的category_path（不是"无"且不是空），或是有data_type_name，就允许确认
+      if (path && path !== '无') {
+        return true
+      }
+      // 即使没有category_path，只要有data_type_name也允许确认
+      if (data.data_type_name) {
+        return true
+      }
+      return false
+    }
+    return true
+  } catch {
+    return false
+  }
+}
+
+// 获取AI分类的父类和子类显示（用于确认弹窗）
+function getAiParentChild(aiCategory: any): string {
+  if (!aiCategory || aiCategory === '{}') return ''
+  try {
+    const data = typeof aiCategory === 'string' ? JSON.parse(aiCategory) : aiCategory
+
+    // 没匹配到模板（unmatched），但有category_path则解析显示
+    if (data.unmatched) {
+      const path = data.category_path || ''
+      if (path && path !== '无') {
+        const pathParts = path.split('>').filter(Boolean)
+        // 父类 = 第一个
+        const parentClass = pathParts[0] || '无'
+        // 子类优先使用 data_type_name，其次使用路径的最后一部分
+        let childClass = data.data_type_name || (pathParts[pathParts.length - 1] || '无')
+        return '父类: ' + parentClass + ' | 子类: ' + childClass
+      }
+      return '父类: 无 | 子类: ' + (data.data_type_name || '无')
+    }
+
+    const path = data.category_path || ''
+
+    if (!path) {
+      // 没有路径，有AI推荐类型
+      return '父类: 无 | 子类: ' + (data.data_type_name || '无')
+    }
+
+    const pathParts = path.split('>').filter(Boolean)
+    // 父类 = 第一个
+    const parentClass = pathParts[0] || '无'
+    // 子类 = 最后一个
+    let childClass = pathParts[pathParts.length - 1] || '无'
+
+    if (data.data_type_name && childClass !== data.data_type_name) {
+      // 子类名称和AI推荐类型不一致时显示AI推荐
+      childClass = data.data_type_name
+    }
+
+    return '父类: ' + parentClass + ' | 子类: ' + childClass
+  } catch {
+    return typeof aiCategory === 'string' ? aiCategory : ''
+  }
+}
+
+function getAiLevelFromCategory(aiCategory: any): string {
+  if (!aiCategory || aiCategory === '{}') return ''
+  try {
+    const data = typeof aiCategory === 'string' ? JSON.parse(aiCategory) : aiCategory
+    return data.level_code || data.level || ''
+  } catch {
+    return ''
+  }
+}
+
+function getAiSensitiveFromCategory(aiCategory: any): boolean {
+  if (!aiCategory || aiCategory === '{}') return false
+  try {
+    const data = typeof aiCategory === 'string' ? JSON.parse(aiCategory) : aiCategory
+    return !!data.is_sensitive
+  } catch {
+    return false
+  }
+}
 
 function getLevelBadgeStyle(level: string): Record<string, string> {
   const color = levelColorMap.value[level]
@@ -1014,6 +1279,17 @@ const manualTypeInput = ref('')
 const systemTypeInput = ref('')
 const aiTypeInput = ref('')
 
+// 确认对话框相关
+const showConfirmDialog = ref(false)
+const confirmDialogRow = ref<any>(null)
+const confirmDialogSelected = ref<'system' | 'ai'>('system')
+const batchConfirmSource = ref<'system' | 'ai'>('system')
+// 弹窗显示哪些选项：'both'/'system'/'ai'
+const confirmDialogShowSource = ref<'both' | 'system' | 'ai'>('both')
+// 双击确认是否跳过弹窗确认
+// 双击确认是否跳过弹窗确认（从localStorage读取）
+const skipConfirmDialog = ref(localStorage.getItem('skipConfirmDialog') === 'true')
+
 // 筛选选项
 const systemTypeOptions = ref<string[]>([])
 const aiCategoryOptions = ref<string[]>([])
@@ -1065,10 +1341,23 @@ async function handleBatchConfirm() {
     ElMessage.warning('请先选择字段')
     return
   }
+  if (!batchConfirmSource.value) {
+    ElMessage.warning('请选择确认来源（系统分类/AI分类）')
+    return
+  }
+  // 过滤出可以确认的字段（没有人工确认过的才需要确认）
+  const confirmable = selectedColumns.value.filter((c: any) => !c.manual_type)
+  if (!confirmable.length) {
+    ElMessage.warning('所选字段均已确认，无需再次确认')
+    return
+  }
+  if (confirmable.length < selectedColumns.value.length) {
+    ElMessage.warning(`已过滤 ${selectedColumns.value.length - confirmable.length} 个已确认的字段`)
+  }
   try {
-    const column_ids = selectedColumns.value.map((c: any) => c.column_id)
-    await batchConfirm(taskId, { column_ids })
-    ElMessage.success('批量确认成功')
+    const column_ids = confirmable.map((c: any) => c.column_id)
+    await batchConfirm(taskId, { column_ids, confirm_source: batchConfirmSource.value })
+    ElMessage.success(`批量确认成功（${batchConfirmSource.value === 'ai' ? 'AI分类' : '系统分类'}）`)
     selectedColumns.value = []
     fetchColumns()
   } catch (err: any) {
@@ -1080,6 +1369,15 @@ async function handleBatchChange() {
   if (!selectedColumns.value.length) {
     ElMessage.warning('请先选择字段')
     return
+  }
+  // 过滤出可以变更的字段（没有人工确认过的）
+  const changeable = selectedColumns.value.filter((c: any) => !c.manual_type)
+  if (!changeable.length) {
+    ElMessage.warning('所选字段均已变更或确认，无法再次变更')
+    return
+  }
+  if (changeable.length < selectedColumns.value.length) {
+    ElMessage.warning(`已过滤 ${selectedColumns.value.length - changeable.length} 个已变更/确认的字段`)
   }
   // TODO: 批量变更需要选择目标类型
   ElMessage.info('请在变更弹窗中选择目标类型')
@@ -1347,20 +1645,44 @@ async function handleAcceptSystemType(row: any) {
 }
 
 // ========== 列确认/解锁 ==========
-// 快速确认：点击待确认直接把AI分类或系统类型填充到人工类型
-async function handleQuickConfirm(row: any) {
+// 打开待确认弹窗 - 展示AI和系统分类供用户选择（点击待确认必须弹窗）
+function openConfirmDialog(row: any) {
+  confirmDialogRow.value = row
+  confirmDialogSelected.value = row.system_type ? 'system' : 'ai'
+  confirmDialogShowSource.value = 'both'
+  showConfirmDialog.value = true
+}
+
+function clearConfirmDialog() {
+  confirmDialogRow.value = null
+  confirmDialogSelected.value = 'system'
+}
+
+// 从弹窗确认分类
+async function handleConfirmFromDialog(source: string) {
+  if (!confirmDialogRow.value) return
+  await confirmResult(taskId, confirmDialogRow.value.column_id, { confirm_source: source })
+  ElMessage.success('已确认')
+  showConfirmDialog.value = false
+  confirmDialogRow.value = null
+  fetchColumns()
+}
+
+// 双击直接确认（从表格行双击触发，跳过弹窗选项仅对双击有效）
+async function handleConfirmWithSource(row: any, source: 'system' | 'ai') {
   try {
-    // 优先使用AI分类，其次使用系统类型
-    const typeToConfirm = row.ai_category || row.system_type
-    if (!typeToConfirm) {
-      ElMessage.warning('无分类结果可确认')
+    // 双击时如果勾选了跳过弹窗，直接确认
+    if (skipConfirmDialog.value) {
+      await confirmResult(taskId, row.column_id, { confirm_source: source })
+      ElMessage.success('已确认')
+      fetchColumns()
       return
     }
-    await confirmResult(taskId, row.column_id, {
-      data_type_name_manual: typeToConfirm
-    })
-    ElMessage.success('已确认')
-    fetchColumns()
+    // 否则打开弹窗（只显示对应类型的选项，显示跳过复选框）
+    confirmDialogRow.value = row
+    confirmDialogSelected.value = source
+    confirmDialogShowSource.value = source
+    showConfirmDialog.value = true
   } catch (err: any) {
     if (err !== 'cancel') ElMessage.error(err?.response?.data?.message || err?.message || '确认失败')
   }
@@ -1452,6 +1774,11 @@ watch(() => changeForm.new_category_id, (newId) => {
     changeForm.new_category_path = ''
     changeForm.new_type_name = ''
   }
+})
+
+// 跳过弹窗选项保存到 localStorage
+watch(skipConfirmDialog, (val) => {
+  localStorage.setItem('skipConfirmDialog', val ? 'true' : 'false')
 })
 
 const categoryLoading = ref(false)
@@ -1915,6 +2242,93 @@ onUnmounted(() => {
   background: #f5f7fa;
   border-radius: 4px;
   margin-top: 12px;
+}
+
+/* 确认选择弹窗 */
+.confirm-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 0;
+}
+
+.confirm-option-card {
+  border: 2px solid #ebeef5;
+  border-radius: 8px;
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.confirm-option-card:hover {
+  border-color: #409eff;
+  background: #f0f7ff;
+}
+
+.confirm-option-card.selected {
+  border-color: #409eff;
+  background: #ecf5ff;
+}
+
+.confirm-option-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.confirm-option-hint {
+  font-size: 12px;
+  color: #c0c4cc;
+}
+
+.confirm-option-body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.confirm-option-type {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.confirm-option-detail {
+  font-size: 12px;
+  color: #909399;
+}
+
+/* 双击确认样式 */
+.dblclick-confirm {
+  cursor: pointer;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  background: #ecf5ff;
+  color: #409eff;
+  transition: all 0.15s;
+  display: inline-block;
+}
+
+.dblclick-confirm:hover {
+  background: #d9ecff;
+}
+
+.dblclick-confirm.is-locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+  background: #f5f5f5;
+  color: #909399;
+}
+
+.dblclick-confirm:hover {
+  background: #d9ecff;
+  border-color: #409eff;
+}
+
+.manual-tag {
+  font-size: 12px;
 }
 
 .batch-actions span {

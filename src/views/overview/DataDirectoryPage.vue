@@ -8,7 +8,7 @@
     <el-card shadow="hover" class="filter-card">
       <el-form :model="filterForm" label-width="90px" size="small">
         <el-row :gutter="16">
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="关键词">
               <el-input
                 v-model="filterForm.keyword"
@@ -19,7 +19,7 @@
               />
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="资产">
               <el-select
                 v-model="filterForm.asset"
@@ -38,7 +38,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="数据库">
               <el-select
                 v-model="filterForm.database_name"
@@ -58,7 +58,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="表">
               <el-select
                 v-model="filterForm.table_name"
@@ -78,10 +78,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="数据类型">
               <el-select
                 v-model="filterForm.data_type_status"
@@ -102,7 +99,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="分级">
               <el-select
                 v-model="filterForm.level"
@@ -120,7 +117,10 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="敏感">
               <el-select
                 v-model="filterForm.is_sensitive"
@@ -134,7 +134,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="脱敏">
               <el-select
                 v-model="filterForm.is_masked"
@@ -148,10 +148,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-        </el-row>
-
-        <el-row :gutter="16">
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="加密">
               <el-select
                 v-model="filterForm.is_encrypted"
@@ -165,7 +162,7 @@
               </el-select>
             </el-form-item>
           </el-col>
-          <el-col :xs="24" :sm="12" :md="8" :lg="6">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
             <el-form-item label="分类路径">
               <el-select
                 v-model="filterForm.category_path"
@@ -180,6 +177,66 @@
                   :key="path"
                   :label="path"
                   :value="path"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
+            <el-form-item label="业务部门">
+              <el-select
+                v-model="filterForm.business_dept"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+                filterable
+                @change="handleSearch"
+              >
+                <el-option
+                  v-for="d in businessDeptOptions"
+                  :key="d"
+                  :label="d"
+                  :value="d"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
+            <el-form-item label="应用系统">
+              <el-select
+                v-model="filterForm.app_system"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+                filterable
+                @change="handleSearch"
+              >
+                <el-option
+                  v-for="a in appSystemOptions"
+                  :key="a"
+                  :label="a"
+                  :value="a"
+                />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="16">
+          <el-col :xs="24" :sm="12" :md="8" :lg="4">
+            <el-form-item label="所属任务">
+              <el-select
+                v-model="filterForm.task_name"
+                placeholder="全部"
+                clearable
+                style="width: 100%"
+                filterable
+                @change="handleSearch"
+              >
+                <el-option
+                  v-for="t in taskNameOptions"
+                  :key="t"
+                  :label="t"
+                  :value="t"
                 />
               </el-select>
             </el-form-item>
@@ -257,6 +314,9 @@
         <el-table-column prop="asset_name" label="资产" min-width="80" show-overflow-tooltip />
         <el-table-column prop="database_name" label="数据库" min-width="80" show-overflow-tooltip />
         <el-table-column prop="table_name" label="表" min-width="80" show-overflow-tooltip />
+        <el-table-column prop="business_dept" label="业务部门" min-width="90" show-overflow-tooltip />
+        <el-table-column prop="app_system" label="应用系统" min-width="90" show-overflow-tooltip />
+        <el-table-column prop="task_name" label="所属任务" min-width="100" show-overflow-tooltip />
         <el-table-column prop="field_comment" label="字段注释" min-width="100" show-overflow-tooltip />
         <el-table-column prop="risk_suggestion" label="安全建议" min-width="100" show-overflow-tooltip />
       </el-table>
@@ -318,6 +378,9 @@ const dataTypeOptions = ref<string[]>([])
 const levelOptions = ref<string[]>([])
 const databaseOptions = ref<string[]>([])
 const tableOptions = ref<string[]>([])
+const businessDeptOptions = ref<string[]>([])
+const appSystemOptions = ref<string[]>([])
+const taskNameOptions = ref<string[]>([])
 const databasesByAsset = ref<Record<string, string[]>>({})
 const tablesByDatabase = ref<Record<string, string[]>>({})
 
@@ -347,6 +410,9 @@ const filterForm = reactive({
   is_masked: '',
   is_encrypted: '',
   category_path: '',
+  business_dept: '',
+  app_system: '',
+  task_name: '',
 })
 
 // ===== Helpers =====
@@ -386,6 +452,9 @@ function buildParams(): Record<string, any> {
   if (filterForm.is_encrypted) params.is_encrypted = filterForm.is_encrypted
   if (filterForm.category_path) params.category_path = filterForm.category_path
   if (filterForm.asset) params.asset = filterForm.asset
+  if (filterForm.business_dept) params.business_dept = filterForm.business_dept
+  if (filterForm.app_system) params.app_system = filterForm.app_system
+  if (filterForm.task_name) params.task_name = filterForm.task_name
   return params
 }
 
@@ -435,6 +504,15 @@ async function fetchFilterOptions() {
     if (d.tables_by_database) {
       tablesByDatabase.value = d.tables_by_database
     }
+    if (d.business_dept_options) {
+      businessDeptOptions.value = d.business_dept_options
+    }
+    if (d.app_system_options) {
+      appSystemOptions.value = d.app_system_options
+    }
+    if (d.task_name_options) {
+      taskNameOptions.value = d.task_name_options
+    }
   } catch {
     // silently fail
   }
@@ -472,6 +550,9 @@ function handleReset() {
   filterForm.is_masked = ''
   filterForm.is_encrypted = ''
   filterForm.category_path = ''
+  filterForm.business_dept = ''
+  filterForm.app_system = ''
+  filterForm.task_name = ''
   currentPage.value = 1
   fetchFilterOptions()
   handleSearch()

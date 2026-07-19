@@ -76,6 +76,21 @@
         <div ref="trendChartRef" class="chart-body" v-loading="trendLoading"></div>
       </div>
 
+      <div class="charts-row">
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">按业务部门级别分布</span>
+          </div>
+          <div ref="deptLevelChartRef" class="chart-body" v-loading="deptLevelLoading"></div>
+        </div>
+        <div class="chart-card">
+          <div class="chart-header">
+            <span class="chart-title">按应用系统级别分布</span>
+          </div>
+          <div ref="systemLevelChartRef" class="chart-body" v-loading="systemLevelLoading"></div>
+        </div>
+      </div>
+
       <!-- 最新评估结果 -->
       <div v-if="lastEvaluation" class="result-section">
         <div class="section-header">
@@ -433,7 +448,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import * as echarts from 'echarts'
-import { getDirectory, getLevelRatio, getStatistics } from '@/api/overview'
+import { getDirectory, getLevelRatio, getStatistics, getLevelDistribution } from '@/api/overview'
 import { getLevels, getTemplates, getCategoryTree } from '@/api/classification'
 import client from '@/api/client'
 
@@ -468,6 +483,8 @@ const recordsLoading = ref(false)
 const typeLevelLoading = ref(false)
 const levelCountLoading = ref(false)
 const trendLoading = ref(false)
+const deptLevelLoading = ref(false)
+const systemLevelLoading = ref(false)
 const scheduleEnabled = ref(false)
 const scheduleCron = ref('0 2 * * *')
 const showTrendChart = ref(true)
@@ -789,10 +806,14 @@ const statCards = reactive([
 const typeLevelChartRef = ref<HTMLElement | null>(null)
 const levelCountChartRef = ref<HTMLElement | null>(null)
 const trendChartRef = ref<HTMLElement | null>(null)
+const deptLevelChartRef = ref<HTMLElement | null>(null)
+const systemLevelChartRef = ref<HTMLElement | null>(null)
 const reportLevelChartRef = ref<HTMLElement | null>(null)
 let typeLevelChart: echarts.ECharts | null = null
 let levelCountChart: echarts.ECharts | null = null
 let trendChart: echarts.ECharts | null = null
+let deptLevelChart: echarts.ECharts | null = null
+let systemLevelChart: echarts.ECharts | null = null
 let reportLevelChart: echarts.ECharts | null = null
 
 // ===== 规则表单 =====
@@ -1087,6 +1108,62 @@ async function fetchTrendChart() {
   } finally { trendLoading.value = false }
 }
 
+async function fetchDeptLevelChart() {
+  deptLevelLoading.value = true
+  try {
+    const res = await getLevelDistribution({ group_by: 'business_dept' })
+    const data = res.data || {}
+    const groups = data.distribution || []
+    const levelCodes = data.levels || []
+    if (!deptLevelChart && deptLevelChartRef.value) {
+      deptLevelChart = echarts.init(deptLevelChartRef.value)
+    }
+    if (!groups.length) { deptLevelChart?.setOption({ series: [] }, true); return }
+    const names = groups.map((g: any) => g.group)
+    const colors = levelCodes.map((lc: string) => levelColorMap.value[lc] || '#6b7280')
+    deptLevelChart?.setOption({
+      tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
+      legend: { show: false },
+      grid: { left: 50, right: 16, top: 12, bottom: 44 },
+      xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 72 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
+      series: levelCodes.map((lc: string, i: number) => ({
+        name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
+        data: groups.map((g: any) => g[lc] || 0),
+        itemStyle: { color: colors[i], borderRadius: [0, 0, 0, 0] },
+      })),
+    }, true)
+  } finally { deptLevelLoading.value = false }
+}
+
+async function fetchSystemLevelChart() {
+  systemLevelLoading.value = true
+  try {
+    const res = await getLevelDistribution({ group_by: 'app_system' })
+    const data = res.data || {}
+    const groups = data.distribution || []
+    const levelCodes = data.levels || []
+    if (!systemLevelChart && systemLevelChartRef.value) {
+      systemLevelChart = echarts.init(systemLevelChartRef.value)
+    }
+    if (!groups.length) { systemLevelChart?.setOption({ series: [] }, true); return }
+    const names = groups.map((g: any) => g.group)
+    const colors = levelCodes.map((lc: string) => levelColorMap.value[lc] || '#6b7280')
+    systemLevelChart?.setOption({
+      tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
+      legend: { show: false },
+      grid: { left: 50, right: 16, top: 12, bottom: 44 },
+      xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 72 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
+      yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
+      series: levelCodes.map((lc: string, i: number) => ({
+        name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
+        data: groups.map((g: any) => g[lc] || 0),
+        itemStyle: { color: colors[i], borderRadius: [0, 0, 0, 0] },
+      })),
+    }, true)
+  } finally { systemLevelLoading.value = false }
+}
+
 async function loadAll() {
   pageLoading.value = true
   try {
@@ -1111,7 +1188,10 @@ async function loadAll() {
     }
 
     evaluationRecords.value = loadRecords()
-    await Promise.all([fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart(), fetchTrendChart()])
+    await Promise.all([
+      fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart(),
+      fetchTrendChart(), fetchDeptLevelChart(), fetchSystemLevelChart(),
+    ])
   } finally { pageLoading.value = false }
 }
 
@@ -1127,6 +1207,8 @@ function handleResize() {
   typeLevelChart?.resize()
   levelCountChart?.resize()
   trendChart?.resize()
+  deptLevelChart?.resize()
+  systemLevelChart?.resize()
   reportLevelChart?.resize()
 }
 

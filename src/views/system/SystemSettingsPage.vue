@@ -80,6 +80,12 @@
 
         <!-- 开放接口 -->
         <el-tab-pane label="开放接口" name="api">
+          <el-form :model="apiForm" style="margin-bottom: 16px">
+            <el-form-item label="密钥名称" style="margin-bottom: 0">
+              <el-input v-model="apiForm.name" placeholder="输入密钥名称" style="width: 200px" />
+              <el-button type="primary" @click="handleCreateApiKey" style="margin-left: 12px">新建密钥</el-button>
+            </el-form-item>
+          </el-form>
           <el-table :data="apiKeys" stripe v-loading="apiLoading" style="margin-bottom:16px">
             <el-table-column prop="name" label="密钥名称" min-width="120" />
             <el-table-column prop="key_preview" label="密钥预览" min-width="200" />
@@ -90,14 +96,64 @@
               </template>
             </el-table-column>
           </el-table>
-          <el-form :model="apiForm" label-width="140px" inline>
-            <el-form-item label="密钥名称">
-              <el-input v-model="apiForm.name" placeholder="输入密钥名称" />
-            </el-form-item>
-            <el-form-item>
-              <el-button type="primary" @click="handleCreateApiKey">新建密钥</el-button>
-            </el-form-item>
-          </el-form>
+
+          <!-- API 文档 -->
+          <el-card shadow="hover" style="margin-top: 20px">
+            <template #header>
+              <span>API 接口文档</span>
+            </template>
+            <div style="font-size: 13px; line-height: 1.8">
+              <p>外部系统可通过以下 API 查询分类分级结果，认证方式为 <code>Authorization: Bearer &lt;API_KEY&gt;</code>。</p>
+
+              <el-divider />
+              <h4 style="margin: 0 0 8px 0">1. 健康检查</h4>
+              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
+                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/health
+              </div>
+              <p style="color: #909399; font-size: 12px; margin: 0">无需认证，返回服务状态。</p>
+
+              <el-divider />
+              <h4 style="margin: 0 0 8px 0">2. 统计概览</h4>
+              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
+                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/statistics
+              </div>
+              <p style="color: #909399; font-size: 12px; margin: 0">返回资产总数、总字段数、敏感字段数、各级别分布。</p>
+
+              <el-divider />
+              <h4 style="margin: 0 0 8px 0">3. 资产列表</h4>
+              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
+                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/assets?page=1&page_size=20
+              </div>
+              <p style="color: #909399; font-size: 12px; margin: 0">
+                返回数据资产列表，包含资产名称、类型、地址、业务部门、应用系统、总字段数、敏感字段数。
+              </p>
+
+              <el-divider />
+              <h4 style="margin: 0 0 8px 0">4. 分类结果查询</h4>
+              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
+                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/classification-results?page=1&page_size=20
+              </div>
+              <p style="color: #909399; font-size: 12px; margin: 0">支持筛选参数：</p>
+              <ul style="color: #909399; font-size: 12px; margin: 4px 0">
+                <li><code>task_id</code> - 按任务ID筛选</li>
+                <li><code>asset_id</code> - 按资产ID筛选</li>
+                <li><code>table_id</code> - 按表ID筛选</li>
+                <li><code>is_sensitive</code> - 1=敏感字段, 0=非敏感字段</li>
+                <li><code>is_confirmed</code> - 1=已确认</li>
+                <li><code>level_code</code> - 按级别代码筛选，如 L2</li>
+                <li><code>keyword</code> - 按字段名/注释搜索</li>
+              </ul>
+
+              <el-divider />
+              <h4 style="margin: 0 0 8px 0">响应格式</h4>
+              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre; overflow-x: auto">{
+  "code": 0,
+  "message": "success",
+  "data": { ... }
+}</div>
+              <p style="color: #909399; font-size: 12px; margin: 8px 0 0 0">分页接口返回 <code>data.items</code>、<code>data.total</code>、<code>data.page</code>、<code>data.page_size</code>、<code>data.total_pages</code>。</p>
+            </div>
+          </el-card>
         </el-tab-pane>
 
         <!-- 数据安全应用 -->
@@ -119,6 +175,238 @@
             <el-form-item label="接口地址"><el-input v-model="dataAppForm.endpoint_url" placeholder="http://..." /></el-form-item>
             <el-form-item><el-button type="primary" @click="handleCreateDataApp">新增对接</el-button></el-form-item>
           </el-form>
+        </el-tab-pane>
+
+        <!-- 扫描引擎配置 -->
+        <el-tab-pane label="扫描引擎配置" name="engine">
+          <el-form label-width="160px" v-loading="engineLoading">
+            <el-form-item label="规则引擎并发线程数">
+              <el-input-number v-model="engineForm.rule_threads" :min="1" :max="20" />
+              <span class="form-item-tip">同时扫描几张表，越大越快但数据库压力也越大</span>
+            </el-form-item>
+            <el-form-item label="AI分类并发请求数">
+              <el-input-number v-model="engineForm.ai_concurrency" :min="1" :max="20" />
+              <span class="form-item-tip">同时发几个AI请求，受API限频限制</span>
+            </el-form-item>
+            <el-form-item label="AI批处理大小">
+              <el-input-number v-model="engineForm.ai_batch_size" :min="1" :max="200" />
+              <span class="form-item-tip">每个Prompt中包含的字段数</span>
+            </el-form-item>
+            <el-form-item label="规则引擎进度权重">
+              <el-input-number v-model="engineForm.progress_weight_rule" :min="10" :max="90" :step="5" />
+              <span class="form-item-tip">占总进度的百分比（%），与AI分类权重之和为100</span>
+            </el-form-item>
+            <el-form-item label="AI分类进度权重">
+              <el-input-number v-model="engineForm.progress_weight_ai" :min="10" :max="90" :step="5" />
+              <span class="form-item-tip">占总进度的百分比（%），与规则引擎权重之和为100</span>
+            </el-form-item>
+            <el-form-item>
+              <el-button type="primary" :loading="engineSaving" @click="saveEngineSettings">保存设置</el-button>
+            </el-form-item>
+          </el-form>
+        </el-tab-pane>
+
+        <!-- AI模型配置 -->
+        <el-tab-pane label="AI模型配置" name="ai">
+          <div v-loading="aiLoading">
+            <!-- 全局AI设置卡片 -->
+            <el-card shadow="hover" style="margin-bottom: 16px">
+              <template #header>
+                <span>AI全局设置</span>
+              </template>
+              <div class="ai-global-item">
+                <div class="ai-toggle-info">
+                  <span class="ai-toggle-label">启用AI分类</span>
+                  <span class="ai-toggle-desc">开启后，分类任务执行时会对字段进行AI识别；关闭后AI模型配置保留但不会在任务中执行</span>
+                </div>
+                <el-switch v-model="aiEnabled" @change="handleAiEnabledChange" />
+              </div>
+              <el-divider style="margin: 12px 0" />
+              <div class="ai-global-item">
+                <div class="ai-toggle-info">
+                  <span class="ai-toggle-label">仅用模版分类数据</span>
+                  <span class="ai-toggle-desc">{{ onlyTemplateCategories ? '开启后，AI只能从模板已有的分类中选择，不能超出模板范围' : '关闭后，AI优先匹配模板分类，匹配不到时可根据字段特征自定义分类' }}</span>
+                </div>
+                <el-switch v-model="onlyTemplateCategories" @change="handleOnlyTemplateChange" />
+              </div>
+              <el-divider style="margin: 12px 0" />
+              <div class="ai-global-item">
+                <div class="ai-toggle-info">
+                  <span class="ai-toggle-label">AI分类数据来源</span>
+                  <span class="ai-toggle-desc">选择哪些信息传递给AI进行分类，取消勾选可避免敏感信息外泄给大模型</span>
+                </div>
+                <el-checkbox-group v-model="classifySourcesList" @change="handleClassifySourcesChange as any">
+                  <el-checkbox value="column_name" label="column_name">字段名</el-checkbox>
+                  <el-checkbox value="column_comment" label="column_comment">字段注释</el-checkbox>
+                  <el-checkbox value="sample_values" label="sample_values">样本数据</el-checkbox>
+                </el-checkbox-group>
+              </div>
+            </el-card>
+
+            <!-- 配置列表 -->
+            <el-card shadow="hover" style="margin-bottom: 16px">
+              <template #header>
+                <div class="ai-config-header">
+                  <span>AI模型配置列表</span>
+                  <el-button size="small" type="primary" @click="openCreateConfig">新建配置</el-button>
+                </div>
+              </template>
+              <el-table :data="aiConfigs" stripe empty-text="暂无配置">
+                <el-table-column prop="config_name" label="名称" min-width="120" />
+                <el-table-column prop="model_name" label="模型" min-width="160" />
+                <el-table-column prop="api_base" label="API地址" min-width="160" show-overflow-tooltip>
+                  <template #default="{ row }">
+                    <span>{{ row.api_base || '默认' }}</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="激活状态" width="90" align="center">
+                  <template #default="{ row }">
+                    <el-tag :type="row.is_active ? 'success' : 'info'" size="small">
+                      {{ row.is_active ? '已激活' : '未激活' }}
+                    </el-tag>
+                  </template>
+                </el-table-column>
+                <el-table-column label="操作" width="220" fixed="right">
+                  <template #default="{ row }">
+                    <el-button v-if="!row.is_active" link type="primary" size="small" @click="handleActivateConfig(row)">激活</el-button>
+                    <el-button link type="primary" size="small" @click="handleEditConfig(row)">编辑</el-button>
+                    <el-button link type="primary" size="small" @click="handleTestConfig(row)">测试</el-button>
+                    <el-button v-if="!row.is_locked" link type="danger" size="small" @click="handleDeleteConfig(row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+
+            <!-- 编辑/新建表单 -->
+            <el-card v-if="showConfigForm" shadow="hover">
+              <template #header>
+                <span>{{ isEditingConfig ? '编辑配置' : '新建配置' }}</span>
+              </template>
+              <el-form :model="configForm" label-width="140px" style="max-width: 800px">
+                <el-form-item label="配置名称" required>
+                  <el-input v-model="configForm.config_name" placeholder="输入配置名称" />
+                </el-form-item>
+                <el-row :gutter="16">
+                  <el-col :span="8">
+                    <el-form-item label="Provider">
+                      <template #label>
+                        <span>Provider</span>
+                        <el-tooltip content="模型提供商前缀，参考：openai / deepseek / claude / anthropic / gemini 等。API代理（如 OneAPI）通常填 openai" placement="top">
+                          <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
+                      <el-input v-model="configForm.provider" placeholder="如 openai" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="模型名称" required>
+                      <template #label>
+                        <span>模型名称</span>
+                        <el-tooltip content="在 AI 服务商后台或代理平台（如 OneAPI）中配置的模型名称，如 gpt-4o / deepseek-chat 等" placement="top">
+                          <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
+                      <el-input v-model="configForm.model_name" placeholder="如 gpt-4o / deepseek-chat" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="API地址">
+                      <template #label>
+                        <span>API地址</span>
+                        <el-tooltip content="AI服务商的 API 地址。有代理时填代理地址（如 https://your-proxy.com/v1/chat/completions），直连时填服务商地址，留空用 LiteLLM 默认" placement="top">
+                          <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
+                      <el-input v-model="configForm.api_base" placeholder="留空使用LiteLLM默认" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-form-item label="API Key">
+                  <el-input v-model="configForm.api_key" type="password" show-password :placeholder="isEditingConfig ? '留空不修改' : '输入API Key'" />
+                </el-form-item>
+                <el-row :gutter="16">
+                  <el-col :span="8">
+                    <el-form-item label="Max Tokens">
+                      <el-input-number v-model="configForm.max_tokens" :min="256" :max="32768" :step="512" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="温度">
+                      <el-input-number v-model="configForm.temperature" :min="0" :max="2" :step="0.1" :precision="1" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="Top-P">
+                      <el-input-number v-model="configForm.top_p" :min="0" :max="1" :step="0.05" :precision="2" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-row :gutter="16">
+                  <el-col :span="8">
+                    <el-form-item label="超时(秒)">
+                      <el-input-number v-model="configForm.timeout_seconds" :min="10" :max="600" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="批大小">
+                      <el-input-number v-model="configForm.batch_size" :min="1" :max="200" />
+                    </el-form-item>
+                  </el-col>
+                  <el-col :span="8">
+                    <el-form-item label="重试次数">
+                      <el-input-number v-model="configForm.max_retries" :min="0" :max="10" />
+                    </el-form-item>
+                  </el-col>
+                </el-row>
+                <el-form-item label="System Prompt">
+                  <el-input v-model="configForm.system_prompt" type="textarea" :rows="4" placeholder="留空使用默认Prompt" />
+                </el-form-item>
+                <el-form-item label="User Prompt">
+                  <el-input v-model="configForm.user_prompt_template" type="textarea" :rows="4" placeholder="留空使用默认Prompt。可用变量: {column_info} {categories_instruction}" />
+                </el-form-item>
+                <el-form-item>
+                  <el-button type="primary" :loading="configSaving" @click="handleSaveConfig">保存</el-button>
+                  <el-button :loading="testingConfig" type="success" @click="handleTestFormConfig">联通性测试</el-button>
+                  <el-button @click="showConfigForm = false">取消</el-button>
+                </el-form-item>
+              </el-form>
+            </el-card>
+
+            <!-- 知识库管理（全局） -->
+            <el-card shadow="hover" style="margin-bottom: 16px">
+              <template #header>
+                <div class="ai-config-header">
+                  <span>知识库管理</span>
+                  <div>
+                    <el-upload
+                      ref="knowledgeUploadRef"
+                      action="#"
+                      :auto-upload="false"
+                      :on-change="handleKnowledgeFileChange"
+                      :accept="'.txt,.pdf,.doc,.docx'"
+                      :show-file-list="false"
+                    >
+                      <el-button size="small" type="primary">上传文档</el-button>
+                    </el-upload>
+                  </div>
+                </div>
+              </template>
+              <div style="color: #909399; font-size: 12px; padding: 0 0 12px 0; border-bottom: 1px solid var(--el-border-color-light); margin-bottom: 12px">
+                支持上传 TXT、PDF、Word（.doc/.docx）格式文件。上传后系统自动提取文本、分块并提取关键词，AI分类时将根据字段特征检索匹配的知识块作为参考依据。
+              </div>
+              <el-table :data="knowledgeList" stripe empty-text="暂无知识库文档" v-loading="knowledgeLoading" style="margin-bottom: 12px">
+                <el-table-column prop="title" label="文档标题" min-width="160" />
+                <el-table-column prop="file_name" label="文件名" min-width="160" show-overflow-tooltip />
+                <el-table-column prop="chunk_count" label="分块数" width="80" align="center" />
+                <el-table-column prop="created_at" label="上传时间" width="160" />
+                <el-table-column label="操作" width="80">
+                  <template #default="{ row }">
+                    <el-button link type="danger" size="small" @click="handleDeleteKnowledge(row)">删除</el-button>
+                  </template>
+                </el-table-column>
+              </el-table>
+            </el-card>
+          </div>
         </el-tab-pane>
 
         <!-- 授权管理 -->
@@ -179,11 +467,30 @@
       </el-tabs>
     </el-card>
   </div>
+
+  <!-- API Key 显示弹窗 -->
+  <el-dialog v-model="showKeyDialog" title="密钥已创建" width="520px" :close-on-click-modal="false">
+    <div style="color: #e6a23c; font-size: 13px; margin-bottom: 12px">请立即复制并保存，关闭后将无法再次查看完整密钥</div>
+    <el-input
+      ref="keyInputRef"
+      :model-value="shownKey"
+      readonly
+      :rows="3"
+      type="textarea"
+      style="font-family: monospace; font-size: 13px"
+      @focus="(e: any) => e.target?.select()"
+    />
+    <template #footer>
+      <el-button type="primary" @click="copyApiKey">复制密钥</el-button>
+      <el-button @click="showKeyDialog = false">已保存，关闭</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import {
   getSettings, updateSettings, uploadLogo,
   getLdapSettings, updateLdapSettings, testLdapConnection,
@@ -194,6 +501,10 @@ import {
   getApiKeys, createApiKey, deleteApiKey,
   getDataApps, createDataApp, deleteDataApp, testDataAppConnection,
   getLicenseInfo, activateLicense, deactivateLicense,
+  getAiSettings, saveAiSettings,
+  getAiModelConfigs, createAiModelConfig, updateAiModelConfig,
+  deleteAiModelConfig, activateAiModelConfig, testAiModelConfig, testAiModelConnection,
+  getAiKnowledge, uploadAiKnowledge, deleteAiKnowledge,
 } from '@/api/system'
 
 const activeTab = ref('basic')
@@ -222,8 +533,22 @@ const securityForm = reactive({
 const ldapForm = reactive({ enabled: false, host: '', port: 389, base_dn: '', bind_dn: '', bind_password: '', user_filter: '(uid={username})' })
 const apiForm = reactive({ name: '' })
 const apiKeys = ref<any[]>([])
+const shownKey = ref('')
+const showKeyDialog = ref(false)
+const keyInputRef = ref()
 const dataApps = ref<any[]>([])
 const dataAppForm = reactive({ name: '', app_type: '', endpoint_url: '' })
+
+// 扫描引擎配置
+const engineLoading = ref(false)
+const engineSaving = ref(false)
+const engineForm = reactive({
+  rule_threads: 1,
+  ai_concurrency: 3,
+  ai_batch_size: 50,
+  progress_weight_rule: 50,
+  progress_weight_ai: 50,
+})
 const licenseInfo = reactive({
   activated: false,
   machine_code: '',
@@ -370,9 +695,12 @@ async function handleCreateApiKey() {
   if (!apiForm.name.trim()) { ElMessage.warning('请输入密钥名称'); return }
   try {
     const res = await createApiKey({ name: apiForm.name })
-    ElMessage.success(`API密钥创建成功: ${(res as any).data?.key}`)
+    const key = (res as any).data?.key
     apiForm.name = ''
     loadApiKeys()
+    // 显示弹窗，用 textarea 选中后自动复制
+    shownKey.value = key
+    showKeyDialog.value = true
   } catch { ElMessage.error('创建失败') }
 }
 
@@ -385,6 +713,21 @@ async function handleDeleteApiKey(row: any) {
   } catch {}
 }
 
+function copyApiKey() {
+  const input = keyInputRef.value
+  if (input) {
+    input.select()
+    input.focus()
+  }
+  try {
+    navigator.clipboard.writeText(shownKey.value)
+    ElMessage.success('已复制到剪贴板')
+  } catch {
+    document.execCommand('copy')
+    ElMessage.success('已复制到剪贴板')
+  }
+}
+
 // ===== 数据安全应用 =====
 async function loadDataApps() {
   appsLoading.value = true
@@ -392,6 +735,30 @@ async function loadDataApps() {
     const res = await getDataApps()
     dataApps.value = res.data?.items || []
   } finally { appsLoading.value = false }
+}
+
+// ===== 扫描引擎配置 =====
+async function loadEngineSettings() {
+  engineLoading.value = true
+  try {
+    const res = await getSettings({ category: 'scan_engine' })
+    const data = res.data?.scan_engine || {}
+    engineForm.rule_threads = parseInt(data.rule_threads || '1')
+    engineForm.ai_concurrency = parseInt(data.ai_concurrency || '3')
+    engineForm.ai_batch_size = parseInt(data.ai_batch_size || '50')
+    engineForm.progress_weight_rule = parseInt(data.progress_weight_rule || '50')
+    engineForm.progress_weight_ai = parseInt(data.progress_weight_ai || '50')
+  } finally { engineLoading.value = false }
+}
+
+async function saveEngineSettings() {
+  engineSaving.value = true
+  try {
+    await updateSettings({ scan_engine: { ...engineForm } })
+    ElMessage.success('扫描引擎配置已保存')
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '保存失败')
+  } finally { engineSaving.value = false }
 }
 
 async function handleCreateDataApp() {
@@ -419,6 +786,203 @@ async function handleTestDataApp(row: any) {
     ElMessage.success(res?.message || '连接测试通过')
   } catch (err: any) {
     ElMessage.error(err?.response?.data?.message || err?.message || '连接测试失败')
+  }
+}
+
+// ===== AI模型配置 =====
+const aiLoading = ref(false)
+const aiConfigs = ref<any[]>([])
+const aiEnabled = ref(false)
+const onlyTemplateCategories = ref(true)
+const classifySourcesList = ref<string[]>(['column_name', 'column_comment'])
+const showConfigForm = ref(false)
+const isEditingConfig = ref(false)
+const editingConfigId = ref<number | null>(null)
+const configSaving = ref(false)
+const testingConfig = ref(false)
+const knowledgeLoading = ref(false)
+const knowledgeList = ref<any[]>([])
+const knowledgeUploadRef = ref()
+const knowledgeFile = ref<File | null>(null)
+
+const defaultConfigForm = {
+  config_name: '',
+  model_name: '',
+  provider: '',
+  api_base: '',
+  api_key: '',
+  max_tokens: 4096,
+  temperature: 0.1,
+  top_p: 1.0,
+  timeout_seconds: 120,
+  batch_size: 50,
+  max_retries: 3,
+  system_prompt: '',
+  user_prompt_template: '',
+}
+
+const configForm = reactive({ ...defaultConfigForm })
+
+async function loadAiConfigs() {
+  aiLoading.value = true
+  try {
+    const [settingsRes, configsRes, knowledgeRes] = await Promise.all([
+      getAiSettings(),
+      getAiModelConfigs(),
+      getAiKnowledge(),
+    ])
+    aiEnabled.value = settingsRes.data?.ai_enabled === 'true'
+    onlyTemplateCategories.value = settingsRes.data?.only_template_categories !== 'false'
+    // 从全局设置读取 classify_sources
+    const sources = settingsRes.data?.classify_sources || 'column_name,column_comment'
+    classifySourcesList.value = sources.split(',').map((s: string) => s.trim())
+    aiConfigs.value = configsRes.data || []
+    knowledgeList.value = knowledgeRes.data || []
+  } catch { /* ignore */ }
+  finally { aiLoading.value = false }
+}
+
+async function handleAiEnabledChange(val: any) {
+  const enabled = val === true || val === 'true'
+  try {
+    await saveAiSettings({ ai_enabled: String(enabled) })
+    ElMessage.success(enabled ? 'AI分类已启用' : 'AI分类已禁用')
+  } catch { ElMessage.error('保存失败') }
+}
+
+async function handleOnlyTemplateChange(val: any) {
+  const enabled = val === true || val === 'true'
+  try {
+    await saveAiSettings({ only_template_categories: String(enabled) })
+    ElMessage.success(enabled ? '已启用仅用模版分类' : '已关闭仅用模版分类')
+  } catch { ElMessage.error('保存失败') }
+}
+
+async function handleClassifySourcesChange(val: string[]) {
+  const sources = (val || ['column_name', 'column_comment']).join(',')
+  try {
+    await saveAiSettings({ classify_sources: sources })
+    ElMessage.success('分类数据来源已更新')
+  } catch { ElMessage.error('保存失败') }
+}
+
+function openCreateConfig() {
+  isEditingConfig.value = false
+  editingConfigId.value = null
+  Object.assign(configForm, defaultConfigForm)
+  // 预填默认 Prompt
+  configForm.system_prompt = '你是一个专业的数据分类专家。你的任务是根据数据库字段的信息判断其数据类型、所属分类和数据级别。\n\n请严格按照JSON格式返回结果，不要包含其他文字。'
+  configForm.user_prompt_template = '请对以下数据库字段进行分类：\n\n{column_info}\n\n{categories_instruction}\n\n请返回以下JSON格式：\n{{\n  "category_path": "分类路径，如 个人信息/联系方式",\n  "data_type_name": "数据类型名称，如 手机号",\n  "level_code": "级别代码，如 L2",\n  "reason": "分类依据的简要说明",\n  "is_sensitive": true\n}}'
+  showConfigForm.value = true
+}
+
+function handleEditConfig(row: any) {
+  isEditingConfig.value = true
+  editingConfigId.value = row.id
+  configForm.config_name = row.config_name
+  configForm.model_name = row.model_name
+  configForm.provider = row.provider || ''
+  configForm.api_base = row.api_base || ''
+  configForm.api_key = ''
+  configForm.max_tokens = row.max_tokens || 4096
+  configForm.temperature = row.temperature ?? 0.1
+  configForm.top_p = row.top_p ?? 1.0
+  configForm.timeout_seconds = row.timeout_seconds || 120
+  configForm.batch_size = row.batch_size || 50
+  configForm.max_retries = row.max_retries || 3
+  configForm.system_prompt = row.system_prompt || ''
+  configForm.user_prompt_template = row.user_prompt_template || ''
+  showConfigForm.value = true
+}
+
+async function loadKnowledge() {
+  knowledgeLoading.value = true
+  try {
+    const res = await getAiKnowledge()
+    knowledgeList.value = res.data || []
+  } catch { knowledgeList.value = [] }
+  finally { knowledgeLoading.value = false }
+}
+
+async function handleKnowledgeFileChange(file: any) {
+  knowledgeFile.value = file.raw
+  try {
+    const res = await uploadAiKnowledge(file.raw, file.name)
+    ElMessage.success((res as any)?.message || '上传成功')
+    loadKnowledge()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '上传失败')
+  }
+}
+
+async function handleDeleteKnowledge(row: any) {
+  try {
+    await ElMessageBox.confirm(`确定删除"${row.title}"吗？`, '提示', { type: 'warning' })
+    await deleteAiKnowledge(row.id)
+    ElMessage.success('已删除')
+    loadKnowledge()
+  } catch {}
+}
+
+async function handleSaveConfig() {
+  if (!configForm.config_name.trim()) { ElMessage.warning('请输入配置名称'); return }
+  if (!configForm.model_name.trim()) { ElMessage.warning('请输入模型名称'); return }
+  configSaving.value = true
+  try {
+    const data = { ...configForm }
+    if (isEditingConfig.value && editingConfigId.value) {
+      await updateAiModelConfig(editingConfigId.value, data)
+      ElMessage.success('配置已更新')
+    } else {
+      await createAiModelConfig(data)
+      ElMessage.success('配置已创建')
+    }
+    showConfigForm.value = false
+    await loadAiConfigs()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '保存失败')
+  } finally { configSaving.value = false }
+}
+
+async function handleTestFormConfig() {
+  if (!configForm.model_name.trim()) { ElMessage.warning('请先填写模型名称'); return }
+  testingConfig.value = true
+  try {
+    const data = { ...configForm }
+    const res = await testAiModelConnection(data) as any
+    const result = res.data
+    const detail = result?.data_type_name || result?.category_path || JSON.stringify(result)
+    ElMessage.success(`连接测试成功！识别结果: ${detail}`)
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '连接测试失败')
+  } finally { testingConfig.value = false }
+}
+
+async function handleDeleteConfig(row: any) {
+  try {
+    await ElMessageBox.confirm(`确定删除配置"${row.config_name}"吗？`, '提示', { type: 'warning' })
+    await deleteAiModelConfig(row.id)
+    ElMessage.success('已删除')
+    await loadAiConfigs()
+  } catch {}
+}
+
+async function handleActivateConfig(row: any) {
+  try {
+    await activateAiModelConfig(row.id)
+    ElMessage.success(`已激活配置"${row.config_name}"`)
+    await loadAiConfigs()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '激活失败')
+  }
+}
+
+async function handleTestConfig(row: any) {
+  try {
+    const res = await testAiModelConfig(row.id) as any
+    ElMessage.success(res?.data ? `测试成功: ${JSON.stringify(res.data)}` : '测试通过')
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '测试失败')
   }
 }
 
@@ -479,6 +1043,8 @@ const tabLoaders: Record<string, () => Promise<void>> = {
   security: loadSecuritySettings,
   api: loadApiKeys,
   apps: loadDataApps,
+  engine: loadEngineSettings,
+  ai: loadAiConfigs,
   license: loadLicenseInfo,
 }
 
@@ -507,5 +1073,52 @@ watch(activeTab, (tab) => {
 .logo-preview-tip {
   font-size: 12px;
   color: var(--color-text-tertiary);
+}
+
+.ai-global-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.ai-toggle-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ai-toggle-label {
+  font-size: 15px;
+  font-weight: 500;
+}
+
+.ai-toggle-desc {
+  font-size: 12px;
+  color: #909399;
+}
+
+.ai-config-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ai-toggle-with-desc {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ai-desc-text {
+  font-size: 12px;
+  color: #909399;
+}
+
+.form-item-tip {
+  font-size: 12px;
+  color: #909399;
+  margin-left: 8px;
 }
 </style>

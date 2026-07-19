@@ -235,7 +235,7 @@
                   <span class="ai-toggle-label">AI分类数据来源</span>
                   <span class="ai-toggle-desc">选择哪些信息传递给AI进行分类，取消勾选可避免敏感信息外泄给大模型</span>
                 </div>
-                <el-checkbox-group v-model="classifySourcesList" @change="handleClassifySourcesChange">
+                <el-checkbox-group v-model="classifySourcesList" @change="handleClassifySourcesChange as any">
                   <el-checkbox value="column_name" label="column_name">字段名</el-checkbox>
                   <el-checkbox value="column_comment" label="column_comment">字段注释</el-checkbox>
                   <el-checkbox value="sample_values" label="sample_values">样本数据</el-checkbox>
@@ -478,7 +478,7 @@
       :rows="3"
       type="textarea"
       style="font-family: monospace; font-size: 13px"
-      @focus="$event.target.select()"
+      @focus="(e: any) => e.target?.select()"
     />
     <template #footer>
       <el-button type="primary" @click="copyApiKey">复制密钥</el-button>
@@ -908,7 +908,7 @@ async function handleKnowledgeFileChange(file: any) {
   knowledgeFile.value = file.raw
   try {
     const res = await uploadAiKnowledge(file.raw, file.name)
-    ElMessage.success(res?.message || '上传成功')
+    ElMessage.success((res as any)?.message || '上传成功')
     loadKnowledge()
   } catch (err: any) {
     ElMessage.error(err?.response?.data?.message || err?.message || '上传失败')
@@ -930,7 +930,6 @@ async function handleSaveConfig() {
   configSaving.value = true
   try {
     const data = { ...configForm }
-    delete data.classify_sources_list
     if (isEditingConfig.value && editingConfigId.value) {
       await updateAiModelConfig(editingConfigId.value, data)
       ElMessage.success('配置已更新')

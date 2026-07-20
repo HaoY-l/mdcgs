@@ -24,7 +24,7 @@
       <el-table-column label="地址" min-width="180">
         <template #default="{ row }">{{ row.host }}:{{ row.port }}</template>
       </el-table-column>
-      <el-table-column prop="version" label="版本" min-width="100">
+      <el-table-column prop="version" label="版本" min-width="100" show-overflow-tooltip>
         <template #default="{ row }">
           <span>{{ row.version || '-' }}</span>
         </template>

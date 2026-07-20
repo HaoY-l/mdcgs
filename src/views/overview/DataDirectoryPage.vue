@@ -328,8 +328,8 @@
           :page-sizes="[20, 50, 100]"
           :total="total"
           layout="total, sizes, prev, pager, next, jumper"
-          @size-change="handleSearch"
-          @current-change="handleSearch"
+          @size-change="fetchDirectory(buildParams())"
+          @current-change="fetchDirectory(buildParams())"
         />
       </div>
     </el-card>

@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>自动扫描</h2>
+      <h2>资产发现</h2>
       <div class="header-actions">
         <el-button size="small" @click="fetchTasks">刷新</el-button>
         <el-button type="primary" size="small" @click="handleAdd">新增扫描任务</el-button>
@@ -41,6 +41,7 @@
             <el-button v-if="row.status !== 'running'" link type="primary" size="small" @click="handleStart(row)">开始</el-button>
             <el-button v-if="row.status === 'running'" link type="warning" size="small" @click="handleStop(row)">停止</el-button>
             <el-button v-if="row.status === 'completed' && row.asset_count > 0" link type="success" size="small" @click="handleViewResult(row)">查看结果</el-button>
+            <el-button v-if="row.status !== 'running'" link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -77,7 +78,7 @@
     </el-dialog>
 
     <!-- 新增扫描任务弹窗 -->
-    <el-dialog v-model="showDialog" title="新增扫描任务" width="550px">
+    <el-dialog v-model="showDialog" :title="isEdit ? '编辑扫描任务' : '新增扫描任务'" width="550px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="任务名称" required><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="执行方式" required>
@@ -128,7 +129,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import client from '@/api/client'
 import { getMaskingRules, getEncryptionTypes } from '@/api/classification'
-import { getScanTasks, createScanTask, deleteScanTask, startScanTask, stopScanTask } from '@/api/assets'
+import { getScanTasks, createScanTask, updateScanTask, deleteScanTask, startScanTask, stopScanTask } from '@/api/assets'
 
 const router = useRouter()
 const loading = ref(false)
@@ -138,6 +139,9 @@ const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
 const showDialog = ref(false)
+
+	const isEdit = ref(false)
+	const editId = ref<number | null>(null)
 
 const maskingRules = ref<any[]>([])
 const encryptionTypes = ref<any[]>([])
@@ -176,7 +180,24 @@ async function fetchTasks() {
 }
 
 function handleAdd() {
+  isEdit.value = false
+  editId.value = null
   form.name = ''; form.execute_type = 'manual'; form.cron_expression = ''; form.ip_range = ''; form.port_range = ''; form.masking_rule_id = null; form.encryption_type_id = null; form.business_dept = ''; form.app_system = ''
+  showDialog.value = true
+}
+
+function handleEdit(row: any) {
+  isEdit.value = true
+  editId.value = row.id
+  form.name = row.name
+  form.execute_type = row.execute_type || 'manual'
+  form.cron_expression = row.cron_expression || ''
+  form.ip_range = row.ip_range || ''
+  form.port_range = row.port_range || ''
+  form.masking_rule_id = row.masking_rule_id ?? null
+  form.encryption_type_id = row.encryption_type_id ?? null
+  form.business_dept = row.business_dept || ''
+  form.app_system = row.app_system || ''
   showDialog.value = true
 }
 
@@ -184,8 +205,13 @@ async function handleSave() {
   if (!form.name || !form.ip_range) { ElMessage.warning('请填写必要信息'); return }
   submitting.value = true
   try {
-    await createScanTask({ ...form })
-    ElMessage.success('创建成功')
+    if (isEdit.value && editId.value) {
+      await updateScanTask(editId.value, { ...form })
+      ElMessage.success('更新成功')
+    } else {
+      await createScanTask({ ...form })
+      ElMessage.success('创建成功')
+    }
     showDialog.value = false
     fetchTasks()
   } finally { submitting.value = false }

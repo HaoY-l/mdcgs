@@ -54,6 +54,10 @@ export async function updateAssetManual(id: number, data?: Record<string, any>) 
   return client.post(`/assets/${id}/update`, data || {})
 }
 
+export async function stopAssetUpdate(id: number) {
+  return client.post(`/assets/${id}/stop-update`)
+}
+
 export async function batchUpdateAssets(data: Record<string, any>) {
   return client.post('/assets/batch-update', data)
 }

@@ -1,5 +1,5 @@
 <template>
-  <PageShell title="资产列表" description="管理数据库资产">
+  <PageShell title="资产列表" description="管理数据库资产，添加资产后点击「更新」同步数据库表结构">
     <template #header-actions>
       <el-input v-model="searchKeyword" placeholder="搜索资产名称" clearable size="small"
         style="width: 200px; margin-right: 12px" @clear="fetchAssets" @keyup.enter="fetchAssets" />
@@ -31,11 +31,27 @@
       </el-table-column>
       <el-table-column label="更新状态" min-width="120">
         <template #default="{ row }">
-          <el-tooltip :content="row.update_status === 'idle' ? '资产数据已是最新' : '正在同步更新资产元数据'" placement="top">
-            <el-tag :type="row.update_status === 'idle' ? 'success' : 'warning'" size="small">
-              {{ row.update_status === 'idle' ? '空闲' : '更新中' }}
+          <el-tooltip :content="row.update_error || getUpdateStatusText(row)" placement="top">
+            <el-tag :type="getUpdateStatusType(row)" size="small">
+              <span v-if="row.update_status === 'updating'" class="update-spinner" />
+              {{ getUpdateStatusText(row) }}
             </el-tag>
           </el-tooltip>
+        </template>
+      </el-table-column>
+      <el-table-column label="最后更新" min-width="170">
+        <template #default="{ row }">
+          <span>{{ row.last_update_time ? formatTime(row.last_update_time) : '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="business_dept" label="业务部门" min-width="120">
+        <template #default="{ row }">
+          <span>{{ row.business_dept || '-' }}</span>
+        </template>
+      </el-table-column>
+      <el-table-column prop="app_system" label="应用系统" min-width="120">
+        <template #default="{ row }">
+          <span>{{ row.app_system || '-' }}</span>
         </template>
       </el-table-column>
       <el-table-column label="操作" min-width="200" fixed="right">
@@ -110,7 +126,7 @@
 import { ref, reactive, onMounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual } from '@/api/assets'
+import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual, stopAssetUpdate } from '@/api/assets'
 import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLabel } from '@/constants/datasource'
 import PageShell from '@/components/common/PageShell.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -178,6 +194,31 @@ async function fetchFilterOptions() {
   } catch { /* 忽略 */ }
 }
 
+function getUpdateStatusText(row: any): string {
+  if (row.update_status === 'updating') return '更新中'
+  if (row.update_status === 'failed') return '更新失败'
+  if (row.last_update_time) return '已更新'
+  return '未更新'
+}
+
+function getUpdateStatusType(row: any): 'success' | 'warning' | 'danger' | 'info' {
+  if (row.update_status === 'updating') return 'warning'
+  if (row.update_status === 'failed') return 'danger'
+  if (row.last_update_time) return 'success'
+  return 'info'
+}
+
+function formatTime(time: string): string {
+  if (!time) return '-'
+  try {
+    const d = new Date(time)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+  } catch {
+    return time
+  }
+}
+
 function handlePageChange({ page, pageSize: size }: { page: number; pageSize: number }) {
   currentPage.value = page
   pageSize.value = size
@@ -213,10 +254,18 @@ function handleView(row: any) {
 }
 
 async function handleUpdate(row: any) {
+  // 如果已经在更新中，阻止重复点击
+  if (row.update_status === 'updating') {
+    ElMessage.warning('该资产正在更新中，请等待完成')
+    return
+  }
   try {
     const body: any = {}
     if (form.password) body.password = form.password
     await updateAssetManual(row.id, body)
+    // 立即更新本地状态，让 UI 马上响应
+    row.update_status = 'updating'
+    row.update_error = null
     ElMessage.success('更新任务已触发，正在连接数据库扫描...')
     const poll = setInterval(async () => {
       try {
@@ -227,11 +276,28 @@ async function handleUpdate(row: any) {
           clearInterval(poll)
           ElMessage.success('资产更新完成')
           fetchAssets()
+        } else if (updated && updated.update_status === 'failed') {
+          clearInterval(poll)
+          ElMessage.error(updated.update_error || '资产更新失败')
+          fetchAssets()
         }
       } catch {}
     }, 2000)
-    setTimeout(() => clearInterval(poll), 30000)
-  } catch {}
+    setTimeout(() => clearInterval(poll), 60000)
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || '更新启动失败')
+  }
+}
+
+async function handleStopUpdate(row: any) {
+  try {
+    await stopAssetUpdate(row.id)
+    row.update_status = 'failed'
+    row.update_error = '已手动停止更新'
+    ElMessage.success('已停止更新')
+  } catch {
+    ElMessage.error('停止更新失败')
+  }
 }
 
 async function testConnectionHandler() {
@@ -281,6 +347,12 @@ function handleDelete(row: any) {
 }
 
 function getAssetActions(row: any) {
+  if (row.update_status === 'updating') {
+    return [
+      { label: '查看', click: () => handleView(row) },
+      { label: '停止更新', type: 'warning' as const, click: () => handleStopUpdate(row) },
+    ]
+  }
   return [
     { label: '查看', click: () => handleView(row) },
     { label: '更新', click: () => handleUpdate(row) },
@@ -305,4 +377,18 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.update-spinner {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #e6a23c;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 </style>

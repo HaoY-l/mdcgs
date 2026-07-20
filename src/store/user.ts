@@ -31,7 +31,7 @@ const ALL_MENU_ITEMS: MenuItem[] = [
     permission: 'asset_view',
     children: [
       { path: '/assets', title: '资产列表', icon: 'Monitor', permission: 'asset_view' },
-      { path: '/assets/scan', title: '自动扫描', icon: 'Search', permission: 'scan_execute' },
+      { path: '/assets/scan', title: '资产发现', icon: 'Search', permission: 'scan_execute' },
     ],
   },
   {

@@ -11,7 +11,7 @@ export interface DataSourceTypeDef {
 export const DATA_SOURCE_TYPES: readonly DataSourceTypeDef[] = [
   { value: 'mysql',      label: 'MySQL',      defaultPort: 3306,  defaultUsername: 'root',      description: '开源关系型数据库' },
   { value: 'postgresql', label: 'PostgreSQL',  defaultPort: 5432,  defaultUsername: 'postgres',  description: '功能丰富的关系型数据库' },
-  { value: 'oracle',     label: 'Oracle',      defaultPort: 1521,  defaultUsername: 'sys',       description: '甲骨文商业数据库' },
+  { value: 'oracle',     label: 'Oracle',      defaultPort: 1521,  defaultUsername: 'sys',       description: '甲骨文商业数据库（支持 Oracle 12.1+）' },
   { value: 'sqlserver',  label: 'SQL Server',  defaultPort: 1433,  defaultUsername: 'sa',         description: '微软商业数据库' },
   { value: 'dm',         label: 'DM（达梦）',   defaultPort: 5236,  defaultUsername: 'SYSDBA',     description: '国产达梦数据库' },
   { value: 'opengauss',  label: 'openGauss',   defaultPort: 5432,  defaultUsername: 'postgres',  description: '华为开源数据库' },

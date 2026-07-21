@@ -88,32 +88,35 @@
           </el-radio-group>
         </el-form-item>
         <template v-if="form.execute_type === 'periodic'">
-          <el-form-item label="Cron表达式" required><el-input v-model="form.cron_expression" placeholder="0 0 2 * * ?" /></el-form-item>
+          <el-form-item label="执行频率" required>
+            <el-radio-group v-model="form.schedule_freq">
+              <el-radio value="daily">每天</el-radio>
+              <el-radio value="weekly">每周</el-radio>
+              <el-radio value="monthly">每月</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="执行时间" required>
+            <el-time-picker v-model="form.schedule_time" format="HH:mm" placeholder="选择时间" style="width: 140px" />
+          </el-form-item>
+          <el-form-item v-if="form.schedule_freq === 'weekly'" label="选择星期" required>
+            <el-checkbox-group v-model="form.schedule_week_days">
+              <el-checkbox :label="1">周一</el-checkbox>
+              <el-checkbox :label="2">周二</el-checkbox>
+              <el-checkbox :label="3">周三</el-checkbox>
+              <el-checkbox :label="4">周四</el-checkbox>
+              <el-checkbox :label="5">周五</el-checkbox>
+              <el-checkbox :label="6">周六</el-checkbox>
+              <el-checkbox :label="0">周日</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+          <el-form-item v-if="form.schedule_freq === 'monthly'" label="选择日期" required>
+            <el-select v-model="form.schedule_month_day" style="width: 120px">
+              <el-option v-for="d in 31" :key="d" :label="d + '日'" :value="d" />
+            </el-select>
+          </el-form-item>
         </template>
         <el-form-item label="IP范围" required><el-input v-model="form.ip_range" placeholder="192.168.1.0/24" /></el-form-item>
         <el-form-item label="端口范围"><el-input v-model="form.port_range" placeholder="1-65535" /></el-form-item>
-        <el-form-item label="脱敏规则">
-          <el-select v-model="form.masking_rule_id" placeholder="请选择(可选)" clearable style="width: 100%">
-            <el-option v-for="r in maskingRules" :key="r.id" :label="r.name" :value="r.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="加密方式">
-          <el-select v-model="form.encryption_type_id" placeholder="请选择(可选)" clearable style="width: 100%">
-            <el-option v-for="e in encryptionTypes" :key="e.id" :label="e.name" :value="e.id" />
-          </el-select>
-        </el-form-item>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="业务部门">
-              <el-input v-model="form.business_dept" placeholder="如：研发部、财务部" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="应用系统">
-              <el-input v-model="form.app_system" placeholder="如：ERP、CRM" />
-            </el-form-item>
-          </el-col>
-        </el-row>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
@@ -128,7 +131,6 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import client from '@/api/client'
-import { getMaskingRules, getEncryptionTypes } from '@/api/classification'
 import { getScanTasks, createScanTask, updateScanTask, deleteScanTask, startScanTask, stopScanTask } from '@/api/assets'
 
 const router = useRouter()
@@ -140,16 +142,19 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const showDialog = ref(false)
 
-	const isEdit = ref(false)
-	const editId = ref<number | null>(null)
-
-const maskingRules = ref<any[]>([])
-const encryptionTypes = ref<any[]>([])
+const isEdit = ref(false)
+const editId = ref<number | null>(null)
 
 // 自动刷新定时器
 let refreshTimer: number | null = null
 
-const form = reactive({ name: '', execute_type: 'manual', cron_expression: '', ip_range: '', port_range: '', masking_rule_id: null, encryption_type_id: null, business_dept: '', app_system: '' })
+const form = reactive({
+  name: '', execute_type: 'manual', cron_expression: '',
+  ip_range: '', port_range: '',
+  business_dept: '', app_system: '',
+  schedule_freq: 'daily', schedule_time: null as Date | null,
+  schedule_week_days: [] as number[], schedule_month_day: 1,
+})
 
 // 查看结果
 const showResultDialog = ref(false)
@@ -182,7 +187,8 @@ async function fetchTasks() {
 function handleAdd() {
   isEdit.value = false
   editId.value = null
-  form.name = ''; form.execute_type = 'manual'; form.cron_expression = ''; form.ip_range = ''; form.port_range = ''; form.masking_rule_id = null; form.encryption_type_id = null; form.business_dept = ''; form.app_system = ''
+  form.name = ''; form.execute_type = 'manual'; form.cron_expression = ''; form.ip_range = ''; form.port_range = ''; form.business_dept = ''; form.app_system = ''
+  form.schedule_freq = 'daily'; form.schedule_time = null; form.schedule_week_days = []; form.schedule_month_day = 1
   showDialog.value = true
 }
 
@@ -194,22 +200,62 @@ function handleEdit(row: any) {
   form.cron_expression = row.cron_expression || ''
   form.ip_range = row.ip_range || ''
   form.port_range = row.port_range || ''
-  form.masking_rule_id = row.masking_rule_id ?? null
-  form.encryption_type_id = row.encryption_type_id ?? null
   form.business_dept = row.business_dept || ''
   form.app_system = row.app_system || ''
+  form.schedule_freq = 'daily'; form.schedule_time = null; form.schedule_week_days = []; form.schedule_month_day = 1
+  // 解析 cron 回显
+  if (form.cron_expression) {
+    const parts = form.cron_expression.trim().split(/\s+/)
+    if (parts.length >= 6) {
+      const [, minute, hour, day, , dayOfWeek] = parts
+      const h = parseInt(hour, 10); const m = parseInt(minute, 10)
+      if (!isNaN(h) && !isNaN(m)) {
+        const d = new Date(); d.setHours(h, m, 0, 0); form.schedule_time = d
+      }
+      if (dayOfWeek !== '*' && dayOfWeek !== '?') {
+        form.schedule_freq = 'weekly'
+        form.schedule_week_days = dayOfWeek.split(',').map(Number)
+      } else if (day !== '*' && day !== '?') {
+        form.schedule_freq = 'monthly'
+        form.schedule_month_day = parseInt(day, 10) || 1
+      } else {
+        form.schedule_freq = 'daily'
+      }
+    }
+  }
   showDialog.value = true
+}
+
+function buildCronExpression(): string {
+  if (form.execute_type !== 'periodic') return ''
+  const time = form.schedule_time
+  if (!time) return ''
+  const h = time.getHours().toString().padStart(2, '0')
+  const m = time.getMinutes().toString().padStart(2, '0')
+  if (form.schedule_freq === 'daily') return `0 ${m} ${h} * * ?`
+  if (form.schedule_freq === 'weekly') {
+    if (!form.schedule_week_days.length) return ''
+    return `0 ${m} ${h} ? * ${form.schedule_week_days.join(',')}`
+  }
+  if (form.schedule_freq === 'monthly') return `0 ${m} ${h} ${form.schedule_month_day} * ?`
+  return ''
 }
 
 async function handleSave() {
   if (!form.name || !form.ip_range) { ElMessage.warning('请填写必要信息'); return }
+  if (form.execute_type === 'periodic') {
+    if (!form.schedule_time) { ElMessage.warning('请选择执行时间'); return }
+    if (form.schedule_freq === 'weekly' && !form.schedule_week_days.length) { ElMessage.warning('请选择至少一天'); return }
+  }
   submitting.value = true
   try {
+    const payload: Record<string, any> = { ...form }
+    if (form.execute_type === 'periodic') payload.cron_expression = buildCronExpression()
     if (isEdit.value && editId.value) {
-      await updateScanTask(editId.value, { ...form })
+      await updateScanTask(editId.value, payload)
       ElMessage.success('更新成功')
     } else {
-      await createScanTask({ ...form })
+      await createScanTask(payload)
       ElMessage.success('创建成功')
     }
     showDialog.value = false
@@ -263,24 +309,8 @@ function handleCreateAsset(row: any) {
   router.push(`/assets?quick_host=${row.host}&quick_port=${row.port}`)
 }
 
-async function loadMaskingRules() {
-  try {
-    const res = await getMaskingRules({ page_size: 100 })
-    maskingRules.value = res.data?.items || res.data || []
-  } catch { maskingRules.value = [] }
-}
-
-async function loadEncryptionTypes() {
-  try {
-    const res = await getEncryptionTypes({ page_size: 100 })
-    encryptionTypes.value = res.data?.items || res.data || []
-  } catch { encryptionTypes.value = [] }
-}
-
 onMounted(() => {
   fetchTasks()
-  loadMaskingRules()
-  loadEncryptionTypes()
   startAutoRefresh()
 })
 

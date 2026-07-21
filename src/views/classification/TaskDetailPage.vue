@@ -1835,9 +1835,10 @@ function renderCharts() {
     chartInstance1 = echarts.init(typeRatioCanvas.value as HTMLDivElement)
     chartInstance1.setOption({
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0 },
+      legend: { type: 'scroll', right: 0, top: 0, bottom: 0, orient: 'vertical' },
       series: [{
         type: 'pie', radius: ['30%', '60%'],
+        center: ['40%', '50%'],
         data: typeRatioChartData.labels.map((l, i) => ({ name: l, value: typeRatioChartData.values[i] || 0 })),
         color: ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399'],
       }],

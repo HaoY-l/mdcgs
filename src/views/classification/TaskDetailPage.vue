@@ -535,27 +535,6 @@
             <el-table-column prop="table_count" label="处理表数" min-width="80" align="center" />
             <el-table-column prop="field_count" label="处理字段" min-width="80" align="center" />
             <el-table-column prop="summary" label="摘要" min-width="200" />
-            <el-table-column label="操作" min-width="160" fixed="right">
-              <template #default="{ row }">
-                <el-button
-                  link
-                  type="primary"
-                  size="small"
-                  @click="handleViewHistory(row)"
-                >
-                  详情
-                </el-button>
-                <el-button
-                  link
-                  type="primary"
-                  size="small"
-                  :disabled="!compareTarget"
-                  @click="handleCompare(row)"
-                >
-                  对比
-                </el-button>
-              </template>
-            </el-table-column>
           </el-table>
           <div class="pagination-wrapper" v-if="historyTotal > 0">
             <el-pagination

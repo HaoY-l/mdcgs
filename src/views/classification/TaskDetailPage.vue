@@ -647,6 +647,9 @@
 
     <!-- 样本弹窗 -->
     <el-dialog v-model="showSampleDialog" title="样本数据" width="600px">
+      <div style="font-size: 13px; color: #909399; margin-bottom: 12px; padding: 0 4px;">
+        每个字段最多采集5条样本数据 📊
+      </div>
       <div v-loading="sampleLoading">
         <el-table v-if="sampleData.length" :data="sampleData" stripe style="width: 100%">
           <el-table-column type="index" label="#" min-width="50" />

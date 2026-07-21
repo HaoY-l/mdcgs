@@ -123,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, watch } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual, stopAssetUpdate } from '@/api/assets'
@@ -361,9 +361,34 @@ function getAssetActions(row: any) {
   ]
 }
 
+// ===== 自动轮询：资产有 updating 状态时每 5s 刷新，空闲时每 10s 刷新 =====
+// 保持空闲时也轮询，以便及时发现定时任务触发的状态变化
+let refreshTimer: number | null = null
+let assetTickCount = 0
+
+function startAutoRefresh() {
+  if (refreshTimer) return
+  refreshTimer = window.setInterval(() => {
+    assetTickCount++
+    const hasUpdating = assets.value.some(a => a.update_status === 'updating')
+    // 有更新中的资产每次都刷新，空闲时每 2 次（10s）刷新一次
+    if (hasUpdating || assetTickCount % 2 === 0) {
+      fetchAssets()
+    }
+  }, 5000)
+}
+
+function stopAutoRefresh() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
 onMounted(() => {
   fetchAssets()
   fetchFilterOptions()
+  startAutoRefresh()
   // 来自扫描结果页的快速创建
   const quickHost = route.query.quick_host as string
   const quickPort = route.query.quick_port as string
@@ -373,6 +398,10 @@ onMounted(() => {
     form.name = quickHost
     showDialog.value = true
   }
+})
+
+onUnmounted(() => {
+  stopAutoRefresh()
 })
 </script>
 

@@ -37,33 +37,42 @@
 
     <el-card shadow="hover">
       <el-table :data="tasks" stripe style="width: 100%" v-loading="loading" @selection-change="handleSelectionChange">
-        <el-table-column type="selection" width="55" />
-        <el-table-column prop="id" label="任务ID" width="80" />
-        <el-table-column prop="name" label="任务名称" min-width="160" />
-        <el-table-column prop="template_name" label="关联模板" min-width="130" />
-        <el-table-column label="执行方式" width="100" align="center">
+        <el-table-column type="selection" width="34" />
+        <!-- <el-table-column prop="id" label="ID" width="45" /> -->
+        <el-table-column prop="name" label="任务名称" min-width="80" show-overflow-tooltip />
+        <el-table-column prop="template_name" label="关联模板" min-width="90" show-overflow-tooltip />
+        <el-table-column label="执行" width="52" align="center">
           <template #default="{ row }">
             <el-tag :type="row.execute_type === 'periodic' ? 'primary' : 'info'" size="small">{{ row.execute_type === 'periodic' ? '周期' : '手动' }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="状态" width="100">
+        <el-table-column label="状态" width="80">
           <template #default="{ row }">
             <el-tooltip :content="row.error_message || ''" placement="top" :disabled="!row.error_message">
               <el-tag :type="taskStatusType(row.status)" size="small">{{ taskStatusLabel(row.status) }}</el-tag>
             </el-tooltip>
           </template>
         </el-table-column>
-        <el-table-column prop="progress" label="进度" width="160">
+        <el-table-column prop="progress" label="进度" width="80">
           <template #default="{ row }">
-            <el-progress v-if="row.status === 'running' || row.status === 'processing'" :percentage="row.progress || 0" :stroke-width="14" style="width: 120px" />
+            <el-progress v-if="row.status === 'running' || row.status === 'processing'" :percentage="row.progress || 0" :stroke-width="14" style="width: 50px" />
             <span v-else-if="row.status === 'completed'" style="color: #67c23a">已完成</span>
             <span v-else-if="row.status === 'queued'" style="color: #909399">等待中</span>
             <span v-else style="color: #909399">--</span>
           </template>
         </el-table-column>
-        <el-table-column prop="created_by_name" label="创建人" width="120" />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" min-width="240" fixed="right">
+        <el-table-column prop="created_by_name" label="创建人" width="80" show-overflow-tooltip />
+        <el-table-column label="创建时间" width="160">
+          <template #default="{ row }">
+            {{ formatTime(row.created_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="上次执行" width="160">
+          <template #default="{ row }">
+            {{ formatTime(row.last_run_at) }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" min-width="160" fixed="right">
           <template #default="{ row }">
             <el-button link type="success" size="small" @click="handleStartTask(row)">启动</el-button>
             <el-button v-if="row.status === 'running' || row.status === 'processing' || row.status === 'queued'" link type="warning" size="small" @click="handleStopTask(row)">停止</el-button>
@@ -119,6 +128,15 @@ const taskStatusMap: Record<string, { label: string; type: string }> = {
 }
 function taskStatusLabel(status: string): string { return taskStatusMap[status]?.label || status }
 function taskStatusType(status: string): 'primary' | 'success' | 'warning' | 'info' | 'danger' | undefined { return taskStatusMap[status]?.type as any || 'info' }
+
+function formatTime(time: string): string {
+  if (!time) return '-'
+  try {
+    const d = new Date(time)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  } catch { return time }
+}
 
 function handleSelectionChange(rows: any[]) {
   selectedTasks.value = rows
@@ -183,7 +201,11 @@ async function handleStartTask(row: any) {
     } else {
       ElMessage.success('任务已启动')
     }
+    // 立即乐观更新状态 + 刷新
+    row.status = 'queued'
     fetchTasks()
+    // 1.5s 后再刷新一次，确保拿到后端最新状态
+    setTimeout(() => fetchTasks(), 1500)
   } catch (err: any) {
     if (err !== 'cancel') {
       ElMessage.error(err?.response?.data?.message || err?.message || '启动任务失败')
@@ -265,6 +287,8 @@ async function handleBatchStart() {
     selectedTaskIds.value = []
     selectedTasks.value = []
     fetchTasks()
+    // 1.5s 后再刷新一次，确保拿到后端最新状态
+    setTimeout(() => fetchTasks(), 1500)
   } catch {}
 }
 

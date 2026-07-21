@@ -1,7 +1,7 @@
 <template>
   <div class="page-container">
     <div class="page-header">
-      <h2>自动扫描</h2>
+      <h2>资产发现</h2>
       <div class="header-actions">
         <el-button size="small" @click="fetchTasks">刷新</el-button>
         <el-button type="primary" size="small" @click="handleAdd">新增扫描任务</el-button>
@@ -35,12 +35,16 @@
             <span v-else style="color: #909399">--</span>
           </template>
         </el-table-column>
+        <el-table-column label="最后执行" min-width="155">
+          <template #default="{ row }">{{ row.last_run_at ? formatTime(row.last_run_at) : '-' }}</template>
+        </el-table-column>
         <el-table-column prop="asset_count" label="发现资产" min-width="80" />
         <el-table-column label="操作" min-width="260" fixed="right">
           <template #default="{ row }">
             <el-button v-if="row.status !== 'running'" link type="primary" size="small" @click="handleStart(row)">开始</el-button>
             <el-button v-if="row.status === 'running'" link type="warning" size="small" @click="handleStop(row)">停止</el-button>
             <el-button v-if="row.status === 'completed' && row.asset_count > 0" link type="success" size="small" @click="handleViewResult(row)">查看结果</el-button>
+            <el-button v-if="row.status !== 'running'" link type="primary" size="small" @click="handleEdit(row)">编辑</el-button>
             <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
           </template>
         </el-table-column>
@@ -77,7 +81,7 @@
     </el-dialog>
 
     <!-- 新增扫描任务弹窗 -->
-    <el-dialog v-model="showDialog" title="新增扫描任务" width="550px">
+    <el-dialog v-model="showDialog" :title="isEdit ? '编辑扫描任务' : '新增扫描任务'" width="550px">
       <el-form :model="form" label-width="100px">
         <el-form-item label="任务名称" required><el-input v-model="form.name" /></el-form-item>
         <el-form-item label="执行方式" required>
@@ -87,32 +91,38 @@
           </el-radio-group>
         </el-form-item>
         <template v-if="form.execute_type === 'periodic'">
-          <el-form-item label="Cron表达式" required><el-input v-model="form.cron_expression" placeholder="0 0 2 * * ?" /></el-form-item>
+          <el-form-item label="执行频率" required>
+            <el-radio-group v-model="form.schedule_freq">
+              <el-radio value="daily">每天</el-radio>
+              <el-radio value="weekly">每周</el-radio>
+              <el-radio value="monthly">每月</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="执行时间" required>
+            <el-time-picker v-model="form.schedule_time" format="HH:mm" placeholder="选择时间" style="width: 140px" />
+          </el-form-item>
+          <el-form-item v-if="form.schedule_freq === 'weekly'" label="选择星期" required>
+            <el-checkbox-group v-model="form.schedule_week_days">
+              <el-checkbox :label="1">周一</el-checkbox>
+              <el-checkbox :label="2">周二</el-checkbox>
+              <el-checkbox :label="3">周三</el-checkbox>
+              <el-checkbox :label="4">周四</el-checkbox>
+              <el-checkbox :label="5">周五</el-checkbox>
+              <el-checkbox :label="6">周六</el-checkbox>
+              <el-checkbox :label="0">周日</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+          <el-form-item v-if="form.schedule_freq === 'monthly'" label="选择日期" required>
+            <el-select v-model="form.schedule_month_day" style="width: 120px">
+              <el-option v-for="d in 31" :key="d" :label="d + '日'" :value="d" />
+            </el-select>
+          </el-form-item>
         </template>
         <el-form-item label="IP范围" required><el-input v-model="form.ip_range" placeholder="192.168.1.0/24" /></el-form-item>
-        <el-form-item label="端口范围"><el-input v-model="form.port_range" placeholder="1-65535" /></el-form-item>
-        <el-form-item label="脱敏规则">
-          <el-select v-model="form.masking_rule_id" placeholder="请选择(可选)" clearable style="width: 100%">
-            <el-option v-for="r in maskingRules" :key="r.id" :label="r.name" :value="r.id" />
-          </el-select>
+        <el-form-item label="端口范围">
+          <el-input v-model="form.port_range" placeholder="如：80,443,3306 或 1-1000" />
+          <div class="form-tip">留空则自动扫描常见数据库端口</div>
         </el-form-item>
-        <el-form-item label="加密方式">
-          <el-select v-model="form.encryption_type_id" placeholder="请选择(可选)" clearable style="width: 100%">
-            <el-option v-for="e in encryptionTypes" :key="e.id" :label="e.name" :value="e.id" />
-          </el-select>
-        </el-form-item>
-        <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="业务部门">
-              <el-input v-model="form.business_dept" placeholder="如：研发部、财务部" />
-            </el-form-item>
-          </el-col>
-          <el-col :span="12">
-            <el-form-item label="应用系统">
-              <el-input v-model="form.app_system" placeholder="如：ERP、CRM" />
-            </el-form-item>
-          </el-col>
-        </el-row>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
@@ -127,8 +137,7 @@ import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import client from '@/api/client'
-import { getMaskingRules, getEncryptionTypes } from '@/api/classification'
-import { getScanTasks, createScanTask, deleteScanTask, startScanTask, stopScanTask } from '@/api/assets'
+import { getScanTasks, createScanTask, updateScanTask, deleteScanTask, startScanTask, stopScanTask } from '@/api/assets'
 
 const router = useRouter()
 const loading = ref(false)
@@ -139,13 +148,19 @@ const currentPage = ref(1)
 const pageSize = ref(20)
 const showDialog = ref(false)
 
-const maskingRules = ref<any[]>([])
-const encryptionTypes = ref<any[]>([])
+const isEdit = ref(false)
+const editId = ref<number | null>(null)
 
 // 自动刷新定时器
 let refreshTimer: number | null = null
 
-const form = reactive({ name: '', execute_type: 'manual', cron_expression: '', ip_range: '', port_range: '', masking_rule_id: null, encryption_type_id: null, business_dept: '', app_system: '' })
+const form = reactive({
+  name: '', execute_type: 'manual', cron_expression: '',
+  ip_range: '', port_range: '',
+  business_dept: '', app_system: '',
+  schedule_freq: 'daily', schedule_time: null as Date | null,
+  schedule_week_days: [] as number[], schedule_month_day: 1,
+})
 
 // 查看结果
 const showResultDialog = ref(false)
@@ -165,6 +180,14 @@ const statusMap: Record<string, { label: string; tag: string }> = {
 function statusLabel(status: string): string { return statusMap[status]?.label || status }
 function statusTag(status: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | 'error' | '' { return (statusMap[status]?.tag || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | 'error' | '' }
 function executeTypeLabel(type: string): string { return type === 'periodic' ? '周期执行' : '手动执行' }
+function formatTime(time: string): string {
+  if (!time) return '-'
+  try {
+    const d = new Date(time)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  } catch { return time }
+}
 
 async function fetchTasks() {
   loading.value = true
@@ -176,16 +199,79 @@ async function fetchTasks() {
 }
 
 function handleAdd() {
-  form.name = ''; form.execute_type = 'manual'; form.cron_expression = ''; form.ip_range = ''; form.port_range = ''; form.masking_rule_id = null; form.encryption_type_id = null; form.business_dept = ''; form.app_system = ''
+  isEdit.value = false
+  editId.value = null
+  form.name = ''; form.execute_type = 'manual'; form.cron_expression = ''; form.ip_range = ''; form.port_range = ''; form.business_dept = ''; form.app_system = ''
+  form.schedule_freq = 'daily'; form.schedule_time = null; form.schedule_week_days = []; form.schedule_month_day = 1
   showDialog.value = true
+}
+
+function handleEdit(row: any) {
+  isEdit.value = true
+  editId.value = row.id
+  form.name = row.name
+  form.execute_type = row.execute_type || 'manual'
+  form.cron_expression = row.cron_expression || ''
+  form.ip_range = row.ip_range || ''
+  form.port_range = row.port_range || ''
+  form.business_dept = row.business_dept || ''
+  form.app_system = row.app_system || ''
+  form.schedule_freq = 'daily'; form.schedule_time = null; form.schedule_week_days = []; form.schedule_month_day = 1
+  // 解析 cron 回显
+  if (form.cron_expression) {
+    const parts = form.cron_expression.trim().split(/\s+/)
+    if (parts.length >= 6) {
+      const [, minute, hour, day, , dayOfWeek] = parts
+      const h = parseInt(hour, 10); const m = parseInt(minute, 10)
+      if (!isNaN(h) && !isNaN(m)) {
+        const d = new Date(); d.setHours(h, m, 0, 0); form.schedule_time = d
+      }
+      if (dayOfWeek !== '*' && dayOfWeek !== '?') {
+        form.schedule_freq = 'weekly'
+        form.schedule_week_days = dayOfWeek.split(',').map(Number)
+      } else if (day !== '*' && day !== '?') {
+        form.schedule_freq = 'monthly'
+        form.schedule_month_day = parseInt(day, 10) || 1
+      } else {
+        form.schedule_freq = 'daily'
+      }
+    }
+  }
+  showDialog.value = true
+}
+
+function buildCronExpression(): string {
+  if (form.execute_type !== 'periodic') return ''
+  const time = form.schedule_time
+  if (!time) return ''
+  const h = time.getHours().toString().padStart(2, '0')
+  const m = time.getMinutes().toString().padStart(2, '0')
+  if (form.schedule_freq === 'daily') return `0 ${m} ${h} * * ?`
+  if (form.schedule_freq === 'weekly') {
+    if (!form.schedule_week_days.length) return ''
+    return `0 ${m} ${h} ? * ${form.schedule_week_days.join(',')}`
+  }
+  if (form.schedule_freq === 'monthly') return `0 ${m} ${h} ${form.schedule_month_day} * ?`
+  return ''
 }
 
 async function handleSave() {
   if (!form.name || !form.ip_range) { ElMessage.warning('请填写必要信息'); return }
+  if (form.execute_type === 'periodic') {
+    if (!form.schedule_time) { ElMessage.warning('请选择执行时间'); return }
+    if (form.schedule_freq === 'weekly' && !form.schedule_week_days.length) { ElMessage.warning('请选择至少一天'); return }
+  }
   submitting.value = true
   try {
-    await createScanTask({ ...form })
-    ElMessage.success('创建成功')
+    const payload: Record<string, any> = { ...form }
+    if (form.execute_type === 'periodic') payload.cron_expression = buildCronExpression()
+    if (isEdit.value && editId.value) {
+      await updateScanTask(editId.value, payload)
+      ElMessage.success('更新成功')
+    } else {
+      await createScanTask(payload)
+      ElMessage.success('创建成功')
+    }
     showDialog.value = false
     fetchTasks()
   } finally { submitting.value = false }
@@ -237,24 +323,8 @@ function handleCreateAsset(row: any) {
   router.push(`/assets?quick_host=${row.host}&quick_port=${row.port}`)
 }
 
-async function loadMaskingRules() {
-  try {
-    const res = await getMaskingRules({ page_size: 100 })
-    maskingRules.value = res.data?.items || res.data || []
-  } catch { maskingRules.value = [] }
-}
-
-async function loadEncryptionTypes() {
-  try {
-    const res = await getEncryptionTypes({ page_size: 100 })
-    encryptionTypes.value = res.data?.items || res.data || []
-  } catch { encryptionTypes.value = [] }
-}
-
 onMounted(() => {
   fetchTasks()
-  loadMaskingRules()
-  loadEncryptionTypes()
   startAutoRefresh()
 })
 
@@ -265,11 +335,16 @@ onUnmounted(() => {
   }
 })
 
-// 自动刷新：每5秒轮询一次，有运行中任务才刷新
+// 自动刷新：有运行中任务时每 5s 刷新，空闲时每 10s 刷新
+// 保持空闲时也轮询，以便及时发现定时任务触发的状态变化
+let tickCount = 0
 function startAutoRefresh() {
   if (refreshTimer) return
   refreshTimer = window.setInterval(() => {
-    if (tasks.value.some(t => t.status === 'running')) {
+    tickCount++
+    const hasRunning = tasks.value.some(t => t.status === 'running')
+    // 有运行中任务每次都刷新，空闲时每 2 次（10s）刷新一次
+    if (hasRunning || tickCount % 2 === 0) {
       fetchTasks()
     }
   }, 5000)
@@ -279,4 +354,5 @@ function startAutoRefresh() {
 <style scoped>
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .pagination-wrapper { display: flex; justify-content: center; margin-top: 20px; }
+.form-tip { font-size: 12px; color: #909399; margin-top: 4px; line-height: 1.4; }
 </style>

@@ -58,7 +58,7 @@ const routes: RouteRecordRaw[] = [
         path: 'assets/scan',
         name: 'ScanTask',
         component: () => import('@/views/assets/ScanTaskPage.vue'),
-        meta: { title: '自动扫描', icon: 'Search' },
+        meta: { title: '资产发现', icon: 'Search' },
       },
       {
         path: 'classification/tasks',

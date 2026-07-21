@@ -559,11 +559,30 @@ function handleReset() {
 }
 
 // ===== Export =====
+// 导出列定义：顺序与Web界面一致，使用中文列头
+const EXPORT_COLUMNS = [
+  { key: 'field_name', label: '字段名' },
+  { key: 'data_type', label: '数据类型' },
+  { key: 'level', label: '分级' },
+  { key: 'is_sensitive', label: '敏感' },
+  { key: 'is_masked', label: '脱敏' },
+  { key: 'is_encrypted', label: '加密' },
+  { key: 'category_path', label: '分类路径' },
+  { key: 'asset_name', label: '资产' },
+  { key: 'database_name', label: '数据库' },
+  { key: 'table_name', label: '表' },
+  { key: 'business_dept', label: '业务部门' },
+  { key: 'app_system', label: '应用系统' },
+  { key: 'task_name', label: '所属任务' },
+  { key: 'field_comment', label: '字段注释' },
+  { key: 'risk_suggestion', label: '安全建议' },
+]
+
 async function handleExportQuery() {
   exporting.value = true
   try {
     const params = buildParams()
-    params.export = 'query'
+    params.export = 1
     const res: any = await getDirectory(params)
     triggerDownload(res, '数据目录_查询结果')
     ElMessage.success('导出成功')
@@ -577,33 +596,8 @@ async function handleExportQuery() {
 async function handleExportAll() {
   exportingAll.value = true
   try {
-    // 分页获取所有数据
-    const allItems: any[] = []
-    let page = 1
-    const pageSize = 100
-    let hasMore = true
-
-    while (hasMore) {
-      const res: any = await getDirectory({ page, page_size: pageSize })
-      const items = res.data?.items || res.data || []
-      allItems.push(...items)
-      if (!items || items.length < pageSize) {
-        hasMore = false
-      } else {
-        page++
-      }
-    }
-
-    if (allItems.length > 0) {
-      const csvContent = jsonToCsv(allItems)
-      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = '数据目录_全部.csv'
-      link.click()
-      URL.revokeObjectURL(url)
-    }
+    const res: any = await getDirectory({ export: 1 })
+    triggerDownload(res, '数据目录_全部')
     ElMessage.success('导出成功')
   } catch (err: any) {
     ElMessage.error(err?.message || '导出失败')
@@ -643,11 +637,18 @@ function triggerDownload(res: any, filename: string) {
 
 function jsonToCsv(items: any[]): string {
   if (items.length === 0) return ''
-  const headers = Object.keys(items[0])
-  const lines = [headers.join(',')]
+  const lines = [EXPORT_COLUMNS.map(c => c.label).join(',')]
   for (const item of items) {
-    const row = headers.map((h) => {
-      let val = item[h]
+    const row = EXPORT_COLUMNS.map(col => {
+      let val = item[col.key]
+      // 敏感/脱敏/加密 显示中文
+      if (col.key === 'is_sensitive') {
+        val = val ? '是' : '否'
+      } else if (col.key === 'is_masked') {
+        val = val === 'confirmed' ? '是' : '否'
+      } else if (col.key === 'is_encrypted') {
+        val = val === 'confirmed' ? '是' : '否'
+      }
       if (val === null || val === undefined) return ''
       val = String(val).replace(/"/g, '""')
       if (val.includes(',') || val.includes('"') || val.includes('\n')) {

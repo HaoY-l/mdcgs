@@ -63,6 +63,11 @@
         </el-table-column>
         <el-table-column prop="created_by_name" label="创建人" width="120" />
         <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column label="上次执行" width="180">
+          <template #default="{ row }">
+            {{ row.last_run_at || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" min-width="240" fixed="right">
           <template #default="{ row }">
             <el-button link type="success" size="small" @click="handleStartTask(row)">启动</el-button>

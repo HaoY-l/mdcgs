@@ -35,6 +35,9 @@
             <span v-else style="color: #909399">--</span>
           </template>
         </el-table-column>
+        <el-table-column label="最后执行" min-width="155">
+          <template #default="{ row }">{{ row.last_run_at ? formatTime(row.last_run_at) : '-' }}</template>
+        </el-table-column>
         <el-table-column prop="asset_count" label="发现资产" min-width="80" />
         <el-table-column label="操作" min-width="260" fixed="right">
           <template #default="{ row }">
@@ -116,7 +119,10 @@
           </el-form-item>
         </template>
         <el-form-item label="IP范围" required><el-input v-model="form.ip_range" placeholder="192.168.1.0/24" /></el-form-item>
-        <el-form-item label="端口范围"><el-input v-model="form.port_range" placeholder="1-65535" /></el-form-item>
+        <el-form-item label="端口范围">
+          <el-input v-model="form.port_range" placeholder="如：80,443,3306 或 1-1000" />
+          <div class="form-tip">留空则自动扫描常见数据库端口</div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showDialog = false">取消</el-button>
@@ -174,6 +180,14 @@ const statusMap: Record<string, { label: string; tag: string }> = {
 function statusLabel(status: string): string { return statusMap[status]?.label || status }
 function statusTag(status: string): 'success' | 'warning' | 'info' | 'danger' | 'primary' | 'error' | '' { return (statusMap[status]?.tag || 'info') as 'success' | 'warning' | 'info' | 'danger' | 'primary' | 'error' | '' }
 function executeTypeLabel(type: string): string { return type === 'periodic' ? '周期执行' : '手动执行' }
+function formatTime(time: string): string {
+  if (!time) return '-'
+  try {
+    const d = new Date(time)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
+  } catch { return time }
+}
 
 async function fetchTasks() {
   loading.value = true
@@ -321,11 +335,16 @@ onUnmounted(() => {
   }
 })
 
-// 自动刷新：每5秒轮询一次，有运行中任务才刷新
+// 自动刷新：有运行中任务时每 5s 刷新，空闲时每 10s 刷新
+// 保持空闲时也轮询，以便及时发现定时任务触发的状态变化
+let tickCount = 0
 function startAutoRefresh() {
   if (refreshTimer) return
   refreshTimer = window.setInterval(() => {
-    if (tasks.value.some(t => t.status === 'running')) {
+    tickCount++
+    const hasRunning = tasks.value.some(t => t.status === 'running')
+    // 有运行中任务每次都刷新，空闲时每 2 次（10s）刷新一次
+    if (hasRunning || tickCount % 2 === 0) {
       fetchTasks()
     }
   }, 5000)
@@ -335,4 +354,5 @@ function startAutoRefresh() {
 <style scoped>
 .header-actions { display: flex; align-items: center; gap: 8px; }
 .pagination-wrapper { display: flex; justify-content: center; margin-top: 20px; }
+.form-tip { font-size: 12px; color: #909399; margin-top: 4px; line-height: 1.4; }
 </style>

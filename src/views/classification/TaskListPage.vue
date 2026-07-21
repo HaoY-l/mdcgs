@@ -38,7 +38,7 @@
     <el-card shadow="hover">
       <el-table :data="tasks" stripe style="width: 100%" v-loading="loading" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="34" />
-        <el-table-column prop="id" label="ID" width="45" />
+        <!-- <el-table-column prop="id" label="ID" width="45" /> -->
         <el-table-column prop="name" label="任务名称" min-width="80" show-overflow-tooltip />
         <el-table-column prop="template_name" label="关联模板" min-width="90" show-overflow-tooltip />
         <el-table-column label="执行" width="52" align="center">
@@ -201,7 +201,11 @@ async function handleStartTask(row: any) {
     } else {
       ElMessage.success('任务已启动')
     }
+    // 立即乐观更新状态 + 刷新
+    row.status = 'queued'
     fetchTasks()
+    // 1.5s 后再刷新一次，确保拿到后端最新状态
+    setTimeout(() => fetchTasks(), 1500)
   } catch (err: any) {
     if (err !== 'cancel') {
       ElMessage.error(err?.response?.data?.message || err?.message || '启动任务失败')
@@ -283,6 +287,8 @@ async function handleBatchStart() {
     selectedTaskIds.value = []
     selectedTasks.value = []
     fetchTasks()
+    // 1.5s 后再刷新一次，确保拿到后端最新状态
+    setTimeout(() => fetchTasks(), 1500)
   } catch {}
 }
 

@@ -31,8 +31,34 @@
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item v-if="form.execute_type === 'periodic'" label="Cron 表达式" required>
-          <el-input v-model="form.cron_expression" placeholder="例如: 0 0 2 * * ?"/>
+        <el-form-item v-if="form.execute_type === 'periodic'" label="执行频率" required>
+          <el-radio-group v-model="form.schedule_freq">
+            <el-radio value="daily">每天</el-radio>
+            <el-radio value="weekly">每周</el-radio>
+            <el-radio value="monthly">每月</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="form.execute_type === 'periodic'" label="执行时间" required>
+          <el-time-picker v-model="form.schedule_time" format="HH:mm" placeholder="选择时间" style="width: 140px" />
+        </el-form-item>
+
+        <el-form-item v-if="form.execute_type === 'periodic' && form.schedule_freq === 'weekly'" label="选择星期" required>
+          <el-checkbox-group v-model="form.schedule_week_days">
+            <el-checkbox :label="1">周一</el-checkbox>
+            <el-checkbox :label="2">周二</el-checkbox>
+            <el-checkbox :label="3">周三</el-checkbox>
+            <el-checkbox :label="4">周四</el-checkbox>
+            <el-checkbox :label="5">周五</el-checkbox>
+            <el-checkbox :label="6">周六</el-checkbox>
+            <el-checkbox :label="0">周日</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+
+        <el-form-item v-if="form.execute_type === 'periodic' && form.schedule_freq === 'monthly'" label="选择日期" required>
+          <el-select v-model="form.schedule_month_day" style="width: 120px">
+            <el-option v-for="d in 31" :key="d" :label="d + '日'" :value="d" />
+          </el-select>
         </el-form-item>
         <el-form-item label="脱敏规则">
           <el-select v-model="form.masking_rule_id" placeholder="请选择(可选)" clearable style="width: 100%">
@@ -99,6 +125,11 @@ const form = ref({
   masking_rule_id: null as number | null,
   encryption_type_id: null as number | null,
   asset_ids: [] as number[],
+  // 周期执行友好字段
+  schedule_freq: 'daily',
+  schedule_time: null as Date | null,
+  schedule_week_days: [] as number[],
+  schedule_month_day: 1,
 })
 
 async function loadTask() {
@@ -113,11 +144,38 @@ async function loadTask() {
     form.value.masking_rule_id = data.masking_rule_id ?? null
     form.value.encryption_type_id = data.encryption_type_id ?? null
     form.value.asset_ids = data.asset_ids || []
+    // 解析 cron 表达式回显友好字段
+    parseCronToForm(data.cron_expression || '')
   } catch {
     ElMessage.error('加载任务信息失败')
     goBack()
   } finally {
     loading.value = false
+  }
+}
+
+function parseCronToForm(cron: string) {
+  if (!cron) return
+  const parts = cron.trim().split(/\s+/)
+  if (parts.length < 6) return
+  const [, minute, hour, day, , dayOfWeek] = parts
+  // 时间
+  const h = parseInt(hour, 10)
+  const m = parseInt(minute, 10)
+  if (!isNaN(h) && !isNaN(m)) {
+    const d = new Date()
+    d.setHours(h, m, 0, 0)
+    form.value.schedule_time = d
+  }
+  // 频率
+  if (dayOfWeek !== '*' && dayOfWeek !== '?') {
+    form.value.schedule_freq = 'weekly'
+    form.value.schedule_week_days = dayOfWeek.split(',').map(Number)
+  } else if (day !== '*' && day !== '?') {
+    form.value.schedule_freq = 'monthly'
+    form.value.schedule_month_day = parseInt(day, 10) || 1
+  } else {
+    form.value.schedule_freq = 'daily'
   }
 }
 
@@ -147,6 +205,16 @@ async function handleSave() {
     ElMessage.warning('请选择关联模板')
     return
   }
+  if (form.value.execute_type === 'periodic') {
+    if (!form.value.schedule_time) {
+      ElMessage.warning('请选择执行时间')
+      return
+    }
+    if (form.value.schedule_freq === 'weekly' && !form.value.schedule_week_days.length) {
+      ElMessage.warning('请选择至少一天')
+      return
+    }
+  }
 
   saving.value = true
   try {
@@ -157,7 +225,7 @@ async function handleSave() {
       asset_ids: form.value.asset_ids,
     }
     if (form.value.execute_type === 'periodic') {
-      payload.cron_expression = form.value.cron_expression.trim()
+      payload.cron_expression = buildCronExpression()
     }
     payload.masking_rule_id = form.value.masking_rule_id ?? undefined
     payload.encryption_type_id = form.value.encryption_type_id ?? undefined
@@ -169,6 +237,26 @@ async function handleSave() {
   } finally {
     saving.value = false
   }
+}
+
+function buildCronExpression(): string {
+  if (form.value.execute_type !== 'periodic') return ''
+  const time = form.value.schedule_time
+  if (!time) return ''
+  const h = time.getHours().toString().padStart(2, '0')
+  const m = time.getMinutes().toString().padStart(2, '0')
+  if (form.value.schedule_freq === 'daily') {
+    return `0 ${m} ${h} * * ?`
+  }
+  if (form.value.schedule_freq === 'weekly') {
+    const days = form.value.schedule_week_days
+    if (!days.length) return ''
+    return `0 ${m} ${h} ? * ${days.join(',')}`
+  }
+  if (form.value.schedule_freq === 'monthly') {
+    return `0 ${m} ${h} ${form.value.schedule_month_day} * ?`
+  }
+  return ''
 }
 
 async function loadMaskingRules() {

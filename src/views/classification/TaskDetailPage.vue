@@ -535,27 +535,6 @@
             <el-table-column prop="table_count" label="处理表数" min-width="80" align="center" />
             <el-table-column prop="field_count" label="处理字段" min-width="80" align="center" />
             <el-table-column prop="summary" label="摘要" min-width="200" />
-            <el-table-column label="操作" min-width="160" fixed="right">
-              <template #default="{ row }">
-                <el-button
-                  link
-                  type="primary"
-                  size="small"
-                  @click="handleViewHistory(row)"
-                >
-                  详情
-                </el-button>
-                <el-button
-                  link
-                  type="primary"
-                  size="small"
-                  :disabled="!compareTarget"
-                  @click="handleCompare(row)"
-                >
-                  对比
-                </el-button>
-              </template>
-            </el-table-column>
           </el-table>
           <div class="pagination-wrapper" v-if="historyTotal > 0">
             <el-pagination
@@ -647,6 +626,9 @@
 
     <!-- 样本弹窗 -->
     <el-dialog v-model="showSampleDialog" title="样本数据" width="600px">
+      <div style="font-size: 13px; color: #909399; margin-bottom: 12px; padding: 0 4px;">
+        每个字段最多采集5条样本数据 📊
+      </div>
       <div v-loading="sampleLoading">
         <el-table v-if="sampleData.length" :data="sampleData" stripe style="width: 100%">
           <el-table-column type="index" label="#" min-width="50" />
@@ -1835,9 +1817,10 @@ function renderCharts() {
     chartInstance1 = echarts.init(typeRatioCanvas.value as HTMLDivElement)
     chartInstance1.setOption({
       tooltip: { trigger: 'item' },
-      legend: { bottom: 0 },
+      legend: { type: 'scroll', right: 0, top: 0, bottom: 0, orient: 'vertical' },
       series: [{
         type: 'pie', radius: ['30%', '60%'],
+        center: ['40%', '50%'],
         data: typeRatioChartData.labels.map((l, i) => ({ name: l, value: typeRatioChartData.values[i] || 0 })),
         color: ['#409EFF', '#67C23A', '#E6A23C', '#F56C6C', '#909399'],
       }],

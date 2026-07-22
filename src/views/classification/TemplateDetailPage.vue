@@ -29,7 +29,7 @@
             <el-button type="primary" size="small" @click="openAddCategoryDialog()">
               <el-icon><Plus /></el-icon> 新增分类
             </el-button>
-            <el-button size="small" @click="handleImportCategories">导入目录</el-button>
+            <!-- <el-button size="small" @click="handleImportCategories">导入目录</el-button> -->
           </div>
           <el-table
             :data="flatCategories"

@@ -1,0 +1,33 @@
+import pymysql
+conn = pymysql.connect(host='10.130.201.29', port=3306, user='root', password='123456', database='mdcgs')
+c = conn.cursor()
+
+# 验证任务7 现在是否正常
+c.execute('SELECT count(*), count(DISTINCT column_id) FROM classification_result WHERE task_id = 7')
+r = c.fetchone()
+print(f'任务7 结果: 总记录={r[0]}, 去重={r[1]}')
+
+c.execute('SELECT count(*) FROM table_aggregation_level WHERE task_id = 7')
+print(f'任务7 聚合记录: {c.fetchone()[0]}')
+
+# 验证两个任务的字段集是否一致
+c.execute('SELECT column_id FROM classification_result WHERE task_id = 5 ORDER BY column_id')
+task5_cols = set(r[0] for r in c.fetchall())
+c.execute('SELECT column_id FROM classification_result WHERE task_id = 7 ORDER BY column_id')
+task7_cols = set(r[0] for r in c.fetchall())
+print(f'任务5 字段数: {len(task5_cols)}, 任务7 字段数: {len(task7_cols)}')
+print(f'完全相同: {task5_cols == task7_cols}')
+
+# 检查 sys_dict 表的记录数
+c.execute('''SELECT t.name, count(*) as total
+    FROM classification_result cr
+    JOIN db_column dc ON cr.column_id = dc.id
+    JOIN db_table t ON dc.table_id = t.id
+    WHERE cr.task_id = 7
+    GROUP BY t.id, t.name
+''')
+print('\n任务7 各表结果数:')
+for r in c.fetchall():
+    print(f'  {r[0]}: {r[1]}')
+
+conn.close()

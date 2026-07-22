@@ -1,0 +1,83 @@
+#!/usr/bin/env python3
+"""Fix IntegrityError handling — use savepoint instead of session.rollback()"""
+import re
+
+path = "/Users/lxy/jojo/VS-Project/myself/mdcgs-backend/app/services/rules_engine.py"
+
+with open(path) as f:
+    content = f.read()
+
+# 去掉重复 import
+content = content.replace(
+    "from sqlalchemy.exc import IntegrityError\n\nfrom app.core.security import decrypt_password\nfrom sqlalchemy.exc import IntegrityError",
+    "from sqlalchemy.exc import IntegrityError\n\nfrom app.core.security import decrypt_password"
+)
+
+# 替换 _update_column_results 中的 db.rollback() 为 savepoint
+old = """        try:
+            db.add(result)
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            # 并发写入冲突，重新查询已存在的记录并更新
+            existing = db.query(ClassificationResult).filter(
+                ClassificationResult.task_id == task.id,
+                ClassificationResult.column_id == column_id,
+            ).first()
+            if existing and existing.is_confirmed != 1:
+                existing.data_type_id = data_type.id
+                existing.data_type_name = data_type.name
+                existing.level_id = level_id
+                existing.level_code = level_code
+                existing.category_path = category_path
+                existing.is_sensitive = is_sensitive
+                existing.hit_features = feature_hit_info.get("feature_details")
+                existing.hit_rate = hit_rate
+                existing.execution_id = execution.id
+                existing.suggest_mask = data_type.suggest_mask
+                existing.suggest_encrypt = data_type.suggest_encrypt
+                existing.updated_at = datetime.now()
+                _apply_task_masking(existing, task, db)
+        _apply_task_masking(result, task, db)"""
+
+new = """        try:
+            with db.begin_nested():
+                db.add(result)
+        except IntegrityError:
+            db.expunge(result)
+            # 并发写入冲突，重新查询已存在的记录并更新
+            existing = db.query(ClassificationResult).filter(
+                ClassificationResult.task_id == task.id,
+                ClassificationResult.column_id == column_id,
+            ).first()
+            if existing and existing.is_confirmed != 1:
+                existing.data_type_id = data_type.id
+                existing.data_type_name = data_type.name
+                existing.level_id = level_id
+                existing.level_code = level_code
+                existing.category_path = category_path
+                existing.is_sensitive = is_sensitive
+                existing.hit_features = feature_hit_info.get("feature_details")
+                existing.hit_rate = hit_rate
+                existing.execution_id = execution.id
+                existing.suggest_mask = data_type.suggest_mask
+                existing.suggest_encrypt = data_type.suggest_encrypt
+                existing.updated_at = datetime.now()
+                _apply_task_masking(existing, task, db)
+            return
+        _apply_task_masking(result, task, db)"""
+
+count = content.count(old)
+content = content.replace(old, new)
+print(f"替换 _update_column_results: {count} 处")
+
+# 检查 _create_unmatched_result 是否已有 savepoint
+if "with db.begin_nested():" in content.split("def _create_unmatched_result")[1].split("def ")[0]:
+    print("✅ _create_unmatched_result 已有 savepoint 保护")
+else:
+    print("⚠️  _create_unmatched_result 缺少 savepoint，补充...")
+
+with open(path, "w") as f:
+    f.write(content)
+
+print(f"✅ 完成: {path}")

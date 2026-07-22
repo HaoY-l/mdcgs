@@ -1,0 +1,117 @@
+#!/usr/bin/env python3
+"""Fix IntegrityError handling in rules_engine.py - use savepoint instead of session.rollback()"""
+import re
+
+path = "/Users/lxy/jojo/VS-Project/myself/mdcgs-backend/app/services/rules_engine.py"
+with open(path, 'r') as f:
+    content = f.read()
+
+# Fix 1: Remove duplicate import (line 16)
+content = content.replace(
+    "from sqlalchemy.exc import IntegrityError\n\nfrom app.core.security import decrypt_password\nfrom sqlalchemy.exc import IntegrityError",
+    "from sqlalchemy.exc import IntegrityError\n\nfrom app.core.security import decrypt_password"
+)
+
+# Fix 2: Replace the rollback approach with savepoint approach in _update_column_results
+# Find the try/except block and replace it
+old_block = '''        try:
+            db.add(result)
+            db.flush()
+        except IntegrityError:
+            db.rollback()
+            # 并发写入冲突，重新查询已存在的记录并更新
+            existing = db.query(ClassificationResult).filter(
+                ClassificationResult.task_id == task.id,
+                ClassificationResult.column_id == column_id,
+            ).first()
+            if existing and existing.is_confirmed != 1:
+                existing.data_type_id = data_type.id
+                existing.data_type_name = data_type.name
+                existing.level_id = level_id
+                existing.level_code = level_code
+                existing.category_path = category_path
+                existing.is_sensitive = is_sensitive
+                existing.hit_features = feature_hit_info.get("feature_details")
+                existing.hit_rate = hit_rate
+                existing.execution_id = execution.id
+                existing.suggest_mask = data_type.suggest_mask
+                existing.suggest_encrypt = data_type.suggest_encrypt
+                existing.updated_at = datetime.now()
+                _apply_task_masking(existing, task, db)
+        _apply_task_masking(result, task, db)'''
+
+new_block = '''        try:
+            with db.begin_nested():
+                db.add(result)
+        except IntegrityError:
+            db.expunge(result)
+            # 并发写入冲突，重新查询已存在的记录并更新
+            existing = db.query(ClassificationResult).filter(
+                ClassificationResult.task_id == task.id,
+                ClassificationResult.column_id == column_id,
+            ).first()
+            if existing and existing.is_confirmed != 1:
+                existing.data_type_id = data_type.id
+                existing.data_type_name = data_type.name
+                existing.level_id = level_id
+                existing.level_code = level_code
+                existing.category_path = category_path
+                existing.is_sensitive = is_sensitive
+                existing.hit_features = feature_hit_info.get("feature_details")
+                existing.hit_rate = hit_rate
+                existing.execution_id = execution.id
+                existing.suggest_mask = data_type.suggest_mask
+                existing.suggest_encrypt = data_type.suggest_encrypt
+                existing.updated_at = datetime.now()
+                _apply_task_masking(existing, task, db)
+            return
+        _apply_task_masking(result, task, db)'''
+
+if old_block in content:
+    content = content.replace(old_block, new_block)
+    print("✅ _update_column_results IntegrityError handler fixed")
+else:
+    print("⚠️  _update_column_results block not found, trying alternative patterns...")
+    # Try with sed-modified version
+    alt_block = '''        try:
+            db.add(result)
+            db.flush()
+        except IntegrityError:
+            db.expunge(result)
+            # IntegrityError: 并发写入冲突，使用 savepoint 回滚后重建查询
+            # 并发写入冲突，重新查询已存在的记录并更新
+            existing = db.query(ClassificationResult).filter(
+                ClassificationResult.task_id == task.id,
+                ClassificationResult.column_id == column_id,
+            ).first()
+            if existing and existing.is_confirmed != 1:
+                existing.data_type_id = data_type.id
+                existing.data_type_name = data_type.name
+                existing.level_id = level_id
+                existing.level_code = level_code
+                existing.category_path = category_path
+                existing.is_sensitive = is_sensitive
+                existing.hit_features = feature_hit_info.get("feature_details")
+                existing.hit_rate = hit_rate
+                existing.execution_id = execution.id
+                existing.suggest_mask = data_type.suggest_mask
+                existing.suggest_encrypt = data_type.suggest_encrypt
+                existing.updated_at = datetime.now()
+                _apply_task_masking(existing, task, db)
+        _apply_task_masking(result, task, db)'''
+    if alt_block in content:
+        content = content.replace(alt_block, new_block)
+        print("✅ Alt pattern fixed")
+    else:
+        print("❌ Cannot find the block, manual check needed")
+
+# Fix 3: Check _create_unmatched_result has savepoint
+if 'with db.begin_nested()' in content and '_create_unmatched_result' in content:
+    print("✅ _create_unmatched_result already has savepoint protection")
+else:
+    print("⚠️  _create_unmatched_result may not have savepoint protection")
+
+with open(path, 'w') as f:
+    f.write(content)
+
+print(f"\nDone. {path}")

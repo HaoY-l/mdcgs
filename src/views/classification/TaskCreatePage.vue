@@ -80,10 +80,11 @@
             filterable
           >
             <el-option
-              v-for="asset in assets"
+              v-for="asset in availableAssets"
               :key="asset.id"
-              :label="asset.name || asset.database_name"
+              :label="(asset.name || asset.database_name) + (occupiedAssets[asset.id] ? '（已被任务「' + occupiedAssets[asset.id] + '」占用）' : '')"
               :value="asset.id"
+              :disabled="!!occupiedAssets[asset.id]"
             />
           </el-select>
         </el-form-item>
@@ -98,11 +99,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft } from '@element-plus/icons-vue'
-import { createTask } from '@/api/task'
+import { createTask, getOccupiedAssets } from '@/api/task'
 import { getTemplates, getMaskingRules, getEncryptionTypes } from '@/api/classification'
 import { getAssets } from '@/api/assets'
 
@@ -113,6 +114,11 @@ const assets = ref<any[]>([])
 
 const maskingRules = ref<any[]>([])
 const encryptionTypes = ref<any[]>([])
+const occupiedAssets = ref<Record<string, string>>({})
+
+const availableAssets = computed(() => {
+  return assets.value.filter(a => !occupiedAssets.value[a.id])
+})
 
 const form = ref({
   name: '',
@@ -152,6 +158,15 @@ async function loadAssets() {
     }
   } catch {
     ElMessage.error('加载资产列表失败')
+  }
+}
+
+async function loadOccupiedAssets() {
+  try {
+    const res = await getOccupiedAssets()
+    occupiedAssets.value = res.data || {}
+  } catch {
+    // ignore
   }
 }
 
@@ -247,6 +262,7 @@ async function loadEncryptionTypes() {
 onMounted(() => {
   loadTemplates()
   loadAssets()
+  loadOccupiedAssets()
   loadMaskingRules()
   loadEncryptionTypes()
 })

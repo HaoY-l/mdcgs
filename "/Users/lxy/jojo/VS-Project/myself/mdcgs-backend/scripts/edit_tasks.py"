@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""Modify tasks.py — add asset conflict check and occupied-assets endpoint"""
+
+path = "/Users/lxy/jojo/VS-Project/myself/mdcgs-backend/app/api/v1/classification/tasks.py"
+with open(path) as f:
+    content = f.read()
+
+# 1. 添加 occupied-assets 接口 — 在 start_task 之前
+old_start = '@task_router.post("/classification-tasks/{task_id}/start")\nasync def start_task(\n    request: Request,\n    task_id: int = Path(...),\n    _: SysUser = Depends(PermissionChecker("scan_execute")),'
+
+new_start = '@task_router.get("/classification-tasks/occupied-assets")\nasync def get_occupied_assets(\n    _: SysUser = Depends(PermissionChecker("task_view")),\n    db: Session = Depends(get_db),\n):\n    """获取所有已被任务占用的资产 ID → 任务名映射"""\n    tasks = db.query(ClassificationTask).all()\n    result: dict[str, str] = {}\n    for t in tasks:\n        for aid in (t.asset_ids or []):\n            result[str(aid)] = t.name\n    return success(result)\n\n\n@task_router.post("/classification-tasks/{task_id}/start")\nasync def start_task(\n    request: Request,\n    task_id: int = Path(...),\n    _: SysUser = Depends(PermissionChecker("scan_execute")),'
+
+if old_start in content:
+    content = content.replace(old_start, new_start, 1)  # 只替换第一次出现的
+    print("✅ occupied-assets 接口已添加")
+else:
+    print("⚠️  start_task 未匹配")
+    # debug: find what's around that area
+    idx = content.find("start_task")
+    if idx > 0:
+        print(f"Found 'start_task' at position {idx}")
+        print(content[idx-50:idx+100])
+
+with open(path, "w") as f:
+    f.write(content)
+
+print(f"✅ 写入完成: {path}")

@@ -1,0 +1,46 @@
+#!/usr/bin/env python3
+"""修改 TaskCreatePage.vue — 添加资产占用过滤"""
+
+path = "/Users/lxy/jojo/VS-Project/myself/mdcgs/src/views/classification/TaskCreatePage.vue"
+with open(path) as f:
+    content = f.read()
+
+# 1. imports: 加 computed + getOccupiedAssets
+old_imports = "import { ref, onMounted } from 'vue'\nimport { useRouter } from 'vue-router'\nimport { ElMessage } from 'element-plus'\nimport { ArrowLeft } from '@element-plus/icons-vue'\nimport { createTask } from '@/api/task'\nimport { getTemplates, getMaskingRules, getEncryptionTypes } from '@/api/classification'\nimport { getAssets } from '@/api/assets'"
+
+new_imports = "import { ref, computed, onMounted } from 'vue'\nimport { useRouter } from 'vue-router'\nimport { ElMessage } from 'element-plus'\nimport { ArrowLeft } from '@element-plus/icons-vue'\nimport { createTask, getOccupiedAssets } from '@/api/task'\nimport { getTemplates, getMaskingRules, getEncryptionTypes } from '@/api/classification'\nimport { getAssets } from '@/api/assets'"
+
+content = content.replace(old_imports, new_imports)
+
+# 2. 添加 occupiedAssets 状态 + computed
+old_state = "const maskingRules = ref<any[]>([])\nconst encryptionTypes = ref<any[]>([])"
+
+new_state = "const maskingRules = ref<any[]>([])\nconst encryptionTypes = ref<any[]>([])\nconst occupiedAssets = ref<Record<string, string>>({})\n\nconst availableAssets = computed(() => {\n  return assets.value.filter(a => !occupiedAssets.value[a.id])\n})"
+
+content = content.replace(old_state, new_state)
+
+# 3. loadOccupiedAssets 函数
+old_load = "async function loadAssets() {\n  try {\n    const res = await getAssets({ page_size: 100 })\n    if (Array.isArray(res.data)) {\n      assets.value = res.data\n    } else if (res.data?.items) {\n      assets.value = res.data.items\n    }\n  } catch {\n    ElMessage.error('加载资产列表失败')\n  }\n}"
+
+new_load = "async function loadAssets() {\n  try {\n    const res = await getAssets({ page_size: 100 })\n    if (Array.isArray(res.data)) {\n      assets.value = res.data\n    } else if (res.data?.items) {\n      assets.value = res.data.items\n    }\n  } catch {\n    ElMessage.error('加载资产列表失败')\n  }\n}\n\nasync function loadOccupiedAssets() {\n  try {\n    const res = await getOccupiedAssets()\n    occupiedAssets.value = res.data || {}\n  } catch {\n    // 接口不存在或异常，忽略\n  }\n}"
+
+content = content.replace(old_load, new_load)
+
+# 4. 修改 onMounted
+old_mount = "onMounted(() => {\n  loadTemplates()\n  loadAssets()\n  loadMaskingRules()\n  loadEncryptionTypes()\n})"
+
+new_mount = "onMounted(() => {\n  loadTemplates()\n  loadAssets()\n  loadOccupiedAssets()\n  loadMaskingRules()\n  loadEncryptionTypes()\n})"
+
+content = content.replace(old_mount, new_mount)
+
+# 5. 修改资产下拉选项
+old_template = '            <el-option\n              v-for="asset in assets"\n              :key="asset.id"\n              :label="asset.name || asset.database_name"\n              :value="asset.id"\n            />'
+
+new_template = '            <el-option\n              v-for="asset in availableAssets"\n              :key="asset.id"\n              :label="(asset.name || asset.database_name) + (occupiedAssets[asset.id] ? \'（已被任务「\' + occupiedAssets[asset.id] + \'」占用）\' : \'\')"\n              :value="asset.id"\n              :disabled="!!occupiedAssets[asset.id]"\n            />'
+
+content = content.replace(old_template, new_template)
+
+with open(path, 'w') as f:
+    f.write(content)
+
+print(f"✅ TaskCreatePage.vue updated")

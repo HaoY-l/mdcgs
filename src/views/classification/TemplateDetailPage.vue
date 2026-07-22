@@ -532,11 +532,9 @@ const selectedCategoryName = computed(() => {
 // 被数据类型引用的特征ID集合（被引用时强制启用，不可关闭）
 const referencedFeatureIds = computed(() => {
   const ids = new Set<number>()
-  for (const dt of dataTypes.value) {
-    if (dt.feature_ids && Array.isArray(dt.feature_ids)) {
-      for (const fid of dt.feature_ids) {
-        ids.add(fid)
-      }
+  for (const f of features.value) {
+    if (f.referenced) {
+      ids.add(f.id)
     }
   }
   return ids

@@ -1223,6 +1223,18 @@ async function fetchSystemLevelChart() {
   } finally { systemLevelLoading.value = false }
 }
 
+async function fetchScheduleConfig() {
+  try {
+    const res = await client.get('/volume-grade/schedule')
+    if (res.data) {
+      scheduleEnabled.value = res.data.enabled || false
+      scheduleCron.value = res.data.cron || '0 2 * * *'
+    }
+  } catch {
+    // 忽略错误
+  }
+}
+
 async function loadAll() {
   pageLoading.value = true
   try {
@@ -1247,6 +1259,10 @@ async function loadAll() {
     }
 
     evaluationRecords.value = loadRecords()
+
+    // 加载定时任务配置
+    fetchScheduleConfig()
+
     await Promise.all([
       fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart(),
       fetchTrendChart(), fetchDeptLevelChart(), fetchSystemLevelChart(),

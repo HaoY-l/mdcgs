@@ -131,7 +131,7 @@
 
       <!-- 校验结果 -->
       <div v-if="importResult" style="margin-top: 16px">
-        <template v-if="importResult.valid">
+        <template v-if="importResult.valid && importResult.summary">
           <el-alert type="success" :closable="false" show-icon>
             <template #title>
               校验通过！即将导入：

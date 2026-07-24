@@ -105,7 +105,10 @@
                 <el-table-column prop="value" label="值" min-width="300" />
               </el-table>
             </div>
-            <div v-else-if="sampleColumnId" style="text-align: center; padding: 40px; color: #909399">正在加载样本数据...</div>
+            <div v-else-if="sampleColumnId && !sampleLoaded" style="text-align: center; padding: 40px; color: #909399">正在加载样本数据...</div>
+            <div v-else-if="sampleColumnId && sampleLoaded" style="text-align: center; padding: 40px; color: #909399">
+              <el-empty description="无样本数据" />
+            </div>
             <div v-else style="text-align: center; padding: 40px; color: #909399">请选择数据库、表和字段查看样本数据</div>
           </div>
         </el-tab-pane>
@@ -141,6 +144,7 @@ const sampleColumnId = ref<number | null>(null)
 const sampleTables = ref<any[]>([])
 const sampleColumns = ref<any[]>([])
 const samples = ref<any[]>([])
+const sampleLoaded = ref(false)
 
 async function fetchAsset() {
   loading.value = true
@@ -206,11 +210,13 @@ function loadSampleTables() {
   sampleTableId.value = null
   sampleColumnId.value = null
   samples.value = []
+  sampleLoaded.value = false
 }
 
 async function loadSampleColumns() {
   sampleColumnId.value = null
   samples.value = []
+  sampleLoaded.value = false
   if (!sampleTableId.value) return
   // 从dbList中获取该表的字段
   for (const db of dbList.value) {
@@ -224,21 +230,26 @@ async function loadSampleColumns() {
 
 async function loadSamples() {
   if (!sampleDbId.value || !sampleTableId.value || !sampleColumnId.value) return
+  sampleLoaded.value = false
   try {
     const res = await getAssetSamples(assetId, {
       database_id: sampleDbId.value,
       table_id: sampleTableId.value,
       column_id: sampleColumnId.value,
-      limit: 10,
+      limit: 5,
     })
     if (res.data?.samples) {
       samples.value = res.data.samples
+    } else {
+      samples.value = []
     }
   } catch (err: any) {
     if (err?.response?.data?.message?.includes('权限不足')) {
       ElMessage.warning('仅管理员可查看样本数据')
     }
     samples.value = []
+  } finally {
+    sampleLoaded.value = true
   }
 }
 

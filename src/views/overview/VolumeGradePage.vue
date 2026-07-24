@@ -111,7 +111,7 @@
             <span class="result-stat-label">涉及资产</span>
           </div>
           <div class="result-stat">
-            <span class="result-stat-val" :style="{ color: levelColorMap[lastEvaluation.max_level] }">{{ lastEvaluation.max_level }}</span>
+            <span class="result-stat-val" :style="{ color: levelColorMap[lastEvaluation.max_level?.toUpperCase()] }">{{ lastEvaluation.max_level }}</span>
             <span class="result-stat-label">最高级别</span>
           </div>
           <div class="result-stat">
@@ -126,12 +126,12 @@
           </el-table-column>
           <el-table-column label="基础级" width="75" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.base_level], color: '#fff', border: 'none' }">{{ row.base_level }}</el-tag>
+              <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.base_level?.toUpperCase()], color: '#fff', border: 'none' }">{{ row.base_level }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="建议级" width="75" align="center">
             <template #default="{ row }">
-              <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.suggested_level], color: '#fff', border: 'none' }">{{ row.suggested_level }}</el-tag>
+              <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.suggested_level?.toUpperCase()], color: '#fff', border: 'none' }">{{ row.suggested_level }}</el-tag>
             </template>
           </el-table-column>
           <el-table-column label="升级" width="60" align="center">
@@ -273,12 +273,12 @@
               </el-table-column>
               <el-table-column label="基础级" width="70" align="center">
                 <template #default="{ row }">
-                  <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.base_level], color: '#fff', border: 'none' }">{{ row.base_level }}</el-tag>
+                  <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.base_level?.toUpperCase()], color: '#fff', border: 'none' }">{{ row.base_level }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column label="建议级" width="70" align="center">
                 <template #default="{ row }">
-                  <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.suggested_level], color: '#fff', border: 'none' }">{{ row.suggested_level }}</el-tag>
+                  <el-tag size="small" :style="{ backgroundColor: levelColorMap[row.suggested_level?.toUpperCase()], color: '#fff', border: 'none' }">{{ row.suggested_level }}</el-tag>
                 </template>
               </el-table-column>
               <el-table-column prop="upgrade" label="升级" width="55" align="center">
@@ -309,7 +309,7 @@
           <span>{{ changeLevelForm.data_type }}</span>
         </el-form-item>
         <el-form-item label="当前级别">
-          <el-tag size="small" :style="{ backgroundColor: levelColorMap[changeLevelForm.current_level], color: '#fff', border: 'none' }">{{ changeLevelForm.current_level }}</el-tag>
+          <el-tag size="small" :style="{ backgroundColor: levelColorMap[changeLevelForm.current_level?.toUpperCase()], color: '#fff', border: 'none' }">{{ changeLevelForm.current_level }}</el-tag>
         </el-form-item>
         <el-form-item label="新级别" required>
           <el-select v-model="changeLevelForm.new_level" placeholder="选择新级别" style="width: 100%">
@@ -561,10 +561,10 @@ function getTrendColor(name: string): string {
   return colors[idx % colors.length]
 }
 
-// 级别颜色映射（用于表格中动态颜色）
+// 级别颜色映射（用于表格中动态颜色，key归一化为大写）
 const levelColorMap = computed(() => {
   const m: Record<string, string> = {}
-  levels.value.forEach(l => { m[l.level_code] = l.color || '#6b7280' })
+  levels.value.forEach(l => { m[l.level_code?.toUpperCase()] = l.color || '#6b7280' })
   return m
 })
 
@@ -597,8 +597,8 @@ function handleConfirmLevelChange() {
     const detail = lastEvaluation.value.details[idx]
     detail.suggested_level = changeLevelForm.new_level
     // 重新计算是否触发升级
-    const baseNum = levelOrderMapRef[detail.base_level] ?? 0
-    const newNum = levelOrderMapRef[changeLevelForm.new_level] ?? 0
+    const baseNum = levelOrderMapRef[detail.base_level?.toUpperCase()] ?? 0
+    const newNum = levelOrderMapRef[changeLevelForm.new_level?.toUpperCase()] ?? 0
     detail.upgrade = Math.max(0, newNum - baseNum)
     detail.trigger = changeLevelForm.reason || '人工变更级别'
     // 保存更新后的记录
@@ -934,6 +934,7 @@ async function fetchTypeLevelChart() {
     if (!last || !last.details?.length) {
       typeLevelChart?.setOption({
         series: [{ type: 'pie', radius: ['42%', '68%'], center: ['50%', '50%'], label: { show: true, formatter: '{b}\n{d}%', fontSize: 12, color: '#374151' }, data: [] }],
+        title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#c0c4cc', fontSize: 13 }, z: 0 },
       }, true)
       return
     }
@@ -974,8 +975,13 @@ async function fetchLevelCountChart() {
     }
     const last = lastEvaluation.value
     if (!last || !last.details?.length) {
+      // 无数据时显示占位提示
       levelCountChart?.setOption({
-        series: [{ type: 'bar', data: [] }],
+        series: [],
+        title: { text: '暂无数据，请先执行量级评估', left: 'center', top: 'center', textStyle: { color: '#c0c4cc', fontSize: 13 } },
+        grid: { left: 0, right: 0, top: 0, bottom: 0 },
+        xAxis: { show: false },
+        yAxis: { show: false },
       }, true)
       return
     }
@@ -992,6 +998,7 @@ async function fetchLevelCountChart() {
     })
 
     const chartData = sortedLevels.map(l => ({ level: l.level_code, count: levelAgg[l.level_code] || 0 }))
+    const ECHARTS_COLORS = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
 
     levelCountChart?.setOption({
       tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 }, enterable: true, confine: false, appendToBody: true, formatter: (params: any[]) => {
@@ -1002,9 +1009,12 @@ async function fetchLevelCountChart() {
       xAxis: { type: 'category', data: chartData.map(d => d.level), axisLine: { lineStyle: { color: '#e5e7eb' } }, axisLabel: { fontSize: 12, color: '#6b7280' } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
       series: [{
-        type: 'bar', data: chartData.map(d => ({
+        type: 'bar', data: chartData.map((d, i) => ({
           value: d.count,
-          itemStyle: { color: levelColorMap.value[d.level] || '#6b7280', borderRadius: [4, 4, 0, 0] }
+          itemStyle: {
+            color: levelColorMap.value[d.level] || ECHARTS_COLORS[i % ECHARTS_COLORS.length],
+            borderRadius: [4, 4, 0, 0],
+          },
         })),
         barWidth: 40,
       }]
@@ -1023,7 +1033,11 @@ async function fetchTrendChart() {
     // 从历史评估记录中提取趋势数据
     if (evaluationRecords.value.length === 0) {
       trendChart?.setOption({
-        series: [{ type: 'line', data: [] }],
+        series: [],
+        title: { text: '暂无趋势数据', left: 'center', top: 'center', textStyle: { color: '#c0c4cc', fontSize: 13 } },
+        grid: { left: 0, right: 0, top: 0, bottom: 0 },
+        xAxis: { show: false },
+        yAxis: { show: false },
       }, true)
       trendCategories.value = []
       return
@@ -1118,20 +1132,43 @@ async function fetchDeptLevelChart() {
     if (!deptLevelChart && deptLevelChartRef.value) {
       deptLevelChart = echarts.init(deptLevelChartRef.value)
     }
-    if (!groups.length) { deptLevelChart?.setOption({ series: [] }, true); return }
+    // 无数据时显示占位提示
+    if (!groups.length || !levelCodes.length) {
+      deptLevelChart?.setOption({
+        series: [],
+        title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#c0c4cc', fontSize: 14 } },
+        grid: { left: 0, right: 0, top: 0, bottom: 0 },
+        xAxis: { show: false },
+        yAxis: { show: false },
+      }, true)
+      return
+    }
     const names = groups.map((g: any) => g.group)
-    const colors = levelCodes.map((lc: string) => levelColorMap.value[lc] || '#6b7280')
+    // 颜色：优先用 levelColorMap，为缺失的 level 提供 ECharts 调色盘颜色
+    const ECHARTS_COLORS = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
+    const colors = levelCodes.map((lc: string, i: number) => {
+      const mapped = levelColorMap.value[lc]
+      if (mapped && mapped !== '#6b7280') return mapped
+      return ECHARTS_COLORS[i % ECHARTS_COLORS.length]
+    })
     deptLevelChart?.setOption({
+      title: { show: false },
       tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
-      legend: { show: false },
-      grid: { left: 50, right: 16, top: 12, bottom: 44 },
+      legend: { show: true, bottom: 0, textStyle: { fontSize: 11, color: '#6b7280' }, itemWidth: 14, itemHeight: 10 },
+      grid: { left: 50, right: 16, top: 12, bottom: 36 },
       xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 72 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
-      series: levelCodes.map((lc: string, i: number) => ({
-        name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
-        data: groups.map((g: any) => g[lc] || 0),
-        itemStyle: { color: colors[i], borderRadius: [0, 0, 0, 0] },
-      })),
+      series: levelCodes.map((lc: string, i: number) => {
+        const isTop = i === levelCodes.length - 1
+        return {
+          name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
+          data: groups.map((g: any) => g[lc] || 0),
+          itemStyle: {
+            color: colors[i],
+            borderRadius: isTop ? [4, 4, 0, 0] : [0, 0, 0, 0],
+          },
+        }
+      }),
     }, true)
   } finally { deptLevelLoading.value = false }
 }
@@ -1146,22 +1183,56 @@ async function fetchSystemLevelChart() {
     if (!systemLevelChart && systemLevelChartRef.value) {
       systemLevelChart = echarts.init(systemLevelChartRef.value)
     }
-    if (!groups.length) { systemLevelChart?.setOption({ series: [] }, true); return }
+    // 无数据时显示占位提示
+    if (!groups.length || !levelCodes.length) {
+      systemLevelChart?.setOption({
+        series: [],
+        title: { text: '暂无数据', left: 'center', top: 'center', textStyle: { color: '#c0c4cc', fontSize: 14 } },
+        grid: { left: 0, right: 0, top: 0, bottom: 0 },
+        xAxis: { show: false },
+        yAxis: { show: false },
+      }, true)
+      return
+    }
     const names = groups.map((g: any) => g.group)
-    const colors = levelCodes.map((lc: string) => levelColorMap.value[lc] || '#6b7280')
+    const ECHARTS_COLORS = ['#5470c6', '#91cc75', '#fac858', '#ee6666', '#73c0de', '#3ba272', '#fc8452', '#9a60b4', '#ea7ccc']
+    const colors = levelCodes.map((lc: string, i: number) => {
+      const mapped = levelColorMap.value[lc]
+      if (mapped && mapped !== '#6b7280') return mapped
+      return ECHARTS_COLORS[i % ECHARTS_COLORS.length]
+    })
     systemLevelChart?.setOption({
+      title: { show: false },
       tooltip: { trigger: 'axis', backgroundColor: '#1e293b', borderColor: '#1e293b', textStyle: { color: '#e2e8f0', fontSize: 12 } },
-      legend: { show: false },
-      grid: { left: 50, right: 16, top: 12, bottom: 44 },
+      legend: { show: true, bottom: 0, textStyle: { fontSize: 11, color: '#6b7280' }, itemWidth: 14, itemHeight: 10 },
+      grid: { left: 50, right: 16, top: 12, bottom: 36 },
       xAxis: { type: 'category', data: names, axisLabel: { fontSize: 11, color: '#9ca3af', rotate: names.length > 4 ? 25 : 0, interval: 0, overflow: 'truncate', width: 72 }, axisLine: { lineStyle: { color: '#e5e7eb' } } },
       yAxis: { type: 'value', splitLine: { lineStyle: { color: '#f3f4f6' } }, axisLabel: { fontSize: 11, color: '#9ca3af' } },
-      series: levelCodes.map((lc: string, i: number) => ({
-        name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
-        data: groups.map((g: any) => g[lc] || 0),
-        itemStyle: { color: colors[i], borderRadius: [0, 0, 0, 0] },
-      })),
+      series: levelCodes.map((lc: string, i: number) => {
+        const isTop = i === levelCodes.length - 1
+        return {
+          name: lc, type: 'bar', stack: 'total', barCategoryGap: '30%',
+          data: groups.map((g: any) => g[lc] || 0),
+          itemStyle: {
+            color: colors[i],
+            borderRadius: isTop ? [4, 4, 0, 0] : [0, 0, 0, 0],
+          },
+        }
+      }),
     }, true)
   } finally { systemLevelLoading.value = false }
+}
+
+async function fetchScheduleConfig() {
+  try {
+    const res = await client.get('/volume-grade/schedule')
+    if (res.data) {
+      scheduleEnabled.value = res.data.enabled || false
+      scheduleCron.value = res.data.cron || '0 2 * * *'
+    }
+  } catch {
+    // 忽略错误
+  }
 }
 
 async function loadAll() {
@@ -1188,6 +1259,10 @@ async function loadAll() {
     }
 
     evaluationRecords.value = loadRecords()
+
+    // 加载定时任务配置
+    fetchScheduleConfig()
+
     await Promise.all([
       fetchStatisticsForCards(), fetchTypeLevelChart(), fetchLevelCountChart(),
       fetchTrendChart(), fetchDeptLevelChart(), fetchSystemLevelChart(),
@@ -1258,7 +1333,7 @@ const levelOrderMapRef: Record<string, number> = {}
 // 初始化 levelOrderMapRef
 function initLevelOrderMapRef() {
   const sorted = [...levels.value].sort((a, b) => a.sort - b.sort)
-  sorted.forEach((l, i) => { levelOrderMapRef[l.level_code] = i })
+  sorted.forEach((l, i) => { levelOrderMapRef[l.level_code?.toUpperCase()] = i })
 }
 
 // ===== 执行评估 =====
@@ -1285,10 +1360,10 @@ async function handleExecuteEvaluation() {
       return
     }
 
-    // 3. 先构建级别顺序映射
+    // 3. 先构建级别顺序映射（key归一化为大写）
     const sortedLevels = [...levels.value].sort((a, b) => a.sort - b.sort)
     const levelOrderMap: Record<string, number> = {}
-    sortedLevels.forEach((l, i) => { levelOrderMap[l.level_code] = i })
+    sortedLevels.forEach((l, i) => { levelOrderMap[l.level_code?.toUpperCase()] = i })
 
     // 4. 按分类路径（category_path）聚合统计字段数，同时记录每个分类的最低级别
     const typeFieldMap: Record<string, { count: number; baseLevel: string }> = {}
@@ -1305,14 +1380,10 @@ async function handleExecuteEvaluation() {
       // 记录该分类的最低级别（数字越小级别越低，取 sort 最小的）
       if (item.level) {
         const currentBase = typeFieldMap[categoryKey].baseLevel
-        if (!currentBase) {
+        const currentSort = levelOrderMap[currentBase?.toUpperCase()] ?? 0
+        const itemSort = levelOrderMap[item.level?.toUpperCase()] ?? 0
+        if (!currentBase || itemSort < currentSort) {
           typeFieldMap[categoryKey].baseLevel = item.level
-        } else {
-          const currentSort = levelOrderMap[currentBase] ?? 0
-          const itemSort = levelOrderMap[item.level] ?? 0
-          if (itemSort < currentSort) {
-            typeFieldMap[categoryKey].baseLevel = item.level
-          }
         }
       }
 
@@ -1333,7 +1404,7 @@ async function handleExecuteEvaluation() {
 
       // 基础级别：优先用数据目录中该分类的实际分级，其次用规则中的基础级
       const baseLevelCode = dataBaseLevel || rule?.base_level || lowestLevel.value
-      const baseNum = levelOrderMap[baseLevelCode] ?? 0
+      const baseNum = levelOrderMap[baseLevelCode?.toUpperCase()] ?? 0
       let suggestedNum = baseNum
       let upgrade = 0
       let trigger = '-'
@@ -1345,7 +1416,7 @@ async function handleExecuteEvaluation() {
       const isSpecial = specialKeywords.some(k => dataType.includes(k))
 
       if (isSpecial && sensitiveLevelCode) {
-        const sensitiveNum = levelOrderMap[sensitiveLevelCode]
+        const sensitiveNum = levelOrderMap[sensitiveLevelCode?.toUpperCase()]
         if (sensitiveNum !== undefined && sensitiveNum > baseNum) {
           suggestedNum = sensitiveNum
           upgrade = sensitiveNum - baseNum
@@ -1386,7 +1457,7 @@ async function handleExecuteEvaluation() {
 
       const suggestedLevel = sortedLevels[suggestedNum]?.level_code || highestLevel.value
 
-      if (levelOrderMap[suggestedLevel] > levelOrderMap[maxLevel]) {
+      if (levelOrderMap[suggestedLevel?.toUpperCase()] > levelOrderMap[maxLevel?.toUpperCase()]) {
         maxLevel = suggestedLevel
       }
       if (upgrade > 0) upgradedCount++

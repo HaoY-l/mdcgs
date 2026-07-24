@@ -39,3 +39,6 @@ backend_data/
 info.txt
 .claude
 .env
+
+CLAUDE.md
+docs/

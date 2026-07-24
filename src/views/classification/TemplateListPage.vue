@@ -12,6 +12,9 @@
       <el-button type="primary" size="small" @click="showAddDialog = true">
         新增模板
       </el-button>
+      <el-button size="small" @click="showImportDialog = true">
+        导入模板
+      </el-button>
     </template>
 
     <DataTable :data="templates" :loading="loading" :total="total" :current-page="currentPage" :page-size="pageSize" @page-change="handlePageChange">
@@ -94,6 +97,71 @@
         <el-button type="primary" :loading="submitting" @click="handleUpdate">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 导入模板弹窗 -->
+    <el-dialog v-model="showImportDialog" title="导入模板" width="520px" :close-on-click-modal="false">
+      <div style="margin-bottom: 16px">
+        <el-button text type="primary" @click="handleDownloadTemplate">
+          <el-icon><Download /></el-icon> 下载导入模板文件
+        </el-button>
+        <div style="font-size: 12px; color: #909399; margin-top: 4px">
+          下载 Excel 模板，按格式填写后上传
+        </div>
+      </div>
+
+      <el-upload
+        ref="uploadRef"
+        drag
+        :auto-upload="false"
+        :limit="1"
+        accept=".xlsx,.xls"
+        :on-change="handleFileChange"
+        :file-list="fileList"
+      >
+        <el-icon class="el-icon--upload" :size="48"><UploadFilled /></el-icon>
+        <div class="el-upload__text">
+          将 Excel 文件拖到此处，或 <em>点击选择</em>
+        </div>
+        <template #tip>
+          <div style="font-size: 12px; color: #909399; padding: 0 4px">
+            仅支持 .xlsx / .xls 格式
+          </div>
+        </template>
+      </el-upload>
+
+      <!-- 校验结果 -->
+      <div v-if="importResult" style="margin-top: 16px">
+        <template v-if="importResult.valid && importResult.summary">
+          <el-alert type="success" :closable="false" show-icon>
+            <template #title>
+              校验通过！即将导入：
+              模板「{{ importResult.summary.template }}」，
+              {{ importResult.summary.categories }} 个分类，
+              {{ importResult.summary.features }} 个特征，
+              {{ importResult.summary.data_types }} 个数据类型
+            </template>
+          </el-alert>
+        </template>
+        <template v-else>
+          <el-alert type="error" :closable="false" show-icon>
+            <template #title>校验未通过，请修正后重试</template>
+          </el-alert>
+          <div style="margin-top: 8px; max-height: 200px; overflow-y: auto">
+            <div v-for="(err, i) in importResult.errors" :key="i" style="font-size: 13px; color: #f56c6c; padding: 2px 0">
+              [{{ err.category }}] {{ err.message }}
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <template #footer>
+        <el-button @click="handleCancelImport">取消</el-button>
+        <el-button :loading="validating" @click="handleValidate">校验</el-button>
+        <el-button type="primary" :loading="importing" :disabled="!importResult?.valid" @click="handleImport">
+          确认导入
+        </el-button>
+      </template>
+    </el-dialog>
   </PageShell>
 </template>
 
@@ -101,6 +169,7 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { Download, UploadFilled } from '@element-plus/icons-vue'
 import {
   getTemplates,
   createTemplate,
@@ -109,6 +178,8 @@ import {
   copyTemplate,
   activateTemplate,
   deactivateTemplate,
+  validateTemplateImport,
+  importTemplateFromExcel,
 } from '@/api/classification'
 import PageShell from '@/components/common/PageShell.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -127,6 +198,19 @@ const searchKeyword = ref('')
 const showAddDialog = ref(false)
 const showEditDialog = ref(false)
 const editingId = ref<number | null>(null)
+
+// ===== 导入模板 =====
+const showImportDialog = ref(false)
+const validating = ref(false)
+const importing = ref(false)
+const uploadRef = ref<any>(null)
+const fileList = ref<any[]>([])
+const importFile = ref<File | null>(null)
+const importResult = ref<{
+  valid: boolean
+  errors: { category: string; message: string }[]
+  summary?: { template: string; categories: number; features: number; data_types: number }
+} | null>(null)
 
 const form = reactive({
   name: '',
@@ -303,6 +387,81 @@ function getActions(row: any) {
     { label: row.is_active ? '停用' : '启用', type: (row.is_active ? 'warning' : 'success') as 'warning' | 'success', click: () => handleToggleActive(row) },
     { label: '删除', type: 'danger' as const, click: () => handleDelete(row) },
   ]
+}
+
+// ===== 导入模板 =====
+function handleFileChange(uploadFile: any) {
+  importFile.value = uploadFile.raw
+  importResult.value = null
+}
+
+function handleCancelImport() {
+  showImportDialog.value = false
+  importFile.value = null
+  importResult.value = null
+  fileList.value = []
+  uploadRef.value?.clearFiles()
+}
+
+async function handleDownloadTemplate() {
+  try {
+    const token = localStorage.getItem('access_token')
+    const response = await fetch('/api/v1/templates/import/template', {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!response.ok) {
+      ElMessage.error('模板文件下载失败')
+      return
+    }
+    const blob = await response.blob()
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = '分类模板导入模板.xlsx'
+    link.click()
+    URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error('模板文件下载失败')
+  }
+}
+
+async function handleValidate() {
+  if (!importFile.value) {
+    ElMessage.warning('请先选择导入文件')
+    return
+  }
+  validating.value = true
+  try {
+    const res = await validateTemplateImport(importFile.value)
+    importResult.value = res.data
+    if (!res.data?.valid) {
+      ElMessage.warning('校验未通过，请查看错误详情')
+    } else {
+      ElMessage.success('校验通过，可以导入')
+    }
+  } catch {
+    importResult.value = { valid: false, errors: [{ category: '请求失败', message: '校验请求失败' }] }
+  } finally {
+    validating.value = false
+  }
+}
+
+async function handleImport() {
+  if (!importFile.value || !importResult.value?.valid) {
+    ElMessage.warning('请先通过校验后再导入')
+    return
+  }
+  importing.value = true
+  try {
+    const res = await importTemplateFromExcel(importFile.value)
+    ElMessage.success(`模板「${res.data?.name || ''}」导入成功`)
+    handleCancelImport()
+    fetchTemplates()
+  } catch {
+    // error handled by interceptor
+  } finally {
+    importing.value = false
+  }
 }
 
 onMounted(() => {

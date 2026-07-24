@@ -2,6 +2,10 @@ import client from './client'
 
 // ===== 分类任务管理 =====
 
+export async function getOccupiedAssets() {
+  return client.get("/classification-tasks/occupied-assets")
+}
+
 export async function getTasks(params: Record<string, any> = {}) {
   return client.get('/classification-tasks', { params })
 }

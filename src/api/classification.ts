@@ -220,3 +220,22 @@ export async function updateEncryptionType(id: number, data: Record<string, any>
 export async function deleteEncryptionType(id: number) {
   return client.delete(`/encryption-types/${id}`)
 }
+
+// ===== 模板导入 =====
+
+export async function validateTemplateImport(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return client.post('/templates/import/validate', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+export async function importTemplateFromExcel(file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return client.post('/templates/import', formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+

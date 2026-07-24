@@ -56,7 +56,7 @@ export interface ReportStats {
 export interface GenerateReportDTO {
   report_type: ReportType
   file_format?: ReportFormat
-  task_id?: number
+  task_ids?: number[]  // 多选任务
   title?: string
   description?: string
   start_date?: string

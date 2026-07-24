@@ -29,7 +29,7 @@
             <el-button type="primary" size="small" @click="openAddCategoryDialog()">
               <el-icon><Plus /></el-icon> 新增分类
             </el-button>
-            <el-button size="small" @click="handleImportCategories">导入目录</el-button>
+            <!-- <el-button size="small" @click="handleImportCategories">导入目录</el-button> -->
           </div>
           <el-table
             :data="flatCategories"
@@ -147,6 +147,19 @@
               </template>
             </el-table-column>
           </el-table>
+          <div style="display: flex; justify-content: flex-end; margin-top: 12px">
+            <el-pagination
+              v-model:current-page="featPage"
+              v-model:page-size="featPageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="featTotal"
+              layout="total, sizes, prev, pager, next, jumper"
+              background
+              small
+              @size-change="(size: number) => { featPage = 1; featPageSize = size; fetchFeatures() }"
+              @current-change="fetchFeatures"
+            />
+          </div>
         </el-tab-pane>
 
         <!-- 数据类型 -->
@@ -206,6 +219,19 @@
               </template>
             </el-table-column>
           </el-table>
+          <div style="display: flex; justify-content: flex-end; margin-top: 12px">
+            <el-pagination
+              v-model:current-page="dtPage"
+              v-model:page-size="dtPageSize"
+              :page-sizes="[10, 20, 50, 100]"
+              :total="dtTotal"
+              layout="total, sizes, prev, pager, next, jumper"
+              background
+              small
+              @size-change="(size: number) => { dtPage = 1; dtPageSize = size; fetchDataTypes() }"
+              @current-change="fetchDataTypes"
+            />
+          </div>
         </el-tab-pane>
       </el-tabs>
     </div>
@@ -451,6 +477,9 @@ const flatCategories = computed(() => {
 // ===== 数据特征 =====
 const featLoading = ref(false)
 const features = ref<any[]>([])
+const featPage = ref(1)
+const featPageSize = ref(20)
+const featTotal = ref(0)
 const showFeatDialog = ref(false)
 const editingFeat = ref(false)
 const featForm = reactive({
@@ -467,6 +496,9 @@ const featDialogTitle = computed(() => editingFeat.value ? '编辑特征' : '新
 // ===== 数据类型 =====
 const dtLoading = ref(false)
 const dataTypes = ref<any[]>([])
+const dtPage = ref(1)
+const dtPageSize = ref(20)
+const dtTotal = ref(0)
 const levels = ref<any[]>([])
 const showDtDialog = ref(false)
 const editingDt = ref(false)
@@ -500,11 +532,9 @@ const selectedCategoryName = computed(() => {
 // 被数据类型引用的特征ID集合（被引用时强制启用，不可关闭）
 const referencedFeatureIds = computed(() => {
   const ids = new Set<number>()
-  for (const dt of dataTypes.value) {
-    if (dt.feature_ids && Array.isArray(dt.feature_ids)) {
-      for (const fid of dt.feature_ids) {
-        ids.add(fid)
-      }
+  for (const f of features.value) {
+    if (f.referenced) {
+      ids.add(f.id)
     }
   }
   return ids
@@ -643,8 +673,9 @@ function handleImportCategories() {
 async function fetchFeatures() {
   featLoading.value = true
   try {
-    const res = await getFeatures(tplId)
+    const res = await getFeatures(tplId, { page: featPage.value, page_size: featPageSize.value })
     features.value = res.data?.items || res.data || []
+    featTotal.value = res.data?.total ?? 0
     // 被数据类型引用的特征强制启用
     features.value.forEach((f: any) => {
       if (referencedFeatureIds.value.has(f.id)) {
@@ -741,8 +772,9 @@ async function handleDeleteFeature(row: any) {
 async function fetchDataTypes() {
   dtLoading.value = true
   try {
-    const res = await getDataTypes(tplId)
+    const res = await getDataTypes(tplId, { page: dtPage.value, page_size: dtPageSize.value })
     dataTypes.value = res.data?.items || res.data || []
+    dtTotal.value = res.data?.total ?? 0
     // enrich with level names / category names
     const catList = flatCategories.value
     dataTypes.value.forEach((dt: any) => {

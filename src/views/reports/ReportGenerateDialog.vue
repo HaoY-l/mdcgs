@@ -33,14 +33,17 @@
         <span>{{ selectedTypeDesc }}</span>
       </div>
 
-      <!-- 关联任务 -->
-      <el-form-item label="关联任务" prop="task_id">
+      <!-- 关联任务（多选） -->
+      <el-form-item label="关联任务" prop="task_ids">
         <el-select
-          v-model="form.task_id"
-          placeholder="全部任务（可选）"
+          v-model="form.task_ids"
+          placeholder="全部任务（可选，多选）"
           style="width: 100%"
           clearable
           filterable
+          multiple
+          collapse-tags
+          collapse-tags-tooltip
           :loading="tasksLoading"
         >
           <el-option
@@ -171,7 +174,7 @@ const selectedTypeDesc = ref('')
 
 const form = ref({
   report_type: '' as string,
-  task_id: undefined as number | undefined,
+  task_ids: [] as number[],
   file_format: 'pdf' as string,
   title: '',
   description: '',
@@ -229,7 +232,7 @@ async function handleSubmit() {
     const res = await generateReport({
       report_type: form.value.report_type as ReportType,
       file_format: form.value.file_format as ReportFormat,
-      task_id: form.value.task_id,
+      task_ids: form.value.task_ids.length > 0 ? form.value.task_ids : undefined,
       title: form.value.title || undefined,
       description: form.value.description || undefined,
     })
@@ -238,7 +241,7 @@ async function handleSubmit() {
     resultVisible.value = true
     visible.value = false
     emit('generated', res.id)
-    form.value = { report_type: '', task_id: undefined, file_format: 'pdf', title: '', description: '' }
+    form.value = { report_type: '', task_ids: [], file_format: 'pdf', title: '', description: '' }
   } catch (err: any) {
     ElMessage.error(err?.message || '生成报告失败')
   } finally {
@@ -277,7 +280,7 @@ function taskStatusLabel(status?: string) {
 // 每次打开重置并加载
 watch(visible, async (val) => {
   if (val) {
-    form.value = { report_type: '', task_id: undefined, file_format: 'pdf', title: '', description: '' }
+    form.value = { report_type: '', task_ids: [], file_format: 'pdf', title: '', description: '' }
     selectedTypeDesc.value = ''
     await Promise.all([loadReportTypes(), loadTasks()])
   }

@@ -49,7 +49,10 @@
         <el-table-column label="状态" width="80">
           <template #default="{ row }">
             <el-tooltip :content="row.error_message || ''" placement="top" :disabled="!row.error_message">
-              <el-tag :type="taskStatusType(row.status)" size="small">{{ taskStatusLabel(row.status) }}</el-tag>
+              <el-tag :type="taskStatusType(row.status)" size="small">
+                <span v-if="row.status === 'running' || row.status === 'processing' || row.status === 'queued'" class="status-spinner" />
+                {{ taskStatusLabel(row.status) }}
+              </el-tag>
             </el-tooltip>
           </template>
         </el-table-column>
@@ -386,5 +389,19 @@ async function handleBatchDelete() {
   margin-left: auto;
   font-size: 13px;
   color: var(--el-text-color-secondary);
+}
+.status-spinner {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border: 1.5px solid currentColor;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
 }
 </style>

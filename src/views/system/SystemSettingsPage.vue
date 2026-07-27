@@ -241,6 +241,30 @@
                   <el-checkbox value="sample_values" label="sample_values">样本数据</el-checkbox>
                 </el-checkbox-group>
               </div>
+              <el-divider style="margin: 12px 0" />
+              <div class="ai-global-item">
+                <div class="ai-toggle-info">
+                  <span class="ai-toggle-label">知识库检索</span>
+                  <span class="ai-toggle-desc">
+                    开启后，AI分类时会检索知识库文档作为参考依据，提高分类准确率
+                  </span>
+                </div>
+                <el-switch v-model="knowledgeBaseEnabled" @change="handleKnowledgeBaseChange" />
+              </div>
+              <el-alert
+                v-if="knowledgeBaseEnabled"
+                type="warning"
+                :closable="false"
+                show-icon
+                style="margin-top: 12px"
+              >
+                <template #title>
+                  知识库已启用，任务执行时长可能增加
+                </template>
+                <template #default>
+                  AI分类时需检索知识库文档并生成搜索词，任务总时长可能增加 30-60 秒
+                </template>
+              </el-alert>
             </el-card>
 
             <!-- 配置列表 -->
@@ -836,6 +860,7 @@ const aiConfigs = ref<any[]>([])
 const aiEnabled = ref(false)
 const onlyTemplateCategories = ref(true)
 const classifySourcesList = ref<string[]>(['column_name', 'column_comment'])
+const knowledgeBaseEnabled = ref(false)
 const showConfigForm = ref(false)
 const isEditingConfig = ref(false)
 const editingConfigId = ref<number | null>(null)
@@ -887,6 +912,7 @@ async function loadAiConfigs() {
     // 从全局设置读取 classify_sources
     const sources = settingsRes.data?.classify_sources || 'column_name,column_comment'
     classifySourcesList.value = sources.split(',').map((s: string) => s.trim())
+    knowledgeBaseEnabled.value = settingsRes.data?.knowledge_base_enabled === 'true'
     aiConfigs.value = configsRes.data || []
     knowledgeList.value = knowledgeRes.data || []
   } catch { /* ignore */ }
@@ -914,6 +940,14 @@ async function handleClassifySourcesChange(val: string[]) {
   try {
     await saveAiSettings({ classify_sources: sources })
     ElMessage.success('分类数据来源已更新')
+  } catch { ElMessage.error('保存失败') }
+}
+
+async function handleKnowledgeBaseChange(val: any) {
+  const enabled = val === true || val === 'true'
+  try {
+    await saveAiSettings({ knowledge_base_enabled: String(enabled) })
+    ElMessage.success(enabled ? '知识库已启用，任务时长可能增加' : '知识库已关闭')
   } catch { ElMessage.error('保存失败') }
 }
 

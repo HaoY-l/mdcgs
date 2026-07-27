@@ -32,17 +32,19 @@
             <!-- <el-button size="small" @click="handleImportCategories">导入目录</el-button> -->
           </div>
           <el-table
-            :data="flatCategories"
+            :data="categoryTree"
             stripe
             v-loading="catLoading"
             size="small"
             row-key="id"
+            :default-expand-all="false"
+            :tree-props="{ children: 'children', hasChildren: 'hasChildren' }"
             style="width: 100%"
             :header-cell-style="{ 'white-space': 'nowrap' }"
           >
-            <el-table-column prop="name" label="分类名称" min-width="120">
+            <el-table-column label="分类名称" min-width="160">
               <template #default="{ row }">
-                <span :style="{ paddingLeft: (row._level || 0) * 20 + 'px', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }">
+                <span style="display: inline-flex; align-items: center; gap: 4px; white-space: nowrap">
                   <el-icon :size="14" :color="row.children?.length ? '#409EFF' : '#86909c'">
                     <component :is="row.children?.length ? FolderOpened : Document" />
                   </el-icon>
@@ -50,10 +52,9 @@
                 </span>
               </template>
             </el-table-column>
-            <el-table-column prop="parent_name" label="父级分类" min-width="100">
+            <el-table-column label="分类路径" min-width="200" show-overflow-tooltip>
               <template #default="{ row }">
-                <span v-if="row.parent_name" style="white-space: nowrap">{{ row.parent_name }}</span>
-                <span v-else style="color: #c9cdd4">-</span>
+                <span style="color: #909399; font-size: 12px;">{{ row.path || '-' }}</span>
               </template>
             </el-table-column>
             <el-table-column label="数据分级" min-width="80" align="center">

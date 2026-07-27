@@ -1939,7 +1939,7 @@ async function handleCompare(row: any) {
 // ========== 辅助 ==========
 function switchToColumns(row: any) {
   activeTab.value = 'columns'
-  columnTableFilter.value = row.id
+  columnTableFilter.value = row.table_name
   fetchColumns()
 }
 

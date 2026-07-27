@@ -449,7 +449,7 @@
               v-if="categoryTree.length"
               :data="categoryTree"
               :props="{ children: 'children', label: 'name' }"
-              default-expand-all
+              :default-expand-all="false"
               highlight-current
             >
               <template #default="{ node, data }">

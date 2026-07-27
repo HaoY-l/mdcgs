@@ -170,13 +170,13 @@ async function fetchDatabases() {
   try {
     const { getAssetDatabases, getAssetTables, getAssetColumns } = await import('@/api/assets')
     // 1. 获取数据库列表
-    const dbRes = await getAssetDatabases(assetId)
+    const dbRes = await getAssetDatabases(assetId, { page_size: 9999 })
     const dbs = dbRes.data?.items || dbRes.data || []
     // 2. 获取所有表
-    const tblRes = await getAssetTables(assetId)
+    const tblRes = await getAssetTables(assetId, { page_size: 9999 })
     const tbls = tblRes.data?.items || tblRes.data || []
     // 3. 获取所有字段
-    const colRes = await getAssetColumns(assetId)
+    const colRes = await getAssetColumns(assetId, { page_size: 9999 })
     const colData = colRes.data?.items || colRes.data || []
     // 4. 组装树形结构
     dbList.value = (Array.isArray(dbs) ? dbs : []).map((db: any) => {

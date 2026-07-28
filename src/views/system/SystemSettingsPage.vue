@@ -241,6 +241,30 @@
                   <el-checkbox value="sample_values" label="sample_values">样本数据</el-checkbox>
                 </el-checkbox-group>
               </div>
+              <el-divider style="margin: 12px 0" />
+              <div class="ai-global-item">
+                <div class="ai-toggle-info">
+                  <span class="ai-toggle-label">知识库检索</span>
+                  <span class="ai-toggle-desc">
+                    开启后，AI分类时会检索知识库文档作为参考依据，提高分类准确率
+                  </span>
+                </div>
+                <el-switch v-model="knowledgeBaseEnabled" @change="handleKnowledgeBaseChange" />
+              </div>
+              <el-alert
+                v-if="knowledgeBaseEnabled"
+                type="warning"
+                :closable="false"
+                show-icon
+                style="margin-top: 12px"
+              >
+                <template #title>
+                  知识库已启用，任务执行时长可能增加
+                </template>
+                <template #default>
+                  AI分类时需检索知识库文档并生成搜索词，任务总时长可能增加 30-60 秒
+                </template>
+              </el-alert>
             </el-card>
 
             <!-- 配置列表 -->
@@ -394,17 +418,58 @@
               <div style="color: #909399; font-size: 12px; padding: 0 0 12px 0; border-bottom: 1px solid var(--el-border-color-light); margin-bottom: 12px">
                 支持上传 TXT、PDF、Word（.doc/.docx）格式文件。上传后系统自动提取文本、分块并提取关键词，AI分类时将根据字段特征检索匹配的知识块作为参考依据。
               </div>
-              <el-table :data="knowledgeList" stripe empty-text="暂无知识库文档" v-loading="knowledgeLoading" style="margin-bottom: 12px">
+              <el-table :data="knowledgeList" stripe empty-text="暂无知识库文档" v-loading="knowledgeLoading" style="margin-bottom: 12px" @row-click="handleKnowledgeRowClick">
                 <el-table-column prop="title" label="文档标题" min-width="160" />
                 <el-table-column prop="file_name" label="文件名" min-width="160" show-overflow-tooltip />
-                <el-table-column prop="chunk_count" label="分块数" width="80" align="center" />
-                <el-table-column prop="created_at" label="上传时间" width="160" />
-                <el-table-column label="操作" width="80">
+                <el-table-column prop="chunk_count" label="分块数" width="70" align="center" />
+                <el-table-column label="命中次数" width="80" align="center">
                   <template #default="{ row }">
-                    <el-button link type="danger" size="small" @click="handleDeleteKnowledge(row)">删除</el-button>
+                    <el-tag v-if="(row.hit_count || 0) > 0" size="small" type="warning" effect="plain" style="cursor: pointer;" @click.stop="handleKnowledgeRowClick(row)">
+                      {{ row.hit_count || 0 }}
+                    </el-tag>
+                    <span v-else style="color: #c0c4cc; font-size: 12px;">0</span>
+                  </template>
+                </el-table-column>
+                <el-table-column label="最近命中" width="150">
+                  <template #default="{ row }">
+                    <span v-if="row.last_hit_at" style="font-size: 12px; color: #909399;">{{ formatTime(row.last_hit_at) }}</span>
+                    <span v-else style="color: #c0c4cc; font-size: 12px;">-</span>
+                  </template>
+                </el-table-column>
+                <el-table-column prop="created_at" label="上传时间" width="150" />
+                <el-table-column label="操作" width="120">
+                  <template #default="{ row }">
+                    <el-button link type="primary" size="small" @click.stop="handleKnowledgeRowClick(row)">查看</el-button>
+                    <el-button link type="danger" size="small" @click.stop="handleDeleteKnowledge(row)">删除</el-button>
                   </template>
                 </el-table-column>
               </el-table>
+
+              <!-- 知识库命中详情弹窗 -->
+              <el-dialog v-model="knowledgeHitDialogVisible" :title="`命中详情 - ${knowledgeHitDialogTitle}`" width="80%" top="5vh" @close="knowledgeHitDialogVisible = false">
+                <el-table :data="knowledgeHitList" stripe v-loading="knowledgeHitLoading" style="width: 100%">
+                  <el-table-column prop="asset_name" label="资产" min-width="120" />
+                  <el-table-column prop="database_name" label="库" min-width="120" />
+                  <el-table-column prop="table_name" label="表" min-width="120" />
+                  <el-table-column prop="column_name" label="字段" min-width="120" />
+                  <el-table-column prop="task_id" label="任务ID" width="80" align="center" />
+                  <el-table-column label="命中时间" min-width="150">
+                    <template #default="{ row }">
+                      {{ formatTime(row.hit_at) }}
+                    </template>
+                  </el-table-column>
+                </el-table>
+                <div class="pagination-wrapper" v-if="knowledgeHitTotal > 0">
+                  <el-pagination
+                    v-model:current-page="knowledgeHitPage"
+                    :page-size="knowledgeHitPageSize"
+                    :total="knowledgeHitTotal"
+                    layout="total, prev, pager, next"
+                    @current-change="loadKnowledgeHits"
+                    small
+                  />
+                </div>
+              </el-dialog>
             </el-card>
           </div>
         </el-tab-pane>
@@ -504,7 +569,7 @@ import {
   getAiSettings, saveAiSettings,
   getAiModelConfigs, createAiModelConfig, updateAiModelConfig,
   deleteAiModelConfig, activateAiModelConfig, testAiModelConfig, testAiModelConnection,
-  getAiKnowledge, uploadAiKnowledge, deleteAiKnowledge,
+  getAiKnowledge, uploadAiKnowledge, deleteAiKnowledge, getAiKnowledgeHits,
 } from '@/api/system'
 
 const activeTab = ref('basic')
@@ -795,6 +860,7 @@ const aiConfigs = ref<any[]>([])
 const aiEnabled = ref(false)
 const onlyTemplateCategories = ref(true)
 const classifySourcesList = ref<string[]>(['column_name', 'column_comment'])
+const knowledgeBaseEnabled = ref(false)
 const showConfigForm = ref(false)
 const isEditingConfig = ref(false)
 const editingConfigId = ref<number | null>(null)
@@ -804,6 +870,16 @@ const knowledgeLoading = ref(false)
 const knowledgeList = ref<any[]>([])
 const knowledgeUploadRef = ref()
 const knowledgeFile = ref<File | null>(null)
+
+// 知识库命中详情
+const knowledgeHitDialogVisible = ref(false)
+const knowledgeHitDialogTitle = ref('')
+const knowledgeHitList = ref<any[]>([])
+const knowledgeHitLoading = ref(false)
+const knowledgeHitTotal = ref(0)
+const knowledgeHitPage = ref(1)
+const knowledgeHitPageSize = ref(20)
+let knowledgeHitCurrentId = 0
 
 const defaultConfigForm = {
   config_name: '',
@@ -836,6 +912,7 @@ async function loadAiConfigs() {
     // 从全局设置读取 classify_sources
     const sources = settingsRes.data?.classify_sources || 'column_name,column_comment'
     classifySourcesList.value = sources.split(',').map((s: string) => s.trim())
+    knowledgeBaseEnabled.value = settingsRes.data?.knowledge_base_enabled === 'true'
     aiConfigs.value = configsRes.data || []
     knowledgeList.value = knowledgeRes.data || []
   } catch { /* ignore */ }
@@ -863,6 +940,14 @@ async function handleClassifySourcesChange(val: string[]) {
   try {
     await saveAiSettings({ classify_sources: sources })
     ElMessage.success('分类数据来源已更新')
+  } catch { ElMessage.error('保存失败') }
+}
+
+async function handleKnowledgeBaseChange(val: any) {
+  const enabled = val === true || val === 'true'
+  try {
+    await saveAiSettings({ knowledge_base_enabled: String(enabled) })
+    ElMessage.success(enabled ? '知识库已启用，任务时长可能增加' : '知识库已关闭')
   } catch { ElMessage.error('保存失败') }
 }
 
@@ -922,6 +1007,36 @@ async function handleDeleteKnowledge(row: any) {
     ElMessage.success('已删除')
     loadKnowledge()
   } catch {}
+}
+
+function formatTime(iso?: string) {
+  if (!iso) return '-'
+  try {
+    const d = new Date(iso)
+    return d.toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
+  } catch { return iso }
+}
+
+async function handleKnowledgeRowClick(row: any) {
+  knowledgeHitCurrentId = row.id
+  knowledgeHitDialogTitle.value = row.title || row.file_name || '文档'
+  knowledgeHitDialogVisible.value = true
+  knowledgeHitPage.value = 1
+  await loadKnowledgeHits()
+}
+
+async function loadKnowledgeHits() {
+  if (!knowledgeHitCurrentId) return
+  knowledgeHitLoading.value = true
+  try {
+    const res = await getAiKnowledgeHits(knowledgeHitCurrentId, { page: knowledgeHitPage.value, page_size: knowledgeHitPageSize.value })
+    const data = res.data || res
+    knowledgeHitList.value = data.items || []
+    knowledgeHitTotal.value = data.total || 0
+  } catch {
+    knowledgeHitList.value = []
+    knowledgeHitTotal.value = 0
+  } finally { knowledgeHitLoading.value = false }
 }
 
 async function handleSaveConfig() {
@@ -1055,6 +1170,11 @@ watch(activeTab, (tab) => {
 </script>
 
 <style scoped>
+.pagination-wrapper {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
 .logo-preview-wrapper {
   display: flex;
   align-items: center;

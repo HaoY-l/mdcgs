@@ -381,3 +381,7 @@ export async function uploadAiKnowledge(file: File, title?: string) {
 export async function deleteAiKnowledge(id: number) {
   return client.delete(`/ai-knowledge/${id}`)
 }
+
+export async function getAiKnowledgeHits(knowledgeId: number, params?: Record<string, any>) {
+  return client.get(`/ai-knowledge/${knowledgeId}/hits`, { params })
+}

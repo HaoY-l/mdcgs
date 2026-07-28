@@ -73,8 +73,8 @@ export async function importAssets(data: FormData) {
 }
 
 // ===== 资产数据库/表/字段 =====
-export async function getAssetDatabases(assetId: number) {
-  return client.get(`/assets/${assetId}/databases`)
+export async function getAssetDatabases(assetId: number, params: Record<string, any> = {}) {
+  return client.get(`/assets/${assetId}/databases`, { params })
 }
 
 export async function getAssetTables(assetId: number, params: Record<string, any> = {}) {

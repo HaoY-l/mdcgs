@@ -1,6 +1,5 @@
 
 <p align="center">
-  <img src="public/logo.png" width="80" alt="MDCGS Logo" style="display:none"/>
   <h1 align="center">🛡️ MDCGS</h1>
   <p align="center"><b>数据分类分级管理系统</b></p>
   <p align="center">自动化识别敏感数据 · 精准定级 · 合规溯源</p>

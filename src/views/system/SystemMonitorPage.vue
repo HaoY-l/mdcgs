@@ -154,15 +154,55 @@
       </el-tab-pane>
     </el-tabs>
 
-    <el-dialog v-model="logViewerVisible" title="日志查看" width="900px" :fullscreen="true">
+    <!-- 日志查看对话框 -->
+    <el-dialog v-model="logViewerVisible" title="日志查看" width="95%" :fullscreen="true" :close-on-click-modal="false">
       <div class="log-viewer">
+        <!-- 工具栏 -->
         <div class="log-toolbar">
-          <span>{{ currentLogName }}</span>
-          <el-button size="small" @click="downloadCurrentLog">下载</el-button>
+          <div class="log-toolbar-left">
+            <span class="log-filename">{{ currentLogName }}</span>
+            <span class="log-stats" v-if="logStats">
+              <span class="stat-item error">
+                <span class="stat-dot"></span>ERROR {{ logStats.error_count }}
+              </span>
+              <span class="stat-item warning">
+                <span class="stat-dot"></span>WARNING {{ logStats.warning_count }}
+              </span>
+              <span class="stat-item info">
+                <span class="stat-dot"></span>INFO {{ logStats.info_count }}
+              </span>
+              <span class="stat-item debug">
+                <span class="stat-dot"></span>DEBUG {{ logStats.debug_count }}
+              </span>
+              <span class="stat-total">共 {{ logStats.total_lines }} 行，显示 {{ logStats.display_count }} 行</span>
+            </span>
+          </div>
+          <div class="log-toolbar-right">
+            <el-input v-model="logSearch" placeholder="搜索关键字" clearable size="small" style="width: 160px; margin-right: 8px;" @input="highlightKeyword" />
+            <el-select v-model="autoRefreshInterval" size="small" style="width: 100px; margin-right: 8px;" placeholder="自动刷新">
+              <el-option label="关闭" :value="0" />
+              <el-option label="5秒" :value="5000" />
+              <el-option label="10秒" :value="10000" />
+              <el-option label="30秒" :value="30000" />
+            </el-select>
+            <el-button size="small" @click="fetchLogContent" :loading="logContentLoading">刷新</el-button>
+            <el-button size="small" @click="downloadCurrentLog">下载</el-button>
+            <el-button size="small" @click="logViewerVisible = false">关闭</el-button>
+          </div>
         </div>
-        <el-input v-model="logSearch" placeholder="搜索日志内容" clearable size="small" style="margin: 8px 0;" />
-        <div class="log-content">
-          <pre><code>{{ filteredLogContent }}</code></pre>
+        <!-- 日志内容 -->
+        <div class="log-content" ref="logContentRef">
+          <div v-if="logContentLoading" class="log-loading">加载中...</div>
+          <div v-else-if="displayLogLines.length === 0" class="log-empty">暂无日志内容</div>
+          <div v-else class="log-lines">
+            <div
+              v-for="(line, index) in displayLogLines"
+              :key="index"
+              class="log-line"
+              :class="getLineClass(line)"
+              v-html="highlightLine(line, index)"
+            ></div>
+          </div>
         </div>
       </div>
     </el-dialog>
@@ -194,13 +234,18 @@ import {
 const activeTab = ref('status')
 const backupLoading = ref(false)
 const logLoading = ref(false)
+const logContentLoading = ref(false)
 const backups = ref<BackupItem[]>([])
 const systemLogs = ref<SystemLogItem[]>([])
 const serviceList = ref<{ name: string; status: string; uptime: string }[]>([])
 const logViewerVisible = ref(false)
 const currentLogName = ref('')
 const currentLogContent = ref<string[]>([])
+const logStats = ref<{ total_lines: number; error_count: number; warning_count: number; info_count: number; debug_count: number; display_count: number } | null>(null)
 const logSearch = ref('')
+const logContentRef = ref<HTMLDivElement | null>(null)
+const autoRefreshInterval = ref(0)
+let autoRefreshTimer: number | null = null
 
 const trendPeriod = ref('1h')
 const trendChartRef = ref<HTMLDivElement | null>(null)
@@ -223,6 +268,77 @@ const filteredLogContent = computed(() => {
   const keyword = logSearch.value.toLowerCase()
   return content.split('\n').filter(line => line.toLowerCase().includes(keyword)).join('\n')
 })
+
+// 显示的日志行（支持搜索过滤）
+const displayLogLines = computed(() => {
+  if (!logSearch.value) return currentLogContent.value
+  const keyword = logSearch.value.toLowerCase()
+  return currentLogContent.value.filter(line => line.toLowerCase().includes(keyword))
+})
+
+// 获取行样式
+function getLineClass(line: string): string {
+  const upper = line.toUpperCase()
+  if (upper.includes('ERROR')) return 'log-error'
+  if (upper.includes('WARNING') || upper.includes('WARN')) return 'log-warning'
+  if (upper.includes('DEBUG')) return 'log-debug'
+  return 'log-info'
+}
+
+// 高亮单行内容
+function highlightLine(line: string, _index: number): string {
+  if (!logSearch.value) {
+    return escapeHtml(line)
+  }
+  const keyword = logSearch.value
+  const regex = new RegExp(`(${escapeRegex(keyword)})`, 'gi')
+  return escapeHtml(line).replace(regex, '<mark class="log-highlight">$1</mark>')
+}
+
+// 转义HTML
+function escapeHtml(str: string): string {
+  const div = document.createElement('div')
+  div.textContent = str
+  return div.innerHTML
+}
+
+// 转义正则特殊字符
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+// 自动刷新监听
+watch(autoRefreshInterval, (val) => {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer)
+    autoRefreshTimer = null
+  }
+  if (val > 0) {
+    autoRefreshTimer = window.setInterval(() => {
+      if (logViewerVisible.value) {
+        fetchLogContent()
+      }
+    }, val)
+  }
+})
+
+// 关闭弹窗时停止自动刷新
+watch(logViewerVisible, (val) => {
+  if (!val) {
+    if (autoRefreshTimer) {
+      clearInterval(autoRefreshTimer)
+      autoRefreshTimer = null
+    }
+    autoRefreshInterval.value = 0
+  }
+})
+
+function highlightKeyword() {
+  // 搜索变化时自动滚动到顶部
+  if (logContentRef.value) {
+    logContentRef.value.scrollTop = 0
+  }
+}
 
 // Tab 切换时加载对应数据
 watch(activeTab, (tab) => {
@@ -435,10 +551,42 @@ async function fetchLogs() {
 async function handleViewLog(row: SystemLogItem) {
   currentLogName.value = row.name
   logViewerVisible.value = true
+  logContentLoading.value = true
   try {
-    const res = await getLogContent(row.name, 500) as any
-    if (res.code === 0) currentLogContent.value = res.data?.lines || []
+    const res = await getLogContent(row.name, 500, true) as any
+    if (res.code === 0) {
+      currentLogContent.value = res.data?.lines || []
+      logStats.value = {
+        total_lines: res.data?.total_lines || 0,
+        error_count: res.data?.error_count || 0,
+        warning_count: res.data?.warning_count || 0,
+        info_count: res.data?.info_count || 0,
+        debug_count: res.data?.debug_count || 0,
+        display_count: res.data?.display_count || 0,
+      }
+    }
   } catch { ElMessage.error('获取日志内容失败') }
+  finally { logContentLoading.value = false }
+}
+
+async function fetchLogContent() {
+  if (!currentLogName.value) return
+  logContentLoading.value = true
+  try {
+    const res = await getLogContent(currentLogName.value, 500, true) as any
+    if (res.code === 0) {
+      currentLogContent.value = res.data?.lines || []
+      logStats.value = {
+        total_lines: res.data?.total_lines || 0,
+        error_count: res.data?.error_count || 0,
+        warning_count: res.data?.warning_count || 0,
+        info_count: res.data?.info_count || 0,
+        debug_count: res.data?.debug_count || 0,
+        display_count: res.data?.display_count || 0,
+      }
+    }
+  } catch { ElMessage.error('获取日志内容失败') }
+  finally { logContentLoading.value = false }
 }
 
 async function handleDownloadLog(row: SystemLogItem) {
@@ -511,8 +659,31 @@ onUnmounted(() => {
 .load-item { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 40px; background: #f5f7fa; border-radius: 8px; min-width: 120px; }
 .load-label { font-size: 14px; color: #909399; font-weight: 500; }
 .load-value { font-size: 28px; font-weight: bold; color: #409EFF; }
-.log-viewer { height: calc(100vh - 200px); display: flex; flex-direction: column; }
-.log-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 8px; background: #f5f7fa; border-radius: 4px; margin-bottom: 8px; }
-.log-content { flex: 1; overflow: auto; background: #1e1e1e; padding: 12px; border-radius: 4px; }
-.log-content pre { margin: 0; color: #d4d4d4; font-family: Monaco, Menlo, monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; }
+/* 日志查看器 */
+.log-viewer { height: calc(100vh - 160px); display: flex; flex-direction: column; }
+.log-toolbar { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; margin-bottom: 8px; flex-wrap: wrap; gap: 8px; }
+.log-toolbar-left { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+.log-toolbar-right { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.log-filename { font-weight: bold; color: #fff; font-size: 15px; }
+.log-stats { display: flex; align-items: center; gap: 12px; font-size: 13px; }
+.stat-item { display: flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 10px; background: rgba(255,255,255,0.2); color: #fff; }
+.stat-item.error .stat-dot { background: #f56c6c; }
+.stat-item.warning .stat-dot { background: #e6a23c; }
+.stat-item.info .stat-dot { background: #409eff; }
+.stat-item.debug .stat-dot { background: #909399; }
+.stat-dot { width: 8px; height: 8px; border-radius: 50%; }
+.stat-total { color: rgba(255,255,255,0.8); font-size: 12px; }
+/* 日志内容区 */
+.log-content { flex: 1; overflow: auto; background: #1e1e1e; border-radius: 8px; }
+.log-loading, .log-empty { display: flex; align-items: center; justify-content: center; height: 100%; color: #909399; font-size: 14px; }
+.log-lines { padding: 8px 0; }
+.log-line { font-family: Monaco, Menlo, 'Courier New', monospace; font-size: 13px; line-height: 1.6; padding: 2px 12px; white-space: pre-wrap; word-break: break-all; border-left: 3px solid transparent; }
+.log-line:hover { background: rgba(255,255,255,0.05); }
+/* 日志级别颜色 */
+.log-error { color: #f56c6c; border-left-color: #f56c6c; }
+.log-warning { color: #e6a23c; border-left-color: #e6a23c; }
+.log-info { color: #409eff; border-left-color: #409eff; }
+.log-debug { color: #909399; border-left-color: #909399; }
+/* 关键字高亮 */
+:deep(.log-highlight) { background: #ffd700; color: #000; padding: 0 2px; border-radius: 2px; font-weight: bold; }
 </style>

@@ -1,101 +1,169 @@
-# MDCGS - 数据分类分级系统
 
-> 企业级数据资产分类分级管理平台，自动化（规则+AI模型）识别敏感数据、精准定级、合规溯源，让数据治理从"盲抓"变为"可控"。
+<p align="center">
+  <img src="public/logo.png" width="80" alt="MDCGS Logo" style="display:none"/>
+  <h1 align="center">🛡️ MDCGS</h1>
+  <p align="center"><b>数据分类分级管理系统</b></p>
+  <p align="center">自动化识别敏感数据 · 精准定级 · 合规溯源</p>
+</p>
 
-> 在线演示地址：[https://mdcgs.hyinfo.cc/](https://mdcgs.hyinfo.cc/)   
-> 账号密码：admin/admin123
+<p align="center">
+  <a href="https://github.com/HaoY-l/mdcgs/stargazers">
+    <img src="https://img.shields.io/github/stars/HaoY-l/mdcgs?style=flat-square&logo=github&label=Stars&color=0891b2" alt="Stars"/>
+  </a>
+  <a href="https://github.com/HaoY-l/mdcgs/blob/main/LICENSE">
+    <img src="https://img.shields.io/badge/License-MIT-0891b2?style=flat-square" alt="License"/>
+  </a>
+  <img src="https://img.shields.io/badge/Python-3.10+-0891b2?style=flat-square&logo=python&logoColor=white" alt="Python"/>
+  <img src="https://img.shields.io/badge/Vue-3.x-0891b2?style=flat-square&logo=vue.js&logoColor=white" alt="Vue"/>
+  <img src="https://img.shields.io/badge/FastAPI-0.110-0891b2?style=flat-square&logo=fastapi&logoColor=white" alt="FastAPI"/>
+  <img src="https://img.shields.io/badge/Docker-✓-0891b2?style=flat-square&logo=docker&logoColor=white" alt="Docker"/>
+</p>
+
+<p align="center">
+  <b>🌐 官网</b>：<a href="https://hyinfo.cc">hyinfo.cc</a>　｜　<b>📺 在线演示</b>：<a href="https://mdcgs.hyinfo.cc/">mdcgs.hyinfo.cc</a>　｜　<b>账号</b>：admin　｜　<b>密码</b>：admin123
+</p>
+
 ---
 
-## 📌 背景与市场需求
+## 🚀 究竟是什么？
 
-**数据已是企业核心资产，但也是最大风险敞口。**
+> **把杂乱无章的数据库字段，变成清晰可见的资产目录。**
 
-《数据安全法》《个人信息保护法》《网络安全法》连续落地，**监管明确要求企业"对数据实行分类分级保护"**。2023 年以来，金融、医疗、政务、交通等行业的监管处罚案例中，超过 60% 涉及**数据分类不清、分级不当或敏感数据泄露**。
-
-企业面临的现实困境：
-
-- **数据资产不透明** — 数据库成百上千，不知道敏感数据藏在哪个表、哪一列
-- **分类靠人工梳理** — 字段级分类全靠 DBA 记忆或翻文档，几千张表根本无法覆盖
-- **合规汇报靠手工** — 监管要报告时，临时从数据库导数据、拼 Excel，无法保证准确性
-- **权限控制无依据** — 谁能查、谁能导、谁能改，没有和数据级别挂钩的决策依据
-- **数据流转不可追溯** — 某个敏感字段被谁在什么时间访问过，审计查不到
+MDCGS 是一款面向企业的**数据资产分类分级平台**，自动扫描数据库表结构，通过 **规则引擎 + AI 模型**双重识别身份证、手机号、银行卡等敏感字段，按行业模板自动分类分级，一键生成合规报告。
 
 ---
 
-## 💡 核心能力
+## 🧩 核心架构
 
-| 能力 | 说明 |
-|------|------|
-| **数据资产自动发现** | 支持主流数据库（MySQL、PostgreSQL、Oracle、Sql Server等）的表结构扫描，自动发现数据资产，告别手工台账 |
-| **三重维度智能分类** | 基于规则引擎 + 正则匹配 + AI模型，自动识别字段名、注释、字段内容中的姓名、手机号、身份证、银行卡、邮箱等敏感字段 |
-| **多级分类分级体系** | 内置分类+分级的可配置模板，支持按业务定制 |
-| **批量任务执行** | 支持对全库成千上万张表批量发起分类任务，异步执行、进度实时可见 |
-| **一键合规报告** | 自动生成符合监管格式的数据资产报告、可视化图表，导出 PDF/Excel |
-| **分级授权管控** | 根据数据级别自动推荐脱敏规则、加密方式，落实现代数据安全策略 |
-| **全程操作审计** | 所有敏感操作留痕，支持追溯谁在什么时候访问/修改了哪个字段 |
-| **LDAP 自动同步** | 对接企业现有账号体系，无需新建账户，导入即用 |
+```mermaid
+flowchart TB
+    subgraph Input["📦 数据源层"]
+        DB1[("MySQL")]
+        DB2[("PostgreSQL")]
+        DB3[("Oracle / SQL Server")]
+    end
+
+    subgraph Engine["⚙️ 引擎层"]
+        Scan["🔄 扫描引擎<br/>自动发现表结构"]
+        Rule["📐 规则引擎<br/>正则 + 字典匹配"]
+        AI["🤖 AI 模型<br/>智能语义分类"]
+        Scheduler["⏰ 定时调度器"]
+        Queue["📨 任务队列<br/>Celery + Redis"]
+    end
+
+    subgraph Storage["💾 存储层"]
+        MySQL[("MySQL<br/>业务数据")]
+        Redis[("Redis<br/>缓存 / 队列")]
+    end
+
+    subgraph Output["📤 输出层"]
+        Report["📊 合规报告"]
+        Mask["🔐 脱敏 & 加密"]
+        Audit["📝 审计日志"]
+        API["🌐 REST API"]
+    end
+
+    subgraph Frontend["🖥️ 前端层"]
+        Vue["Vue 3 + Element Plus"]
+    end
+
+    DB1 & DB2 & DB3 --> Scan
+    Scan --> Rule & AI
+    Rule & AI --> MySQL
+    Scheduler --> Queue --> Rule & AI
+    MySQL --> Report & Mask & Audit & API
+    Redis --- Queue
+    API --> Vue
+```
+
+### 技术栈
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white"/>
+  <img src="https://img.shields.io/badge/FastAPI-0.110-009688?style=for-the-badge&logo=fastapi&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Vue_3-4FC08D?style=for-the-badge&logo=vue.js&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Element_Plus-409EFF?style=for-the-badge&logo=element&logoColor=white"/>
+  <img src="https://img.shields.io/badge/MySQL-4479A1?style=for-the-badge&logo=mysql&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Redis-DC382D?style=for-the-badge&logo=redis&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Celery-37814A?style=for-the-badge&logo=celery&logoColor=white"/>
+  <img src="https://img.shields.io/badge/Docker-2496ED?style=for-the-badge&logo=docker&logoColor=white"/>
+</p>
+
+---
+
+## ✨ 核心能力
+
+| 🕵️ **资产自动发现** | 🤖 **AI 智能分类** | 📊 **一键合规报告** |
+|:---|:---|:---|
+| 支持 MySQL / PostgreSQL / Oracle / SQL Server 自动扫描表结构，告别手工台账 | 规则引擎 + 正则 + AI 模型三重识别，自动命中敏感字段 | 自动生成符合监管格式的数据资产报告，导出 PDF / Excel |
+
+| 🎯 **多级分类分级** | 🔄 **批量任务执行** | 🔐 **分级授权管控** |
+|:---|:---|:---|
+| 内置可配置模板（个人信息 / 商业秘密 / 一般数据），支持自定义 | 全库万表批量分类，异步执行，进度实时可见 | 根据数据级别自动推荐脱敏规则、加密方式 |
+
+| 📝 **全程操作审计** | 👥 **LDAP 自动同步** | ⏰ **定时增量扫描** |
+|:---|:---|:---|
+| 所有敏感操作留痕，谁在何时访问/修改了哪个字段，一目了然 | 对接企业现有账号体系，导入即用 | 字段变更自动触发分类复查提醒，结果不落后 |
 
 ---
 
 ## 🎯 解决的真实问题
 
-### 场景一：不知道数据库里有哪些敏感字段
-
-> 几百个系统、数万张表，安全团队说不出"手机号字段都在哪"。
-
-**MDCGS 方案**：正则 + 规则引擎双重识别，精准定位敏感字段，生成资产清单。
-
----
-
-### 场景二：数据权限靠人工判断，容易出错
-
-> 某字段该不该让人导出？没有标准答案，看心情、看关系。
-
-**MDCGS 方案**：数据分级 → 系统自动推荐访问权限 → 按分级执行管控，有据可依。
-
----
-
-### 场景三：数据资产变更后分类结果过期
-
-> 业务系统加了个新字段，安全团队不知道，分类结果永远落后于实际。
-
-**MDCGS 方案**：定时扫描 + 增量比对，字段变更自动触发分类复查提醒。
-
----
+<table>
+<tr>
+<td width="33%" align="center">
+<b>😰 不知道敏感字段在哪</b><br/>
+<br/>
+<sub>几百个系统、数万张表，安全团队说不出"手机号字段都在哪"</sub>
+<br/><br/>
+<code>✅ 正则 + AI 双重识别，精准定位</code>
+</td>
+<td width="33%" align="center">
+<b>🤷 权限靠人工判断</b><br/>
+<br/>
+<sub>某字段该不该让人导出？没有标准答案，看心情看关系</sub>
+<br/><br/>
+<code>✅ 数据分级 → 自动推荐访问权限</code>
+</td>
+<td width="33%" align="center">
+<b>⏳ 变更后分类过期</b><br/>
+<br/>
+<sub>业务系统加了新字段，安全团队不知道，分类永远落后</sub>
+<br/><br/>
+<code>✅ 定时扫描 + 增量比对，自动触发</code>
+</td>
+</tr>
+</table>
 
 ### 适用人群
 
-- **安全/合规团队** — 满足数据安全合规要求，快速生成监管报告
-- **数据治理团队** — 建立企业级数据资产目录，清晰掌握数据家底
-- **IT/DBA 团队** — 减轻手工梳理负担，提升数据资产管理效率
-- **法务/DPO** — 了解数据流转情况，支撑数据保护影响评估（DPIA）
+<p align="center">
+  <b>🔒 安全/合规团队</b> · <b>📊 数据治理团队</b> · <b>💻 IT/DBA 团队</b> · <b>⚖️ 法务/DPO</b>
+</p>
 
 ---
 
 ## 📸 功能预览
 
-### 总览仪表盘
-数据资产总量、分类分布、待处理任务、敏感数据趋势，管理层汇报一张图搞定。
-![系统首页](/public/首页.png)
-![数据目录](/public/数据目录.png)
+<table>
+<tr>
+<td width="50%"><b>📊 总览仪表盘</b><br/><sub>资产总量、分类分布、敏感趋势，一张图搞定</sub><br/><img src="public/首页.png"/></td>
+<td width="50%"><b>📂 数据目录</b><br/><sub>清晰展示数据资产树状结构</sub><br/><img src="public/数据目录.png"/></td>
+</tr>
+<tr>
+<td width="50%"><b>📋 资产列表</b><br/><sub>多维筛选、编辑、导入导出</sub><br/><img src="public/资产列表.png"/></td>
+<td width="50%"><b>🔍 资产自动扫描</b><br/><sub>自动发现数据库表结构</sub><br/><img src="public/资产自动扫描.png"/></td>
+</tr>
+<tr>
+<td width="50%"><b>📑 扫描任务</b><br/><sub>批量执行，进度实时跟踪</sub><br/><img src="public/扫描任务.png"/></td>
+<td width="50%"><b>🏷️ 分类模板</b><br/><sub>可视化配置分类分级体系</sub><br/><img src="public/分类模版.png"/></td>
+</tr>
+<tr>
+<td width="50%"><b>📝 审计日志</b><br/><sub>所有操作可追溯</sub><br/><img src="public/日志中心.png"/></td>
+<td width="50%"><b>📈 性能监控</b><br/><sub>系统运行状态实时监控</sub><br/><img src="public/性能监控.png"/></td>
+</tr>
+</table>
 
-### 数据资产
-对数据资产进行新增、编辑、导入、导出管理，支持按分类、级别、敏感状态等多维度筛选。
-![资产列表](/public/资产列表.png)
-![资产自动扫描](/public/资产自动扫描.png)
-
-### 分类任务
-创建和管理数据分类分级任务，支持定时任务、批量执行，任务进度实时跟踪。
-![扫描任务](/public/扫描任务.png)
-### 分类模板管理
-可视化配置数据分类体系（个人信息 / 商业秘密 / 一般数据等）和分级标准（L1-L4），适配不同行业合规要求。
-![分类模版](/public/分类模版.png)
-### 审计日志
-完整记录平台所有操作行为（访问、导出、修改、删除），支持按时间、用户、操作类型追查。
-![日志中心](/public/日志中心.png)
-### 系统设置&&性能监控    
-![性能监控](/public/性能监控.png)
-![系统设置](/public/系统设置.png)
 ---
 
 ## 🚀 快速开始
@@ -103,56 +171,77 @@
 ### 环境要求
 
 | 依赖 | 版本 |
-|------|------|
+|:---|:---|
 | Docker | ≥ 20.10 |
 | Docker Compose | ≥ 2.0 |
 
-### Docker 一键启动
+### 1. 一键启动
 
 ```bash
-# 克隆项目后，进入部署目录
-cd /mdcgs
+git clone <your-repo-url> && cd mdcgs
+```
 
-# 复制 .env-example 为 .env，并修改数据库连接信息
+```bash
+# 复制配置
 mv .env-example .env
 
-# 启动所有服务（前端 + 后端 + MySQL + Redis + Celery）
+# 启动服务
 docker-compose up -d
 ```
-> **注意**：请正确配置env文件，需要自行启动mysql和redis
-> 给出容器快速启动命令：
-```bash
-# 起mysql容器，账号root，密码123456
-docker run -d --name mysql -p 3306:3306  -e MYSQL_ROOT_PASSWORD=123456 -e MYSQL_ROOT_HOST=%  mysql 
-# 创建库mdcgs
-docker exec -it mysql mysql -uroot -p123456 -e "CREATE DATABASE IF NOT EXISTS mdcgs DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
-# 起redis容器，密码123456
-docker run -d --name redis -p 6379:6379  --restart always redis:7-alpine redis-server --requirepass "123456" --appendonly yes
-```
-> .env配置示例
+> 服务地址：**http://localhost:7785**　｜　默认账号：**admin / admin123**
+
+### 2. 基础设施（如未准备好 MySQL / Redis）
+
+<details>
+<summary><b>📦 点击展开：快速创建 MySQL + Redis 容器</b></summary>
+
 ```bash
-# ========== MySQL（必填）==========
-DB_HOST=宿主机IP，不要127.0.0.1
+# MySQL
+docker run -d --name mysql -p 3306:3306 \
+  -e MYSQL_ROOT_PASSWORD=123456 \
+  -e MYSQL_ROOT_HOST=% mysql
+
+# 创建数据库
+docker exec -it mysql mysql -uroot -p123456 \
+  -e "CREATE DATABASE IF NOT EXISTS mdcgs DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+# Redis
+docker run -d --name redis -p 6379:6379 \
+  --restart always redis:7-alpine \
+  redis-server --requirepass "123456" --appendonly yes
+```
+
+</details>
+
+<details>
+<summary><b>⚙️ 点击展开：.env 配置参考</b></summary>
+
+```bash
+# MySQL
+DB_HOST=<宿主机IP，不要127.0.0.1>
 DB_PORT=3306
 DB_USER=root
 DB_PASSWORD=123456
 DB_NAME=mdcgs
-DATABASE_URL=mysql+pymysql://root:123456.com@宿主机IP:3306/mdcgs
+DATABASE_URL=mysql+pymysql://root:密码@宿主机IP:3306/mdcgs
 
-
-# ========== Redis（必填）==========
+# Redis
 REDIS_URL=redis://宿主机IP:6379/0
 REDIS_PASSWORD=123456
-CELERY_BROKER_URL=redis://Redis密码@宿主机IP:6379/1
-CELERY_RESULT_BACKEND=redis://Redis密码@宿主机IP:6379/2
+CELERY_BROKER_URL=redis://密码@宿主机IP:6379/1
+CELERY_RESULT_BACKEND=redis://密码@宿主机IP:6379/2
 
-# ========== 安全（必填，建议随机生成）==========
-SECRET_KEY=your-random-secret-key-here-change-me
-ENCRYPT_KEY=your-32-byte-encryption-key-here
+# 安全（建议随机生成）
+SECRET_KEY=your-random-secret-key
+ENCRYPT_KEY=your-32-byte-encryption-key
 ```
 
-> 如果镜像pull不下来，请尝试替换以下docker源尝试，或者科学上网
+</details>
+
+<details>
+<summary><b>🔧 点击展开：Docker 镜像加速</b></summary>
+
 ```bash
 sudo mkdir -p /etc/docker && sudo tee /etc/docker/daemon.json <<EOF
 {
@@ -168,67 +257,57 @@ sudo mkdir -p /etc/docker && sudo tee /etc/docker/daemon.json <<EOF
   ]
 }
 EOF
-
 sudo systemctl daemon-reload && sudo systemctl restart docker
 ```
 
-
-服务地址：
-- 前端：http://localhost:7785
-
-### 默认账号
-
-| 角色 | 用户名 | 密码 |
-|------|--------|------|
-| 管理员 | admin | admin123 |
-
-> ⚠️ 生产环境请务必修改默认密码。
+</details>
 
 ---
 
+## 📋 分类模板说明
 
-## 📬 联系与支持
+MDCGS 内置了一套**通用分类分级模板**，同时也支持导入行业专属模板。
 
-- **Issue**：https://github.com/HaoY-l/mdcgs/issues
-- **微信**：tomorrow_me-
+### 📂 模板目录
+
+项目中的 [`TemplateExamples/`](TemplateExamples/) 目录存放了可直接导入的模板文件：
+
+| 文件 | 说明 |
+|:---|:---|
+| [`通用模版.xlsx`](TemplateExamples/通用模版.xlsx) | 通用分类分级模板（个人信息 / 商业秘密 / 一般数据），开箱即用 |
+
+### 📥 如何导入
+
+1. 登录系统 → **分类模板** → **导入模板**
+2. 选择 `TemplateExamples/` 下的 `.xlsx` 文件
+3. 导入完成后即可关联资产、创建分类任务
+
+### 🤝 如何贡献行业模板
+
+欢迎贡献各行业的分类分级模板！
+
+1. Fork 本仓库
+2. 在 `TemplateExamples/` 目录下添加您的模板文件，命名格式：`<行业名>模版.xlsx`
+3. 提交 Pull Request，附带模板说明（适用行业、分类体系、分级标准等）
+4. 审核通过后合并，您的模板将出现在项目首页供大家使用
+
+> 💡 **建议的模板格式**：第一列「分类名称」、第二列「数据类型」、第三列「分级标准」、第四列「典型字段举例」
+>
+> 🙌 **已经贡献的行业**：通用模板（基础） — **期待你的行业模板！**
+
 
 ---
 
-## Star History
+## 📬 联系 & 贡献
 
-**⭐ 如果这个项目对你有帮助，请给我们一个星标！**
-
-[![Star History Chart](https://api.star-history.com/chart?repos=HaoY-l/mdcgs&type=date&legend=top-left)](https://www.star-history.com/?type=date&repos=HaoY-l%2Fmdcgs)
-
----
-
-## 🏢 Who's Using This Project
-
-We're proud that our project is trusted by awesome teams around the world 🌍
-
-| Logo / Name | Description |
-|--------------|--------------|
-| [MDCGS](https://github.com/HaoY-l/mdcgs) | 作者 ✍️ |
-
-> 💬 If your company is using this project, feel free to open a PR and add your logo here!
+<p align="center">
+  <a href="https://github.com/HaoY-l/mdcgs/issues"><img src="https://img.shields.io/badge/🐛%20提交%20Issue-GitHub-0891b2?style=for-the-badge"/></a>
+  <img src="https://img.shields.io/badge/💬%20微信-tomorrow_me--0891b2?style=for-the-badge"/>
+</p>
 
 ---
 
-## 🚀 免费试用 & 反馈激励
-
-**欢迎部署测试，有任何问题或建议都欢迎反馈！**
-
-- 🆓 **免费部署**：支持 Docker 一键部署，本地/服务器均可快速体验完整功能
-- 💡 **反馈有礼**：在使用过程中提出的 Bug 反馈、功能建议、体验优化等，一经采纳即可获得**永久使用授权**，无任何限制
-- 🤝 **共建生态**：如果你在数据分类分级、合规审计等场景有更多需求，欢迎提 Issue 或 PR，一起让这个工具更好用
-- 🤝 **共建行业分类模版**：目前仅提供一个“通用分类模版”，欢迎大家贡献其他行业分类模版
-
-**如何参与：**
-
-1. ⭐ 给项目 Star 支持一下
-2. 🐛 发现 Bug？→ [提交 Issue](https://github.com/HaoY-l/mdcgs/issues)
-3. 💡 有想法或建议？→ [提交 Issue](https://github.com/HaoY-l/mdcgs/issues)
-4. 📧 也可以直接微信联系：**tomorrow_me-**
-
-> 好的产品离不开用户的反馈，期待你的声音！
-
+<p align="center">
+  <sub>Built with ❤️ by <a href="https://github.com/HaoY-l/mdcgs">MDCGS Team</a></sub><br/>
+  <sub>如果这个项目对你有帮助，请给个 ⭐ Star 支持一下！</sub>
+</p>

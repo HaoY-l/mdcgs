@@ -137,9 +137,9 @@ export async function getSystemLogs(params?: Record<string, any>) {
   return client.get('/monitor/logs', { params })
 }
 
-export async function getLogContent(logName: string, lines?: number) {
+export async function getLogContent(logName: string, lines?: number, reverse?: boolean) {
   return client.get(`/monitor/logs/${encodeURIComponent(logName)}/content`, {
-    params: { lines: lines || 500 },
+    params: { lines: lines || 500, reverse: reverse || false },
   })
 }
 

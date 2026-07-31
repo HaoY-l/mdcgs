@@ -141,10 +141,17 @@
                 placeholder="全部"
                 clearable
                 style="width: 100%"
+                filterable
                 @change="handleSearch"
               >
-                <el-option label="是" value="confirmed" />
-                <el-option label="否" value="none" />
+                <el-option label="已脱敏" value="confirmed" />
+                <el-option label="未脱敏" value="none" />
+                <el-option
+                  v-for="opt in maskedOptions"
+                  :key="opt"
+                  :label="opt"
+                  :value="opt"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -155,10 +162,17 @@
                 placeholder="全部"
                 clearable
                 style="width: 100%"
+                filterable
                 @change="handleSearch"
               >
-                <el-option label="是" value="confirmed" />
-                <el-option label="否" value="none" />
+                <el-option label="已加密" value="confirmed" />
+                <el-option label="未加密" value="none" />
+                <el-option
+                  v-for="opt in encryptedOptions"
+                  :key="opt"
+                  :label="opt"
+                  :value="opt"
+                />
               </el-select>
             </el-form-item>
           </el-col>
@@ -265,61 +279,64 @@
 
     <!-- Data Table -->
     <el-card shadow="hover" class="table-card">
-      <el-table
-        :data="tableData"
-        stripe
-        style="width: 100%"
-        v-loading="loading"
-        :max-height="560"
-        border
-        size="small"
-      >
-        <el-table-column type="index" label="序号" min-width="50" fixed />
-        <el-table-column prop="field_name" label="字段名" min-width="100" fixed show-overflow-tooltip />
-        <el-table-column prop="data_type" label="数据类型" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="level" label="分级" min-width="65" align="center">
-          <template #default="{ row }">
-            <span
-              v-if="row.level"
-              class="level-badge"
-              :style="getLevelBadgeStyle(row.level)"
-            >
-              {{ row.level }}
-            </span>
-            <span v-else style="color:#d1d5db">-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="敏感" min-width="60" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.is_sensitive ? 'danger' : 'info'" size="small">
-              {{ row.is_sensitive ? '是' : '否' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="脱敏" min-width="60" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.is_masked === 'confirmed' ? 'success' : 'info'" size="small">
-              {{ row.is_masked === 'confirmed' ? '是' : '否' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column label="加密" min-width="60" align="center">
-          <template #default="{ row }">
-            <el-tag :type="row.is_encrypted === 'confirmed' ? 'warning' : 'info'" size="small">
-              {{ row.is_encrypted === 'confirmed' ? '是' : '否' }}
-            </el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="category_path" label="分类路径" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="asset_name" label="资产" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="database_name" label="数据库" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="table_name" label="表" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="business_dept" label="业务部门" min-width="90" show-overflow-tooltip />
-        <el-table-column prop="app_system" label="应用系统" min-width="90" show-overflow-tooltip />
-        <el-table-column prop="task_name" label="所属任务" min-width="100" show-overflow-tooltip />
-        <el-table-column prop="field_comment" label="字段注释" min-width="100" show-overflow-tooltip />
-        <el-table-column prop="risk_suggestion" label="安全建议" min-width="100" show-overflow-tooltip />
-      </el-table>
+      <div class="table-wrapper" v-loading="loading">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th style="min-width: 60px; width: 60px">序号</th>
+              <th style="min-width: 100px">字段名</th>
+              <th style="min-width: 80px">数据类型</th>
+              <th style="min-width: 50px; text-align: center">分级</th>
+              <th style="min-width: 50px; text-align: center">敏感</th>
+              <th style="min-width: 80px; text-align: center">脱敏</th>
+              <th style="min-width: 80px; text-align: center">加密</th>
+              <th style="min-width: 120px">分类路径</th>
+              <th style="min-width: 100px">资产</th>
+              <th style="min-width: 100px">数据库</th>
+              <th style="min-width: 80px">表</th>
+              <th style="min-width: 100px">业务部门</th>
+              <th style="min-width: 100px">应用系统</th>
+              <th style="min-width: 100px">所属任务</th>
+              <th style="min-width: 120px">字段注释</th>
+              <th style="min-width: 120px">安全建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr v-for="(row, idx) in tableData" :key="idx">
+              <td style="min-width: 65px; width: 65px; text-align: center">{{ (currentPage - 1) * pageSize + idx + 1 }}</td>
+              <td><span class="cell-text">{{ row.field_name }}</span></td>
+              <td><span class="cell-text">{{ row.data_type }}</span></td>
+              <td style="text-align: center">
+                <span v-if="row.level" class="level-badge" :style="getLevelBadgeStyle(row.level)">{{ row.level }}</span>
+                <span v-else class="empty-cell">-</span>
+              </td>
+              <td style="text-align: center">
+                <span class="tag" :class="row.is_sensitive ? 'tag-danger' : 'tag-info'">{{ row.is_sensitive ? '是' : '否' }}</span>
+              </td>
+              <td style="text-align: center">
+                <span v-if="row.is_masked === 'confirmed' && row.masking_rule_name" class="tag tag-success">{{ row.masking_rule_name }}</span>
+                <span v-else class="tag tag-info">否</span>
+              </td>
+              <td style="text-align: center">
+                <span v-if="row.is_encrypted === 'confirmed' && row.encryption_type_name" class="tag tag-warning">{{ row.encryption_type_name }}</span>
+                <span v-else class="tag tag-info">否</span>
+              </td>
+              <td><span class="cell-text">{{ row.category_path }}</span></td>
+              <td><span class="cell-text">{{ row.asset_name }}</span></td>
+              <td><span class="cell-text">{{ row.database_name }}</span></td>
+              <td><span class="cell-text">{{ row.table_name }}</span></td>
+              <td><span class="cell-text">{{ row.business_dept }}</span></td>
+              <td><span class="cell-text">{{ row.app_system }}</span></td>
+              <td><span class="cell-text">{{ row.task_name }}</span></td>
+              <td><span class="cell-text">{{ row.field_comment }}</span></td>
+              <td><span class="cell-text">{{ row.risk_suggestion }}</span></td>
+            </tr>
+            <tr v-if="!tableData.length && !loading">
+              <td colspan="16" class="empty-row">暂无数据</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
       <div class="pagination-wrapper" v-if="total > 0">
         <el-pagination
@@ -383,6 +400,8 @@ const appSystemOptions = ref<string[]>([])
 const taskNameOptions = ref<string[]>([])
 const databasesByAsset = ref<Record<string, string[]>>({})
 const tablesByDatabase = ref<Record<string, string[]>>({})
+const maskedOptions = ref<string[]>([])
+const encryptedOptions = ref<string[]>([])
 
 // 联动筛选计算属性
 const filteredDatabaseOptions = computed(() => {
@@ -448,8 +467,23 @@ function buildParams(): Record<string, any> {
   if (filterForm.data_type_status) params.data_type_status = filterForm.data_type_status
   if (filterForm.level) params.level = filterForm.level
   if (filterForm.is_sensitive !== null) params.is_sensitive = filterForm.is_sensitive
-  if (filterForm.is_masked) params.is_masked = filterForm.is_masked
-  if (filterForm.is_encrypted) params.is_encrypted = filterForm.is_encrypted
+  if (filterForm.is_masked) {
+    if (maskedOptions.value.includes(filterForm.is_masked)) {
+      // 选择了具体规则名，走 confirmed + 规则名双重过滤
+      params.is_masked = 'confirmed'
+      params.masking_rule_name = filterForm.is_masked
+    } else {
+      params.is_masked = filterForm.is_masked
+    }
+  }
+  if (filterForm.is_encrypted) {
+    if (encryptedOptions.value.includes(filterForm.is_encrypted)) {
+      params.is_encrypted = 'confirmed'
+      params.encryption_type_name = filterForm.is_encrypted
+    } else {
+      params.is_encrypted = filterForm.is_encrypted
+    }
+  }
   if (filterForm.category_path) params.category_path = filterForm.category_path
   if (filterForm.asset) params.asset = filterForm.asset
   if (filterForm.business_dept) params.business_dept = filterForm.business_dept
@@ -473,11 +507,12 @@ async function fetchDirectory(params: Record<string, any>) {
   }
 }
 
-async function fetchFilterOptions() {
+async function fetchFilterOptions(extra?: Record<string, any>) {
   try {
     const params: Record<string, any> = {}
     if (filterForm.asset) params.asset = filterForm.asset
-    if (filterForm.database_name) params.database = filterForm.database_name
+    const db = extra?.database ?? filterForm.database_name
+    if (db) params.database = db
     const res: any = await client.get('/directory/options', { params })
     const d = res.data || {}
     if (d.category_paths) {
@@ -513,6 +548,12 @@ async function fetchFilterOptions() {
     if (d.task_name_options) {
       taskNameOptions.value = d.task_name_options
     }
+    if (d.masked_options) {
+      maskedOptions.value = d.masked_options
+    }
+    if (d.encrypted_options) {
+      encryptedOptions.value = d.encrypted_options
+    }
   } catch {
     // silently fail
   }
@@ -528,8 +569,9 @@ function onAssetChange() {
 }
 
 function onDatabaseChange() {
-  // 选择数据库后，清空表的选中值
+  // 选择数据库后，清空表的选中值，并带上 database 参数重新拉选项
   filterForm.table_name = ''
+  fetchFilterOptions({ database: filterForm.database_name })
   handleSearch()
 }
 
@@ -645,9 +687,9 @@ function jsonToCsv(items: any[]): string {
       if (col.key === 'is_sensitive') {
         val = val ? '是' : '否'
       } else if (col.key === 'is_masked') {
-        val = val === 'confirmed' ? '是' : '否'
+        val = val === 'confirmed' && item.masking_rule_name ? item.masking_rule_name : (val === 'confirmed' ? '是' : '否')
       } else if (col.key === 'is_encrypted') {
-        val = val === 'confirmed' ? '是' : '否'
+        val = val === 'confirmed' && item.encryption_type_name ? item.encryption_type_name : (val === 'confirmed' ? '是' : '否')
       }
       if (val === null || val === undefined) return ''
       val = String(val).replace(/"/g, '""')
@@ -696,6 +738,7 @@ onMounted(() => {
 
 .table-card {
   margin-bottom: 0;
+  overflow: visible;
 }
 
 .pagination-wrapper {
@@ -712,4 +755,82 @@ onMounted(() => {
   font-weight: 600;
   line-height: 16px;
 }
+
+/* 原生表格布局 */
+.table-wrapper {
+  overflow-x: auto;
+  overflow-y: visible;
+}
+
+.data-table {
+  width: auto;
+  min-width: 800px;
+  border-collapse: collapse;
+}
+
+.data-table thead {
+  /* 不使用 sticky，整个表格一起横向滚动，表头表体天然同步 */
+}
+
+.data-table th,
+.data-table td {
+  padding: 8px 12px;
+  border: 1px solid #ebeef5;
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.5;
+  background: #fff;
+  white-space: nowrap;
+}
+
+.data-table tbody tr:nth-child(even) td {
+  background: #fafafa;
+}
+
+.data-table tbody tr:hover td {
+  background: #f5f7fa;
+}
+
+/* 表头样式 */
+.data-table th {
+  background: #f5f7fa;
+  font-weight: 600;
+  color: #303133;
+  white-space: nowrap;
+}
+
+/* 单元格文字：不换行、不截断、完全可见 */
+.cell-text {
+  display: inline-block;
+  white-space: nowrap;
+  overflow: visible;
+  text-overflow: clip;
+  max-width: none;
+}
+
+/* 空值显示 */
+.empty-cell {
+  color: #d1d5db;
+}
+
+/* 空行 */
+.empty-row {
+  text-align: center;
+  color: #909399;
+  padding: 40px 0;
+}
+
+/* 标签样式 */
+.tag {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 16px;
+}
+.tag-danger { background: #fef0f0; color: #ff4d4f; }
+.tag-info { background: #f4f4f5; color: #909399; }
+.tag-success { background: #f0f9eb; color: #52c41a; }
+.tag-warning { background: #fff7e6; color: #ff7a00; }
 </style>
+

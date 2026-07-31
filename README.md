@@ -185,7 +185,7 @@ git clone <your-repo-url> && cd mdcgs
 mv .env-example .env
 
 # 启动服务
-docker-compose up -d
+docker compose up -d
 ```
 
 > 服务地址：**http://localhost:7785**　｜　默认账号：**admin / admin123**

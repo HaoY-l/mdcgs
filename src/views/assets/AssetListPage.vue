@@ -452,10 +452,10 @@ async function handleSave() {
     } else {
       data.cron_expression = ''
     }
-    delete data.schedule_freq
-    delete data.schedule_time
-    delete data.schedule_week_days
-    delete data.schedule_month_day
+    data.schedule_freq = undefined as any
+    data.schedule_time = undefined as any
+    data.schedule_week_days = undefined as any
+    data.schedule_month_day = undefined as any
     if (isEdit.value && editId.value) {
       await updateAsset(editId.value, data)
       ElMessage.success('更新成功')

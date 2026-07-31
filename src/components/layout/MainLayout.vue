@@ -44,6 +44,18 @@
             </button>
           </el-tooltip>
 
+          <el-tooltip content="文档下载" placement="bottom">
+            <button class="header-action-btn" @click="showDocsDialog = true">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="16" y1="13" x2="8" y2="13" />
+                <line x1="16" y1="17" x2="8" y2="17" />
+                <polyline points="9 13 12 11 15 13" />
+              </svg>
+            </button>
+          </el-tooltip>
+
           <el-dropdown trigger="click" @command="handleCommand" size="small">
             <span class="user-avatar-btn">
               <span class="user-avatar">{{ displayName.charAt(0).toUpperCase() }}</span>
@@ -109,14 +121,57 @@
       </main>
     </div>
   </div>
+
+  <!-- 文档下载弹窗 -->
+  <el-dialog
+    v-model="showDocsDialog"
+    title="文档下载"
+    width="500px"
+    :close-on-click-modal="false"
+    @open="loadDocs"
+  >
+    <div v-if="docLoading" class="docs-loading">
+      <span class="docs-loading-text">加载中...</span>
+    </div>
+    <div v-else-if="docList.length === 0" class="docs-empty">
+      暂无可用文档
+    </div>
+    <div v-else class="docs-list">
+      <div
+        v-for="doc in docList"
+        :key="doc.name"
+        class="docs-item"
+      >
+        <div class="docs-item-icon">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round">
+            <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+            <polyline points="14 2 14 8 20 8" />
+          </svg>
+        </div>
+        <div class="docs-item-info">
+          <div class="docs-item-name">{{ doc.name }}</div>
+          <div class="docs-item-meta">{{ doc.size }}</div>
+        </div>
+        <button class="docs-download-btn" @click="handleDownload(doc.name)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4" />
+            <polyline points="7 10 12 15 17 10" />
+            <line x1="12" y1="15" x2="12" y2="3" />
+          </svg>
+          下载
+        </button>
+      </div>
+    </div>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
-import { ElMessageBox } from 'element-plus'
+import { ElMessageBox, ElMessage } from 'element-plus'
 import { getLogoUrl } from '@/api/system'
+import { getDocs, downloadDoc, type DocItem } from '@/api/system'
 
 const route = useRoute()
 const router = useRouter()
@@ -124,6 +179,10 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 const customLogoUrl = ref('')
+
+const showDocsDialog = ref(false)
+const docList = ref<DocItem[]>([])
+const docLoading = ref(false)
 
 const displayName = computed(() =>
   userStore.userInfo?.real_name || userStore.userInfo?.username || '用户'
@@ -133,6 +192,35 @@ const pageTitle = computed(() => String(route.meta?.title || ''))
 
 function toggleCollapse() {
   isCollapse.value = !isCollapse.value
+}
+
+async function loadDocs() {
+  docLoading.value = true
+  try {
+    const res = await getDocs() as any
+    docList.value = res.data || []
+  } catch {
+    docList.value = []
+  } finally {
+    docLoading.value = false
+  }
+}
+
+async function handleDownload(filename: string) {
+  try {
+    const res = await downloadDoc(filename) as any
+    const blob = res.data || res
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  } catch {
+    ElMessage.error('下载失败')
+  }
 }
 
 function handleCommand(cmd: string) {
@@ -479,5 +567,94 @@ onMounted(() => {
 
 .app-content > .page-shell:first-child {
   padding-top: var(--spacing-24);
+}
+
+/* ─── 文档下载弹窗 ─── */
+.docs-loading {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.docs-loading-text {
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-14);
+}
+
+.docs-empty {
+  text-align: center;
+  padding: 40px 0;
+  color: var(--color-text-tertiary);
+  font-size: var(--font-size-14);
+}
+
+.docs-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-8);
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.docs-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-12);
+  padding: var(--spacing-12) var(--spacing-12);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-muted);
+  transition: background var(--transition-fast);
+}
+
+.docs-item:hover {
+  background: var(--color-surface-hover);
+}
+
+.docs-item-icon {
+  flex-shrink: 0;
+  color: var(--color-primary-500);
+  display: flex;
+  align-items: center;
+}
+
+.docs-item-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.docs-item-name {
+  font-size: var(--font-size-14);
+  font-weight: var(--font-weight-500);
+  color: var(--color-text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.docs-item-meta {
+  font-size: var(--font-size-12);
+  color: var(--color-text-tertiary);
+  margin-top: 2px;
+}
+
+.docs-download-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border: 1px solid var(--color-primary-300);
+  background: var(--color-primary-50);
+  color: var(--color-primary-600);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-13);
+  font-weight: var(--font-weight-500);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.docs-download-btn:hover {
+  background: var(--color-primary-500);
+  color: #fff;
+  border-color: var(--color-primary-500);
 }
 </style>

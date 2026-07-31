@@ -397,20 +397,22 @@
                 <span>{{ (row.category_path_manual || row.category_path || '').split('>')[0] || '-' }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="是否脱敏" min-width="80" align="center">
-              <template #default="{ row }">
-                <el-tag :type="row.is_masked === 'confirmed' ? 'success' : 'info'" size="small" effect="plain">
-                  {{ row.is_masked === 'confirmed' ? '是' : '否' }}
-                </el-tag>
-              </template>
-            </el-table-column>
-            <el-table-column label="是否加密" min-width="80" align="center">
-              <template #default="{ row }">
-                <el-tag :type="row.is_encrypted === 'confirmed' ? 'warning' : 'info'" size="small" effect="plain">
-                  {{ row.is_encrypted === 'confirmed' ? '是' : '否' }}
-                </el-tag>
-              </template>
-            </el-table-column>
+            <el-table-column label="是否脱敏" min-width="120" align="center">
+  <template #default="{ row }">
+    <el-tag v-if="row.is_masked === 'confirmed' && row.masking_rule_name" type="success" size="small" effect="plain">
+      {{ row.masking_rule_name }}
+    </el-tag>
+    <el-tag v-else type="info" size="small" effect="plain">否</el-tag>
+  </template>
+</el-table-column>
+<el-table-column label="是否加密" min-width="120" align="center">
+  <template #default="{ row }">
+    <el-tag v-if="row.is_encrypted === 'confirmed' && row.encryption_type_name" type="warning" size="small" effect="plain">
+      {{ row.encryption_type_name }}
+    </el-tag>
+    <el-tag v-else type="info" size="small" effect="plain">否</el-tag>
+  </template>
+</el-table-column>
             <el-table-column prop="risk_suggestion" label="建议" min-width="120" show-overflow-tooltip />
             <el-table-column prop="note" label="备注" min-width="100" show-overflow-tooltip />
             <el-table-column label="操作" width="120" fixed="right">
@@ -550,7 +552,7 @@
     </el-card>
 
     <!-- 变更弹窗 -->
-    <el-dialog v-model="showChangeDialog" title="变更字段" width="500px">
+    <el-dialog v-model="showChangeDialog" title="变更字段" width="550px">
       <el-form :model="changeForm" label-width="100px">
         <el-form-item label="当前分类">
           <el-input :model-value="changeForm.current_category" disabled />
@@ -558,14 +560,15 @@
         <el-form-item label="当前级别">
           <el-input :model-value="changeForm.current_level" disabled />
         </el-form-item>
-        <el-form-item label="新分类" required>
+        <el-form-item label="新分类">
           <el-tree-select
             v-model="changeForm.new_category_id"
             :data="categoryTreeForSelect"
             :props="{ label: 'name', value: 'id', children: 'children' } as any"
-            placeholder="请选择分类"
+            placeholder="请选择分类(可选)"
             style="width: 100%"
             filterable
+            clearable
           />
         </el-form-item>
         <el-form-item label="将设为类型">
@@ -573,6 +576,16 @@
         </el-form-item>
         <el-form-item label="将设为级别">
           <el-input :model-value="changeForm.new_level_code || '选择分类后自动带出'" disabled />
+        </el-form-item>
+        <el-form-item label="脱敏方式">
+          <el-select v-model="changeForm.masking_rule_id" placeholder="请选择(可选)" clearable style="width: 100%">
+            <el-option v-for="r in maskingRules" :key="r.id" :label="r.name" :value="r.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="加密方式">
+          <el-select v-model="changeForm.encryption_type_id" placeholder="请选择(可选)" clearable style="width: 100%">
+            <el-option v-for="e in encryptionTypes" :key="e.id" :label="e.name" :value="e.id" />
+          </el-select>
         </el-form-item>
         <el-form-item label="变更原因" required>
           <el-input
@@ -1522,6 +1535,8 @@ const changeForm = reactive({
   new_category_id: null as number | null,
   new_category_path: '',
   new_type_name: '', // 所选分类对应的数据类型名称
+  masking_rule_id: null as number | null,
+  encryption_type_id: null as number | null,
   reason: '',
 })
 
@@ -1533,23 +1548,37 @@ function openChangeDialog(row: any) {
   changeForm.new_category_id = null
   changeForm.new_level_id = null
   changeForm.new_level_code = ''
+  changeForm.masking_rule_id = row.masking_rule_id ?? null
+  changeForm.encryption_type_id = row.encryption_type_id ?? null
   changeForm.reason = ''
   showChangeDialog.value = true
 }
 
 async function submitChange() {
-  if (!changeForm.new_category_id) { ElMessage.warning('请选择新分类'); return }
   if (!changeForm.reason.trim()) { ElMessage.warning('请输入变更原因'); return }
-  if (!changeForm.new_level_id) { ElMessage.warning('所选分类未绑定分级，请先配置分类分级'); return }
+  // 至少有一项变更
+  if (!changeForm.new_category_id && changeForm.masking_rule_id === null && changeForm.encryption_type_id === null) {
+    ElMessage.warning('请至少选择一项变更（新分类、脱敏方式或加密方式）')
+    return
+  }
   changing.value = true
   try {
-    await changeResult(taskId, changeForm.column_id!, {
-      level_id: changeForm.new_level_id,
-      level_code: changeForm.new_level_code,
-      category_path: changeForm.new_category_path,
-      data_type_name_manual: changeForm.new_type_name,
+    const payload: Record<string, any> = {
       reason: changeForm.reason.trim(),
-    })
+    }
+    if (changeForm.new_category_id) {
+      payload.level_id = changeForm.new_level_id
+      payload.level_code = changeForm.new_level_code
+      payload.category_path = changeForm.new_category_path
+      payload.data_type_name_manual = changeForm.new_type_name
+    }
+    if (changeForm.masking_rule_id !== null) {
+      payload.masking_rule_id = changeForm.masking_rule_id
+    }
+    if (changeForm.encryption_type_id !== null) {
+      payload.encryption_type_id = changeForm.encryption_type_id
+    }
+    await changeResult(taskId, changeForm.column_id!, payload)
     ElMessage.success('变更已提交')
     showChangeDialog.value = false
     fetchColumns()

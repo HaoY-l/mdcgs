@@ -177,7 +177,7 @@ flowchart TB
 ### 1. 一键启动
 
 ```bash
-git clone <your-repo-url> && cd mdcgs
+git clone https://github.com/HaoY-l/mdcgs.git && cd mdcgs
 ```
 
 ```bash

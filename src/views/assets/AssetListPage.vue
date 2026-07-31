@@ -39,6 +39,13 @@
           </el-tooltip>
         </template>
       </el-table-column>
+      <el-table-column label="执行方式" width="90">
+        <template #default="{ row }">
+          <el-tag :type="row.execute_type === 'periodic' ? 'primary' : 'info'" size="small">
+            {{ row.execute_type === 'periodic' ? '周期' : '手动' }}
+          </el-tag>
+        </template>
+      </el-table-column>
       <el-table-column label="最后更新" min-width="170">
         <template #default="{ row }">
           <span>{{ row.last_update_time ? formatTime(row.last_update_time) : '-' }}</span>
@@ -98,6 +105,45 @@
         <el-form-item label="密码">
           <el-input v-model="form.password" type="password" show-password />
         </el-form-item>
+
+        <!-- 执行方式 - 参照资产发现的样式 -->
+        <el-form-item label="库表更新" required>
+          <el-radio-group v-model="form.execute_type">
+            <el-radio value="manual">手动</el-radio>
+            <el-radio value="periodic">周期</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <!-- 周期执行配置 - 参照资产发现的设计 -->
+        <template v-if="form.execute_type === 'periodic'">
+          <el-form-item label="执行频率" required>
+            <el-radio-group v-model="form.schedule_freq">
+              <el-radio value="daily">每天</el-radio>
+              <el-radio value="weekly">每周</el-radio>
+              <el-radio value="monthly">每月</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item label="执行时间" required>
+            <el-time-picker v-model="form.schedule_time" format="HH:mm" placeholder="选择时间" style="width: 140px" />
+          </el-form-item>
+          <el-form-item v-if="form.schedule_freq === 'weekly'" label="选择星期" required>
+            <el-checkbox-group v-model="form.schedule_week_days">
+              <el-checkbox :label="1">周一</el-checkbox>
+              <el-checkbox :label="2">周二</el-checkbox>
+              <el-checkbox :label="3">周三</el-checkbox>
+              <el-checkbox :label="4">周四</el-checkbox>
+              <el-checkbox :label="5">周五</el-checkbox>
+              <el-checkbox :label="6">周六</el-checkbox>
+              <el-checkbox :label="0">周日</el-checkbox>
+            </el-checkbox-group>
+          </el-form-item>
+          <el-form-item v-if="form.schedule_freq === 'monthly'" label="选择日期" required>
+            <el-select v-model="form.schedule_month_day" style="width: 120px">
+              <el-option v-for="d in 31" :key="d" :label="d + '日'" :value="d" />
+            </el-select>
+          </el-form-item>
+        </template>
+
         <el-row :gutter="16">
           <el-col :span="12">
             <el-form-item label="业务部门">
@@ -155,6 +201,16 @@ const form = reactive({
   name: '', asset_type: 'mysql', host: '127.0.0.1', port: 3306,
   database_name: '', username: 'root', password: '',
   business_dept: '', app_system: '',
+  // 库表更新方式
+  execute_type: 'manual',
+  cron_expression: '',
+  update_interval: 24,
+  update_time_range: '',
+  // 周期执行友好字段（同资产发现）
+  schedule_freq: 'daily',
+  schedule_time: null as Date | null,
+  schedule_week_days: [] as number[],
+  schedule_month_day: 1,
 })
 
 // 资产类型切换时自动更新默认端口和用户名
@@ -229,6 +285,10 @@ function resetForm() {
   form.name = ''; form.asset_type = 'mysql'; form.host = '127.0.0.1'; form.port = 3306
   form.database_name = ''; form.username = 'root'; form.password = ''
   form.business_dept = ''; form.app_system = ''
+  form.execute_type = 'manual'; form.cron_expression = ''
+  form.update_interval = 24; form.update_time_range = ''
+  form.schedule_freq = 'daily'; form.schedule_time = null
+  form.schedule_week_days = []; form.schedule_month_day = 1
   isEdit.value = false; editId.value = null
   // 重置时同步默认端口和用户名
   form.port = getDefaultPort(form.asset_type)
@@ -246,6 +306,45 @@ function handleEdit(row: any) {
   form.username = row.username || ''; form.password = ''
   form.business_dept = row.business_dept || ''
   form.app_system = row.app_system || ''
+  form.execute_type = row.execute_type || 'manual'
+  form.cron_expression = row.cron_expression || ''
+  form.update_interval = row.update_interval || 0
+  form.update_time_range = row.update_time_range || ''
+  form.schedule_freq = 'daily'; form.schedule_time = null
+  form.schedule_week_days = []; form.schedule_month_day = 1
+  // 解析cron回显（与资产发现一致）
+  if (form.cron_expression) {
+    const parts = form.cron_expression.trim().split(/\s+/)
+    if (parts.length >= 6) {
+      const [, minute, hour, day, , dayOfWeek] = parts
+      const h = parseInt(hour, 10); const m = parseInt(minute, 10)
+      if (!isNaN(h) && !isNaN(m)) {
+        const d = new Date(); d.setHours(h, m, 0, 0); form.schedule_time = d
+      }
+      if (dayOfWeek !== '*' && dayOfWeek !== '?') {
+        form.schedule_freq = 'weekly'
+        form.schedule_week_days = dayOfWeek.split(',').map(Number)
+      } else if (day !== '*' && day !== '?') {
+        form.schedule_freq = 'monthly'
+        form.schedule_month_day = parseInt(day, 10) || 1
+      } else {
+        form.schedule_freq = 'daily'
+      }
+    }
+  } else if (form.execute_type === 'periodic') {
+    // 如果是旧的 periodic 但没有 cron_expression，从 update_interval 推断
+    if (form.update_interval >= 24 && form.update_interval % 24 === 0) {
+      form.schedule_freq = 'daily'
+      if (form.update_time_range) {
+        const timeParts = form.update_time_range.split('-')[0].trim().split(':')
+        if (timeParts.length >= 2) {
+          const d = new Date()
+          d.setHours(parseInt(timeParts[0], 10), parseInt(timeParts[1], 10), 0, 0)
+          form.schedule_time = d
+        }
+      }
+    }
+  }
   showDialog.value = true
 }
 
@@ -322,12 +421,41 @@ async function testConnectionHandler() {
   } catch {}
 }
 
+// 构建Cron表达式（与资产发现一致）
+function buildCronExpression(): string {
+  if (form.execute_type !== 'periodic') return ''
+  const time = form.schedule_time
+  if (!time) return ''
+  const h = time.getHours().toString().padStart(2, '0')
+  const m = time.getMinutes().toString().padStart(2, '0')
+  if (form.schedule_freq === 'daily') return `0 ${m} ${h} * * ?`
+  if (form.schedule_freq === 'weekly') {
+    if (!form.schedule_week_days.length) return ''
+    return `0 ${m} ${h} ? * ${form.schedule_week_days.join(',')}`
+  }
+  if (form.schedule_freq === 'monthly') return `0 ${m} ${h} ${form.schedule_month_day} * ?`
+  return ''
+}
+
 async function handleSave() {
   if (!form.name || !form.host) { ElMessage.warning('请填写必要信息'); return }
+  if (form.execute_type === 'periodic') {
+    if (!form.schedule_time) { ElMessage.warning('请选择执行时间'); return }
+    if (form.schedule_freq === 'weekly' && !form.schedule_week_days.length) { ElMessage.warning('请选择至少一天'); return }
+  }
   submitting.value = true
   try {
     const data = { ...form }
     if (!data.password) data.password = ''
+    if (form.execute_type === 'periodic') {
+      data.cron_expression = buildCronExpression()
+    } else {
+      data.cron_expression = ''
+    }
+    data.schedule_freq = undefined as any
+    data.schedule_time = undefined as any
+    data.schedule_week_days = undefined as any
+    data.schedule_month_day = undefined as any
     if (isEdit.value && editId.value) {
       await updateAsset(editId.value, data)
       ElMessage.success('更新成功')

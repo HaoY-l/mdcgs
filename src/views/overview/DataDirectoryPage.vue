@@ -266,18 +266,18 @@
     <!-- Data Table -->
     <el-card shadow="hover" class="table-card">
       <el-table
+        ref="tableRef"
         :data="tableData"
         stripe
         style="width: 100%"
         v-loading="loading"
-        :max-height="560"
         border
         size="small"
       >
-        <el-table-column type="index" label="序号" min-width="50" fixed />
-        <el-table-column prop="field_name" label="字段名" min-width="100" fixed show-overflow-tooltip />
-        <el-table-column prop="data_type" label="数据类型" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="level" label="分级" min-width="65" align="center">
+        <el-table-column type="index" label="序号" width="65" />
+        <el-table-column prop="field_name" label="字段名" />
+        <el-table-column prop="data_type" label="数据类型" />
+        <el-table-column prop="level" label="分级" align="center">
           <template #default="{ row }">
             <span
               v-if="row.level"
@@ -289,36 +289,38 @@
             <span v-else style="color:#d1d5db">-</span>
           </template>
         </el-table-column>
-        <el-table-column label="敏感" min-width="60" align="center">
+        <el-table-column label="敏感" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_sensitive ? 'danger' : 'info'" size="small">
               {{ row.is_sensitive ? '是' : '否' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="脱敏" min-width="60" align="center">
+        <el-table-column label="脱敏" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.is_masked === 'confirmed' ? 'success' : 'info'" size="small">
-              {{ row.is_masked === 'confirmed' ? '是' : '否' }}
+            <el-tag v-if="row.is_masked === 'confirmed' && row.masking_rule_name" type="success" size="small">
+              {{ row.masking_rule_name }}
             </el-tag>
+            <el-tag v-else type="info" size="small">否</el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="加密" min-width="60" align="center">
+        <el-table-column label="加密" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.is_encrypted === 'confirmed' ? 'warning' : 'info'" size="small">
-              {{ row.is_encrypted === 'confirmed' ? '是' : '否' }}
+            <el-tag v-if="row.is_encrypted === 'confirmed' && row.encryption_type_name" type="warning" size="small">
+              {{ row.encryption_type_name }}
             </el-tag>
+            <el-tag v-else type="info" size="small">否</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="category_path" label="分类路径" min-width="120" show-overflow-tooltip />
-        <el-table-column prop="asset_name" label="资产" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="database_name" label="数据库" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="table_name" label="表" min-width="80" show-overflow-tooltip />
-        <el-table-column prop="business_dept" label="业务部门" min-width="90" show-overflow-tooltip />
-        <el-table-column prop="app_system" label="应用系统" min-width="90" show-overflow-tooltip />
-        <el-table-column prop="task_name" label="所属任务" min-width="100" show-overflow-tooltip />
-        <el-table-column prop="field_comment" label="字段注释" min-width="100" show-overflow-tooltip />
-        <el-table-column prop="risk_suggestion" label="安全建议" min-width="100" show-overflow-tooltip />
+        <el-table-column prop="category_path" label="分类路径" />
+        <el-table-column prop="asset_name" label="资产" />
+        <el-table-column prop="database_name" label="数据库" />
+        <el-table-column prop="table_name" label="表" />
+        <el-table-column prop="business_dept" label="业务部门" />
+        <el-table-column prop="app_system" label="应用系统" />
+        <el-table-column prop="task_name" label="所属任务" />
+        <el-table-column prop="field_comment" label="字段注释" />
+        <el-table-column prop="risk_suggestion" label="安全建议" />
       </el-table>
 
       <div class="pagination-wrapper" v-if="total > 0">
@@ -337,7 +339,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { getDirectory } from '@/api/overview'
 import { getLevels } from '@/api/classification'
@@ -371,6 +373,8 @@ const tableData = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
+
+const tableRef = ref<any>(null)
 
 const categoryPathOptions = ref<string[]>([])
 const assetOptions = ref<string[]>([])
@@ -466,11 +470,62 @@ async function fetchDirectory(params: Record<string, any>) {
     const d = res.data || {}
     tableData.value = d.items || []
     total.value = d.total ?? 0
+    await nextTick()
+    syncColumnWidths()
   } catch (err: any) {
     ElMessage.error(err?.message || '获取数据目录失败')
   } finally {
     loading.value = false
   }
+}
+
+// 数据加载后，从表体第一行读取各列实际内容宽度，同步到表头 colgroup，保证对齐
+function syncColumnWidths() {
+  const el = tableRef.value?.$el as HTMLElement | null
+  if (!el) return
+  const bodyTable = el.querySelector('.el-table__body') as HTMLTableElement | null
+  const headerTable = el.querySelector('.el-table__header') as HTMLTableElement | null
+  if (!bodyTable || !headerTable) return
+
+  // 先让 body 用 auto 模式计算出内容宽度
+  bodyTable.style.tableLayout = 'auto'
+  bodyTable.style.width = 'auto'
+
+  // 读取宽度：优先从 body 第一行取，无数据时从表头取
+  let widths: number[] = []
+  const bodyRows = bodyTable.querySelectorAll('tbody tr')
+  if (bodyRows.length) {
+    const cells = bodyRows[0].querySelectorAll('td, th')
+    for (let i = 0; i < cells.length; i++) {
+      widths.push(Math.ceil(cells[i].getBoundingClientRect().width))
+    }
+  } else {
+    const headerCells = headerTable.querySelectorAll('thead tr:first-child th, thead tr:first-child td')
+    for (let i = 0; i < headerCells.length; i++) {
+      widths.push(Math.ceil(headerCells[i].getBoundingClientRect().width))
+    }
+  }
+
+  // 恢复 body 为 fixed 模式
+  bodyTable.style.tableLayout = ''
+  bodyTable.style.width = ''
+
+  // 将宽度写入两个表的 colgroup，并锁定两张表的总宽 = 各列之和
+  const bodyCols = bodyTable.querySelectorAll('colgroup col')
+  const headerCols = headerTable.querySelectorAll('colgroup col')
+  const n = Math.min(widths.length, bodyCols.length, headerCols.length)
+  let totalWidth = 0
+  for (let i = 0; i < n; i++) {
+    const w = widths[i] + 'px'
+    ;(bodyCols[i] as HTMLElement).style.width = w
+    ;(headerCols[i] as HTMLElement).style.width = w
+    totalWidth += widths[i]
+  }
+
+  // 锁定表宽 = 各列之和，防止 table-layout: fixed 平分剩余空间
+  const tw = totalWidth + 'px'
+  bodyTable.style.width = tw
+  headerTable.style.width = tw
 }
 
 async function fetchFilterOptions() {
@@ -645,9 +700,9 @@ function jsonToCsv(items: any[]): string {
       if (col.key === 'is_sensitive') {
         val = val ? '是' : '否'
       } else if (col.key === 'is_masked') {
-        val = val === 'confirmed' ? '是' : '否'
+        val = val === 'confirmed' && item.masking_rule_name ? item.masking_rule_name : (val === 'confirmed' ? '是' : '否')
       } else if (col.key === 'is_encrypted') {
-        val = val === 'confirmed' ? '是' : '否'
+        val = val === 'confirmed' && item.encryption_type_name ? item.encryption_type_name : (val === 'confirmed' ? '是' : '否')
       }
       if (val === null || val === undefined) return ''
       val = String(val).replace(/"/g, '""')
@@ -712,4 +767,12 @@ onMounted(() => {
   font-weight: 600;
   line-height: 16px;
 }
+
+/* 内容不换行不截断，超出卡片时横向滚动 */
+:deep(.table-card .el-table .cell) {
+  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip !important;
+}
 </style>
+

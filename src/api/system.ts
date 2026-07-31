@@ -362,8 +362,25 @@ export async function testAiModelConnection(data: Record<string, any>) {
 }
 
 // ============================================================
-// AI 知识库
+// 文档下载
 // ============================================================
+
+export interface DocItem {
+  name: string
+  size_bytes: number
+  size: string
+  updated_at: number
+}
+
+export async function getDocs() {
+  return client.get('/system/docs')
+}
+
+export async function downloadDoc(filename: string) {
+  return client.get(`/system/docs/${encodeURIComponent(filename)}`, {
+    responseType: 'blob',
+  })
+}
 
 export async function getAiKnowledge(params?: Record<string, any>) {
   return client.get('/ai-knowledge', { params })

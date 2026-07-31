@@ -159,7 +159,7 @@ flowchart TB
 </tr>
 <tr>
 <td width="50%"><b>📝 审计日志</b><br/><sub>所有操作可追溯</sub><br/><img src="public/日志中心.png"/></td>
-<td width="50%"><b>📈 性能监控</b><br/><sub>系统运行状态实时监控</sub><br/><img src="public/性能监控.png"/></td>
+<td width="50%"><b>📈 数量分级</b><br/><sub>敏感字段数据量是多少</sub><br/><img src="public/数量分级.png"/></td>
 </tr>
 </table>
 

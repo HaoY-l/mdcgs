@@ -1033,6 +1033,18 @@ function computeLevelSort(l: any): number {
   return v || 0
 }
 
+function formatThreshold(val: number): string {
+  if (val >= 10000) {
+    const w = val / 10000
+    return Number.isInteger(w) ? `${w}万` : `${w.toFixed(1)}万`
+  }
+  if (val >= 1000) {
+    const k = val / 1000
+    return Number.isInteger(k) ? `${k}千` : `${k.toFixed(1)}千`
+  }
+  return val.toLocaleString()
+}
+
 function getLevelOrder(level: string): number {
   const item = levelMap.value[level]
   if (item) return item.sort
@@ -1658,27 +1670,31 @@ async function handleExecuteEvaluation() {
       }
 
       // 按字段数阈值升级（保留原有逻辑作为辅助维度）
-      if (fieldCount >= (rule?.threshold_100k || 100000)) {
+      const t1k = rule?.threshold_1k ?? 1000
+      const t10k = rule?.threshold_10k ?? 10000
+      const t100k = rule?.threshold_100k ?? 100000
+
+      if (fieldCount >= t100k) {
         const up = Math.max(upgrade, 3)
         if (up > upgrade) {
           upgrade = up
-          trigger = `字段数${fieldCount.toLocaleString()}≥10万，+3升级`
+          trigger = `字段数${fieldCount.toLocaleString()}≥${formatThreshold(t100k)}，+3升级`
           legalBasis = 'GB/T 42574-2023 / JR/T 0171-2020'
         }
         suggestedNum = Math.min(baseNum + 3, maxSort)
-      } else if (fieldCount >= (rule?.threshold_10k || 10000)) {
+      } else if (fieldCount >= t10k) {
         const up = Math.max(upgrade, 2)
         if (up > upgrade) {
           upgrade = up
-          trigger = `字段数${fieldCount.toLocaleString()}≥1万，+2升级`
+          trigger = `字段数${fieldCount.toLocaleString()}≥${formatThreshold(t10k)}，+2升级`
           legalBasis = 'GB/T 42574-2023 / JR/T 0171-2020'
         }
         suggestedNum = Math.min(baseNum + 2, maxSort)
-      } else if (fieldCount >= (rule?.threshold_1k || 1000)) {
+      } else if (fieldCount >= t1k) {
         const up = Math.max(upgrade, 1)
         if (up > upgrade) {
           upgrade = up
-          trigger = `字段数${fieldCount.toLocaleString()}≥1千，+1升级`
+          trigger = `字段数${fieldCount.toLocaleString()}≥${formatThreshold(t1k)}，+1升级`
           legalBasis = '《数据安全法》第21条'
         }
         suggestedNum = Math.min(baseNum + 1, maxSort)

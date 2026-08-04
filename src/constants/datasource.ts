@@ -13,9 +13,9 @@ export const DATA_SOURCE_TYPES: readonly DataSourceTypeDef[] = [
   { value: 'postgresql', label: 'PostgreSQL',  defaultPort: 5432,  defaultUsername: 'postgres',  description: '功能丰富的关系型数据库' },
   { value: 'oracle',     label: 'Oracle',      defaultPort: 1521,  defaultUsername: 'sys',       description: '甲骨文商业数据库（支持 Oracle 12.1+）' },
   { value: 'sqlserver',  label: 'SQL Server',  defaultPort: 1433,  defaultUsername: 'sa',         description: '微软商业数据库' },
-  { value: 'dm',         label: 'DM（达梦）（暂不支持）',   defaultPort: 5236,  defaultUsername: 'SYSDBA',     description: '国产达梦数据库（暂不支持）' },
-  { value: 'opengauss',  label: 'openGauss（暂不支持）',   defaultPort: 5432,  defaultUsername: 'postgres',  description: '华为开源数据库（暂不支持）' },
-  { value: 'polardb',    label: 'PolarDB（暂不支持）',     defaultPort: 1921,  defaultUsername: 'root',      description: '阿里云 PolarDB（暂不支持）' },
+  { value: 'dm',         label: 'DM（达梦）',      defaultPort: 5236,  defaultUsername: 'SYSDBA',     description: '国产达梦数据库' },
+  { value: 'opengauss',  label: 'openGauss',      defaultPort: 5432,  defaultUsername: 'postgres',  description: '华为开源数据库' },
+  { value: 'polardb',    label: 'PolarDB',        defaultPort: 1921,  defaultUsername: 'root',      description: '阿里云 PolarDB' },
 ] as const
 
 export type DataSourceType = typeof DATA_SOURCE_TYPES[number]['value']

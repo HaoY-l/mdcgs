@@ -40,6 +40,7 @@ services:
       - ENCRYPT_KEY=${ENCRYPT_KEY}
     volumes:
       - backend_data:/app/data
+      - backend_plugin:/app/plugin
     networks:
       - mdcgs-network
 
@@ -49,3 +50,4 @@ networks:
 
 volumes:
   backend_data:
+  backend_plugin:

@@ -220,10 +220,8 @@ import {
   createBackup,
   deleteBackup,
   restoreBackup,
-  downloadBackup,
   getSystemLogs,
   getLogContent,
-  downloadSystemLog,
   deleteSystemLog,
   type MonitorStatus,
   type PerformanceData,
@@ -509,13 +507,23 @@ async function handleCreateBackup() {
 
 async function handleDownloadBackup(row: BackupItem) {
   try {
-    const res: any = await downloadBackup(row.id)
-    // axios 返回 response.data，拦截器已直接返回 response
-    const blob = new Blob([res.data as unknown as BlobPart], { type: 'application/gzip' })
+    const token = localStorage.getItem('access_token')
+    const response = await fetch(`/api/v1/monitor/backups/${row.id}/download`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
+    if (!response.ok) {
+      throw new Error('下载失败')
+    }
+    const blob = await response.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = row.name; a.click()
-    URL.revokeObjectURL(url)
+    a.href = url
+    a.download = row.name
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
     ElMessage.success('下载开始')
   } catch { ElMessage.error('下载失败') }
 }
@@ -591,12 +599,23 @@ async function fetchLogContent() {
 
 async function handleDownloadLog(row: SystemLogItem) {
   try {
-    const res: any = await downloadSystemLog(row.name)
-    const blob = new Blob([res.data as unknown as BlobPart], { type: 'text/plain' })
+    const token = localStorage.getItem('access_token')
+    const response = await fetch(`/api/v1/monitor/logs/download?log_name=${encodeURIComponent(row.name)}`, {
+      headers: { 'Authorization': `Bearer ${token}` },
+    })
+    if (!response.ok) {
+      throw new Error('下载失败')
+    }
+    const blob = await response.blob()
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
-    a.href = url; a.download = row.name; a.click()
-    URL.revokeObjectURL(url)
+    a.href = url
+    a.download = row.name
+    a.style.display = 'none'
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
     ElMessage.success('下载开始')
   } catch { ElMessage.error('下载失败') }
 }

@@ -3,6 +3,13 @@
     <div class="login-bg">
       <div class="bg-grid"></div>
       <div class="bg-glow"></div>
+      <div class="bg-glow-secondary"></div>
+      <div class="bg-glow-tertiary"></div>
+      <div class="particle particle-1"></div>
+      <div class="particle particle-2"></div>
+      <div class="particle particle-3"></div>
+      <div class="particle particle-4"></div>
+      <div class="particle particle-5"></div>
     </div>
     <div class="login-content">
       <div class="login-brand">
@@ -255,6 +262,48 @@ async function handleDeactivateLicense() {
 </script>
 
 <style scoped>
+/* ─── Animations ─── */
+@keyframes grid-move {
+  0% { background-position: 0 0; }
+  100% { background-position: 40px 40px; }
+}
+
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; transform: translate(-50%, -50%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
+}
+
+@keyframes glow-secondary {
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes card-enter {
+  from { opacity: 0; transform: translateX(20px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes brand-enter {
+  from { opacity: 0; transform: translateY(-20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes border-glow {
+  0%, 100% { border-color: rgba(6, 182, 212, 0.2); }
+  50% { border-color: rgba(6, 182, 212, 0.5); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ─── Login Page ─── */
 .login-page {
   display: flex;
   align-items: center;
@@ -264,28 +313,82 @@ async function handleDeactivateLicense() {
   position: relative;
   overflow: hidden;
 }
+
+/* ─── Background Effects ─── */
 .login-bg { position: absolute; inset: 0; }
+
 .bg-grid {
   position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    linear-gradient(rgba(6, 182, 212, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(6, 182, 212, 0.05) 1px, transparent 1px);
   background-size: 40px 40px;
+  animation: grid-move 20s linear infinite;
 }
+
 .bg-glow {
   position: absolute;
   top: 50%; left: 50%;
   transform: translate(-50%, -50%);
   width: 600px; height: 600px;
-  background: radial-gradient(circle, rgba(37,99,235,0.15) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.15) 0%, transparent 70%);
+  animation: glow-pulse 4s ease-in-out infinite;
   pointer-events: none;
 }
+
+.bg-glow-secondary {
+  position: absolute;
+  top: 20%; left: 80%;
+  width: 300px; height: 300px;
+  background: radial-gradient(circle, rgba(6, 182, 212, 0.08) 0%, transparent 70%);
+  animation: glow-secondary 6s ease-in-out infinite;
+  pointer-events: none;
+}
+
+.bg-glow-tertiary {
+  position: absolute;
+  bottom: 30%; left: 10%;
+  width: 250px; height: 250px;
+  background: radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, transparent 70%);
+  animation: glow-secondary 8s ease-in-out infinite reverse;
+  pointer-events: none;
+}
+
+/* ─── Floating Particles ─── */
+.particle {
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  background: rgba(6, 182, 212, 0.4);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+.particle-1 { top: 20%; left: 15%; animation: float 6s ease-in-out infinite; }
+.particle-2 { top: 60%; left: 85%; animation: float 8s ease-in-out infinite 1s; }
+.particle-3 { top: 80%; left: 25%; animation: float 7s ease-in-out infinite 2s; }
+.particle-4 { top: 30%; left: 75%; animation: float 5s ease-in-out infinite 0.5s; }
+.particle-5 { top: 70%; left: 60%; animation: float 9s ease-in-out infinite 1.5s; }
+
+/* ─── Login Content ─── */
 .login-content {
   position: relative;
   display: flex; align-items: center; gap: 60px; z-index: 1;
 }
-.login-brand { text-align: center; }
-.brand-icon { margin-bottom: 16px; display: flex; align-items: center; justify-content: center; min-height: 100px; }
+
+/* ─── Brand Section ─── */
+.login-brand {
+  text-align: center;
+  animation: brand-enter 0.8s ease-out;
+}
+.brand-icon {
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100px;
+  animation: float 4s ease-in-out infinite;
+}
 .brand-logo-img {
   max-height: 100px;
   max-width: 200px;
@@ -293,47 +396,109 @@ async function handleDeactivateLicense() {
   height: auto;
   object-fit: scale-down;
   border-radius: 18px;
-  filter: drop-shadow(0 4px 16px rgba(59, 130, 246, 0.3));
+  filter: drop-shadow(0 4px 20px rgba(6, 182, 212, 0.4));
+  animation: glow-pulse 3s ease-in-out infinite;
 }
 .brand-title {
-  font-size: 36px; font-weight: 700; color: #fff;
-  margin: 0 0 8px; letter-spacing: -0.02em;
+  font-size: 36px; font-weight: 700;
+  background: linear-gradient(135deg, #fff 0%, #67e8f9 50%, #fff 100%);
+  background-size: 200% 100%;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 8px;
+  letter-spacing: -0.02em;
+  animation: shimmer 3s linear infinite;
 }
-.brand-desc { font-size: 16px; color: #64748b; margin: 0; }
+.brand-desc {
+  font-size: 16px;
+  color: #94a3b8;
+  margin: 0;
+  letter-spacing: 0.1em;
+}
+
+/* ─── Login Card ─── */
 .login-card {
-  width: 400px; padding: 40px;
-  background: #1e293b; border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.06);
+  width: 400px;
+  padding: 40px;
+  background: rgba(30, 41, 59, 0.8);
+  backdrop-filter: blur(12px);
+  border-radius: 16px;
+  border: 1px solid rgba(6, 182, 212, 0.2);
+  animation: card-enter 0.6s ease-out, border-glow 3s ease-in-out infinite;
+  position: relative;
+  overflow: hidden;
 }
+
+.login-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, rgba(6, 182, 212, 0.8), transparent);
+  animation: shimmer 2s linear infinite;
+}
+
 .login-title {
-  font-size: 22px; font-weight: 700; color: #fff;
+  font-size: 22px; font-weight: 700;
+  color: #fff;
   margin: 0 0 4px;
 }
 .login-subtitle {
-  font-size: 14px; color: #64748b;
+  font-size: 14px; color: #94a3b8;
   margin: 0 0 28px;
 }
 .login-form { margin-bottom: 8px; }
 .login-options { display: flex; align-items: center; }
 .input-label {
   font-size: 13px; font-weight: 500;
-  color: #cbd5e1; margin-bottom: 6px;
+  color: #67e8f9; margin-bottom: 6px;
+  transition: color var(--transition-fast);
+}
+.login-form:focus-within .input-label {
+  color: #22d3ee;
 }
 :deep(.el-input__wrapper) {
-  background: #0f172a;
+  background: rgba(15, 23, 42, 0.6);
   border: 1px solid rgba(255,255,255,0.1);
   box-shadow: none; border-radius: 8px;
+  transition: all var(--transition-fast);
 }
-:deep(.el-input__wrapper:hover) { border-color: #2563eb; }
+:deep(.el-input__wrapper:hover) { border-color: rgba(6, 182, 212, 0.4); }
 :deep(.el-input__wrapper.is-focus) {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(37,99,235,0.15);
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15), 0 0 20px rgba(6, 182, 212, 0.1);
 }
 :deep(.el-input__inner) { color: #e2e8f0; height: 44px; font-size: 15px; }
 :deep(.el-input__inner::placeholder) { color: #475569; }
 .login-btn {
   width: 100%; height: 44px; font-size: 15px;
   font-weight: 600; border-radius: 8px; margin-top: 8px;
+  background: linear-gradient(135deg, #0891b2 0%, #06b6d4 100%);
+  border: none;
+  position: relative;
+  overflow: hidden;
+  transition: all var(--transition-fast);
+}
+.login-btn::before {
+  content: '';
+  position: absolute;
+  top: 0; left: -100%;
+  width: 100%; height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+  transition: left 0.5s;
+}
+.login-btn:hover::before {
+  left: 100%;
+}
+.login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(6, 182, 212, 0.4);
+}
+.login-btn:active {
+  transform: translateY(0);
 }
 .login-error { margin-top: 16px; }
 .login-links {
@@ -342,8 +507,24 @@ async function handleDeactivateLicense() {
 }
 :deep(.el-link) {
   font-size: 13px;
+  color: #06b6d4;
+  transition: all var(--transition-fast);
+}
+:deep(.el-link:hover) {
+  color: #22d3ee;
 }
 :deep(.el-divider--vertical) {
-  border-color: #475569;
+  border-color: #334155;
+}
+:deep(.el-checkbox__label) {
+  color: #94a3b8;
+}
+:deep(.el-checkbox__input.is-checked .el-checkbox__inner) {
+  background-color: #06b6d4;
+  border-color: #06b6d4;
+}
+:deep(.el-alert--error) {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
 }
 </style>

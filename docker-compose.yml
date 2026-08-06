@@ -17,7 +17,7 @@ services:
 
   # ========== 后端（从 DockerHub 拉取）==========
   backend:
-    image: monday1/mdcgs-backend:v1.0.8
+    image: monday1/mdcgs-backend:v1.0.9
     container_name: mdcgs-backend
     restart: unless-stopped
     ports:
@@ -40,6 +40,7 @@ services:
       - ENCRYPT_KEY=${ENCRYPT_KEY}
     volumes:
       - backend_data:/app/data
+      - backend_plugin:/app/plugin
     networks:
       - mdcgs-network
 
@@ -49,3 +50,4 @@ networks:
 
 volumes:
   backend_data:
+  backend_plugin:

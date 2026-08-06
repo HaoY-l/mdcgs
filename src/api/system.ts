@@ -402,3 +402,67 @@ export async function deleteAiKnowledge(id: number) {
 export async function getAiKnowledgeHits(knowledgeId: number, params?: Record<string, any>) {
   return client.get(`/ai-knowledge/${knowledgeId}/hits`, { params })
 }
+
+// ============================================================
+// 插件管理（纯上传模式）
+// ============================================================
+
+export interface PluginItem {
+  name: string
+  display_name: string
+  description: string
+  category: string
+  version: string
+  architectures: string[]
+  upload_instructions: {
+    source: string
+    url: string
+    file_pattern: string
+    version_required: string
+    notes: string
+  }
+  file_exists: boolean
+  file_valid: boolean
+  installed: boolean
+  file_size: string
+  file_path: string
+  error: string
+}
+
+export async function getPlugins() {
+  return client.get('/system/plugins')
+}
+
+/** 上传插件文件到 plugin/ 目录 */
+export async function uploadPlugin(name: string, file: File) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return client.post(`/system/plugins/${name}/upload`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  })
+}
+
+/** 检测已上传的插件文件完整性 */
+export async function validatePlugin(name: string) {
+  return client.post(`/system/plugins/${name}/validate`)
+}
+
+/** 部署已上传并验证通过的插件到系统 */
+export async function deployPlugin(name: string) {
+  return client.post(`/system/plugins/${name}/deploy`)
+}
+
+/** 卸载插件 */
+export async function uninstallPlugin(name: string) {
+  return client.post(`/system/plugins/${name}/uninstall`)
+}
+
+/** 删除已上传的插件文件 */
+export async function deletePluginFile(name: string) {
+  return client.delete(`/system/plugins/${name}/file`)
+}
+
+/** 重启后端服务（插件部署后生效） */
+export async function restartService() {
+  return client.post('/system/plugins/restart')
+}

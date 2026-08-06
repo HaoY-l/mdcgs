@@ -408,6 +408,7 @@ async function testConnectionHandler() {
         username: form.username,
         password: form.password,
         asset_type: form.asset_type,
+        database: form.database_name || '',
       })
       ElMessage.success((res as any).message || '连接测试通过')
     } catch (err: any) {

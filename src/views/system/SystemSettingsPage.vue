@@ -474,6 +474,129 @@
           </div>
         </el-tab-pane>
 
+        <!-- 插件管理 -->
+        <el-tab-pane label="插件管理" name="plugins">
+          <div v-loading="pluginsLoading">
+            <el-alert
+              type="info"
+              :closable="false"
+              show-icon
+              style="margin-bottom: 16px"
+            >
+              <template #title>
+                插件说明
+              </template>
+              <template #default>
+                <div style="font-size: 13px; line-height: 1.8">
+                  <p>插件是系统的功能扩展单元，例如数据库驱动、数据分析工具等。</p>
+                  <p>安装流程：<strong>下载文件 → 上传 → 检测 → 部署</strong></p>
+                  <p>请先根据指引从官网下载对应文件，然后上传到系统，检测通过后部署即可生效。</p>
+                  <p>这种方式构建 Docker 镜像时无需包含各种驱动，按需安装，减小镜像体积。</p>
+                </div>
+              </template>
+            </el-alert>
+
+            <el-table :data="plugins" stripe empty-text="暂无可用插件">
+              <el-table-column prop="display_name" label="插件名称" min-width="140" />
+              <el-table-column prop="description" label="说明" min-width="200" show-overflow-tooltip />
+              <el-table-column label="状态" width="120">
+                <template #default="{ row }">
+                  <el-tag v-if="row.installed" type="success" size="small">已部署</el-tag>
+                  <el-tag v-else-if="row.file_valid" type="warning" size="small">待部署</el-tag>
+                  <el-tag v-else-if="row.file_exists" type="info" size="small">待检测</el-tag>
+                  <el-tag v-else type="info" size="small" effect="plain">未上传</el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column prop="file_size" label="文件大小" width="90" />
+              <el-table-column prop="version" label="版本" width="90" />
+              <el-table-column label="操作" width="280" fixed="right">
+                <template #default="{ row }">
+                  <!-- 下载指引 -->
+                  <el-button size="small" link type="primary" @click="handleShowInstructions(row)">
+                    指引
+                  </el-button>
+
+                  <!-- 上传文件（未部署时显示） -->
+                  <el-upload
+                    v-if="!row.installed"
+                    ref="pluginUploadRefs"
+                    action="#"
+                    :auto-upload="false"
+                    :show-file-list="false"
+                    :on-change="(file) => handlePluginFileChange(row.name, file)"
+                  >
+                    <el-button
+                      size="small"
+                      :disabled="uploadingName === row.name"
+                      :loading="uploadingName === row.name"
+                    >
+                      上传
+                    </el-button>
+                  </el-upload>
+
+                  <!-- 检测按钮（文件已存在但未验证通过时显示） -->
+                  <el-button
+                    v-if="row.file_exists && !row.file_valid && !row.installed"
+                    size="small"
+                    type="warning"
+                    :loading="validatingName === row.name"
+                    :disabled="validatingName !== ''"
+                    @click="handleValidatePlugin(row)"
+                  >
+                    检测
+                  </el-button>
+
+                  <!-- 部署按钮（文件已验证通过但未部署时显示） -->
+                  <el-button
+                    v-if="row.file_valid && !row.installed"
+                    size="small"
+                    type="primary"
+                    :loading="deployingName === row.name"
+                    :disabled="deployingName !== ''"
+                    @click="handleDeployPlugin(row)"
+                  >
+                    部署
+                  </el-button>
+
+                  <!-- 已部署显示已就绪 -->
+                  <el-tag v-if="row.installed" type="success" size="small" effect="plain">已就绪</el-tag>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+
+          <!-- 下载指引弹窗 -->
+          <el-dialog v-model="instructionsVisible" :title="`下载指引 - ${instructionsTitle}`" width="580px">
+            <div style="line-height: 1.8; font-size: 13px">
+              <div v-if="instructionsData.source" style="margin-bottom: 8px">
+                <strong>下载来源：</strong>{{ instructionsData.source }}
+              </div>
+              <div v-if="instructionsData.url" style="margin-bottom: 8px">
+                <strong>下载地址：</strong>
+                <el-link type="primary" :href="instructionsData.url" target="_blank">{{ instructionsData.url }}</el-link>
+              </div>
+              <div v-if="instructionsData.file_pattern" style="margin-bottom: 8px">
+                <strong>文件命名规则：</strong>
+                <code>{{ instructionsData.file_pattern }}</code>
+              </div>
+              <div v-if="instructionsData.version_required" style="margin-bottom: 8px">
+                <strong>版本要求：</strong>{{ instructionsData.version_required }}
+              </div>
+              <div v-if="instructionsData.notes" style="margin-bottom: 8px">
+                <strong>注意事项：</strong>
+                <pre style="white-space: pre-wrap; font-size: 12px; background: #f5f7fa; padding: 8px; border-radius: 4px; margin-top: 4px">{{ instructionsData.notes }}</pre>
+              </div>
+              <el-divider />
+              <div style="font-size: 12px; color: #e6a23c">
+                ⚠️ 上传后保持原文件名不变，不要重命名，否则检测会失败。
+              </div>
+            </div>
+            <template #footer>
+              <el-button @click="instructionsVisible = false">知道了</el-button>
+            </template>
+          </el-dialog>
+        </el-tab-pane>
+
         <!-- 授权管理 -->
         <el-tab-pane label="授权管理" name="license">
           <div v-loading="licenseLoading">
@@ -570,6 +693,7 @@ import {
   getAiModelConfigs, createAiModelConfig, updateAiModelConfig,
   deleteAiModelConfig, activateAiModelConfig, testAiModelConfig, testAiModelConnection,
   getAiKnowledge, uploadAiKnowledge, deleteAiKnowledge, getAiKnowledgeHits,
+  getPlugins, uploadPlugin, validatePlugin, deployPlugin, uninstallPlugin, restartService,
 } from '@/api/system'
 
 const activeTab = ref('basic')
@@ -623,6 +747,17 @@ const licenseInfo = reactive({
   status: '未激活',
 })
 const licenseKeyForm = reactive({ license_key: '' })
+
+// ===== 插件管理 =====
+const plugins = ref<any[]>([])
+const pluginsLoading = ref(false)
+const uploadingName = ref('')
+const validatingName = ref('')
+const deployingName = ref('')
+const instructionsVisible = ref(false)
+const instructionsTitle = ref('')
+const instructionsData = ref<any>({})
+const pluginUploadRefs = ref()
 
 // ===== 基本设置 =====
 async function fetchSettings() {
@@ -1101,6 +1236,84 @@ async function handleTestConfig(row: any) {
   }
 }
 
+// ===== 插件管理 =====
+async function loadPlugins() {
+  pluginsLoading.value = true
+  try {
+    const res = await getPlugins()
+    plugins.value = res.data || []
+  } catch { plugins.value = [] }
+  finally { pluginsLoading.value = false }
+}
+
+function handleShowInstructions(row: any) {
+  instructionsTitle.value = row.display_name
+  instructionsData.value = row.upload_instructions || {}
+  instructionsVisible.value = true
+}
+
+async function handlePluginFileChange(name: string, file: any) {
+  if (uploadingName.value) return
+  uploadingName.value = name
+  try {
+    const raw = file.raw || file
+    const res = await uploadPlugin(name, raw) as any
+    ElMessage.success(res?.message || '上传成功')
+    await loadPlugins()
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || '上传失败'
+    ElMessage.error(msg)
+  } finally {
+    uploadingName.value = ''
+  }
+}
+
+async function handleValidatePlugin(row: any) {
+  if (validatingName.value) return
+  validatingName.value = row.name
+  try {
+    const res = await validatePlugin(row.name) as any
+    if (res?.code === 0) {
+      ElMessage.success(res?.message || '检测通过')
+    } else {
+      ElMessage.warning(res?.message || '检测未通过，请参考指引确认文件是否正确')
+    }
+    await loadPlugins()
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || '检测失败'
+    ElMessage.error(msg)
+    await loadPlugins()
+  } finally {
+    validatingName.value = ''
+  }
+}
+
+async function handleDeployPlugin(row: any) {
+  if (deployingName.value) return
+  deployingName.value = row.name
+  try {
+    const res = await deployPlugin(row.name) as any
+    ElMessage.success(res?.message || '部署成功')
+    await loadPlugins()
+    // 如果插件需要重启，询问用户是否立即重启
+    if (res?.data?.needs_restart) {
+      await ElMessageBox.confirm(
+        '该插件部署后需要重启服务才能生效，是否立即重启？',
+        '重启确认',
+        { confirmButtonText: '立即重启', cancelButtonText: '稍后手动重启', type: 'warning' }
+      )
+      // 用户确认重启
+      await restartService()
+      ElMessage.success('服务正在重启，请稍后刷新页面')
+    }
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '部署失败')
+    await loadPlugins()
+  } finally {
+    deployingName.value = ''
+  }
+}
+
 // ===== 授权管理 =====
 async function loadLicenseInfo() {
   licenseLoading.value = true
@@ -1161,6 +1374,7 @@ const tabLoaders: Record<string, () => Promise<void>> = {
   engine: loadEngineSettings,
   ai: loadAiConfigs,
   license: loadLicenseInfo,
+  plugins: loadPlugins,
 }
 
 import { watch } from 'vue'

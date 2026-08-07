@@ -129,20 +129,32 @@
               </p>
 
               <el-divider />
-              <h4 style="margin: 0 0 8px 0">4. 分类结果查询</h4>
+              <h4 style="margin: 0 0 8px 0">4. 数据目录查询</h4>
               <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
                 <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/classification-results?page=1&page_size=20
               </div>
-              <p style="color: #909399; font-size: 12px; margin: 0">支持筛选参数：</p>
+              <p style="color: #909399; font-size: 12px; margin: 0">返回数据目录的字段级资产信息（原分类结果查询）。支持筛选参数：</p>
               <ul style="color: #909399; font-size: 12px; margin: 4px 0">
-                <li><code>task_id</code> - 按任务ID筛选</li>
-                <li><code>asset_id</code> - 按资产ID筛选</li>
-                <li><code>table_id</code> - 按表ID筛选</li>
+                <li><code>keyword</code> - 关键词搜索（字段名/注释/类型/分类路径/表名/资产名）</li>
+                <li><code>level</code> - 分级代码筛选，如 L2</li>
+                <li><code>category_path</code> - 分类路径筛选</li>
+                <li><code>asset</code> - 资产名称筛选</li>
                 <li><code>is_sensitive</code> - 1=敏感字段, 0=非敏感字段</li>
-                <li><code>is_confirmed</code> - 1=已确认</li>
-                <li><code>level_code</code> - 按级别代码筛选，如 L2</li>
-                <li><code>keyword</code> - 按字段名/注释搜索</li>
               </ul>
+
+              <el-divider />
+              <h4 style="margin: 0 0 8px 0">5. 数据分类模版目录</h4>
+              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
+                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/templates/{tpl_id}/categories/tree
+              </div>
+              <p style="color: #909399; font-size: 12px; margin: 0">返回指定模板的分类目录树结构，包含分级信息。</p>
+
+              <el-divider />
+              <h4 style="margin: 0 0 8px 0">6. 分级信息</h4>
+              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
+                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/levels
+              </div>
+              <p style="color: #909399; font-size: 12px; margin: 0">返回所有数据分级列表，包含级别代码、值、颜色、管控原则、敏感/受限状态等。</p>
 
               <el-divider />
               <h4 style="margin: 0 0 8px 0">响应格式</h4>

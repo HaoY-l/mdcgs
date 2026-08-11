@@ -1413,13 +1413,14 @@ async function handleReUploadPlugin(row: any) {
 
   reUploadingName.value = row.name
   try {
-    // 1. 卸载
+    // 1. 如果已部署，先卸载（后端 uninstall 会一并删除上传文件）
     if (row.installed) {
       await uninstallPlugin(row.name)
+    } else if (row.file_exists) {
+      // 仅删除上传文件
+      await deletePluginFile(row.name)
     }
-    // 2. 删除旧文件
-    await deletePluginFile(row.name)
-    // 3. 弹出文件选择器
+    // 2. 弹出文件选择器
     reUploadingName.value = ''
     const input = reUploadInputRefs.value[row.name]
     if (input) {

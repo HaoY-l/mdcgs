@@ -521,57 +521,81 @@
               </el-table-column>
               <el-table-column prop="file_size" label="文件大小" width="90" />
               <el-table-column prop="version" label="版本" width="90" />
-              <el-table-column label="操作" width="280" fixed="right">
+              <el-table-column label="操作" min-width="340" fixed="right">
                 <template #default="{ row }">
-                  <!-- 下载指引 -->
-                  <el-button size="small" link type="primary" @click="handleShowInstructions(row)">
-                    指引
-                  </el-button>
+                  <div class="plugin-actions">
+                    <!-- 下载指引 -->
+                    <el-button size="small" link type="primary" @click="handleShowInstructions(row)">指引</el-button>
 
-                  <!-- 上传文件（未部署时显示） -->
-                  <el-upload
-                    v-if="!row.installed"
-                    ref="pluginUploadRefs"
-                    action="#"
-                    :auto-upload="false"
-                    :show-file-list="false"
-                    :on-change="(file) => handlePluginFileChange(row.name, file)"
-                  >
-                    <el-button
-                      size="small"
-                      :disabled="uploadingName === row.name"
-                      :loading="uploadingName === row.name"
-                    >
-                      上传
-                    </el-button>
-                  </el-upload>
+                    <!-- 未部署状态：上传 + 删除文件 + 检测 + 部署 -->
+                    <template v-if="!row.installed">
+                      <el-upload
+                        ref="pluginUploadRefs"
+                        action="#"
+                        :auto-upload="false"
+                        :show-file-list="false"
+                        :on-change="(file) => handlePluginFileChange(row.name, file)"
+                      >
+                        <el-button
+                          size="small"
+                          :disabled="uploadingName === row.name"
+                          :loading="uploadingName === row.name"
+                        >上传</el-button>
+                      </el-upload>
 
-                  <!-- 检测按钮（文件已存在但未验证通过时显示） -->
-                  <el-button
-                    v-if="row.file_exists && !row.file_valid && !row.installed"
-                    size="small"
-                    type="warning"
-                    :loading="validatingName === row.name"
-                    :disabled="validatingName !== ''"
-                    @click="handleValidatePlugin(row)"
-                  >
-                    检测
-                  </el-button>
+                      <el-button
+                        v-if="row.file_exists"
+                        size="small"
+                        type="danger"
+                        plain
+                        :loading="deletingName === row.name"
+                        @click="handleDeletePluginFile(row)"
+                      >删除文件</el-button>
 
-                  <!-- 部署按钮（文件已验证通过但未部署时显示） -->
-                  <el-button
-                    v-if="row.file_valid && !row.installed"
-                    size="small"
-                    type="primary"
-                    :loading="deployingName === row.name"
-                    :disabled="deployingName !== ''"
-                    @click="handleDeployPlugin(row)"
-                  >
-                    部署
-                  </el-button>
+                      <el-button
+                        v-if="row.file_exists && !row.file_valid"
+                        size="small"
+                        type="warning"
+                        :loading="validatingName === row.name"
+                        :disabled="validatingName !== ''"
+                        @click="handleValidatePlugin(row)"
+                      >检测</el-button>
 
-                  <!-- 已部署显示已就绪 -->
-                  <el-tag v-if="row.installed" type="success" size="small" effect="plain">已就绪</el-tag>
+                      <el-button
+                        v-if="row.file_valid"
+                        size="small"
+                        type="primary"
+                        :loading="deployingName === row.name"
+                        :disabled="deployingName !== ''"
+                        @click="handleDeployPlugin(row)"
+                      >部署</el-button>
+                    </template>
+
+                    <!-- 已部署状态：已就绪标签 + 重新上传 + 卸载 -->
+                    <template v-if="row.installed">
+                      <el-tag type="success" size="small" effect="plain">已就绪</el-tag>
+                      <el-button
+                        size="small"
+                        :loading="reUploadingName === row.name"
+                        @click="handleReUploadPlugin(row)"
+                      >重新上传</el-button>
+                      <el-button
+                        size="small"
+                        type="danger"
+                        plain
+                        :loading="uninstallingName === row.name"
+                        @click="handleUninstallPlugin(row)"
+                      >卸载</el-button>
+                    </template>
+
+                    <!-- 隐藏文件输入，用于重新上传 -->
+                    <input
+                      type="file"
+                      :ref="(el) => setReUploadInputRef(row.name, el)"
+                      style="display:none"
+                      @change="(e) => handleReUploadFileChange(row.name, e)"
+                    />
+                  </div>
                 </template>
               </el-table-column>
             </el-table>
@@ -705,7 +729,7 @@ import {
   getAiModelConfigs, createAiModelConfig, updateAiModelConfig,
   deleteAiModelConfig, activateAiModelConfig, testAiModelConfig, testAiModelConnection,
   getAiKnowledge, uploadAiKnowledge, deleteAiKnowledge, getAiKnowledgeHits,
-  getPlugins, uploadPlugin, validatePlugin, deployPlugin, uninstallPlugin, restartService,
+  getPlugins, uploadPlugin, validatePlugin, deployPlugin, uninstallPlugin, deletePluginFile, restartService,
 } from '@/api/system'
 
 const activeTab = ref('basic')
@@ -766,10 +790,14 @@ const pluginsLoading = ref(false)
 const uploadingName = ref('')
 const validatingName = ref('')
 const deployingName = ref('')
+const deletingName = ref('')
+const uninstallingName = ref('')
+const reUploadingName = ref('')
 const instructionsVisible = ref(false)
 const instructionsTitle = ref('')
 const instructionsData = ref<any>({})
 const pluginUploadRefs = ref()
+const reUploadInputRefs = ref<Record<string, HTMLInputElement>>({})
 
 // ===== 基本设置 =====
 async function fetchSettings() {
@@ -1264,6 +1292,10 @@ function handleShowInstructions(row: any) {
   instructionsVisible.value = true
 }
 
+function setReUploadInputRef(name: string, el: any) {
+  if (el) reUploadInputRefs.value[name] = el
+}
+
 async function handlePluginFileChange(name: string, file: any) {
   if (uploadingName.value) return
   uploadingName.value = name
@@ -1323,6 +1355,101 @@ async function handleDeployPlugin(row: any) {
     await loadPlugins()
   } finally {
     deployingName.value = ''
+  }
+}
+
+async function handleDeletePluginFile(row: any) {
+  try {
+    await ElMessageBox.confirm(
+      `确定删除插件"${row.display_name}"的文件？删除后需要重新上传文件。`,
+      '删除确认',
+      { confirmButtonText: '确认删除', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch { return }
+
+  deletingName.value = row.name
+  try {
+    const res = await deletePluginFile(row.name) as any
+    ElMessage.success(res?.message || '文件已删除')
+    await loadPlugins()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '删除失败')
+    await loadPlugins()
+  } finally {
+    deletingName.value = ''
+  }
+}
+
+async function handleUninstallPlugin(row: any) {
+  try {
+    await ElMessageBox.confirm(
+      `确定卸载插件"${row.display_name}"？将删除已部署的内容，如需使用需重新上传并部署。`,
+      '卸载确认',
+      { confirmButtonText: '确认卸载', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch { return }
+
+  uninstallingName.value = row.name
+  try {
+    const res = await uninstallPlugin(row.name) as any
+    ElMessage.success(res?.message || '卸载成功')
+    await loadPlugins()
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '卸载失败')
+    await loadPlugins()
+  } finally {
+    uninstallingName.value = ''
+  }
+}
+
+async function handleReUploadPlugin(row: any) {
+  try {
+    await ElMessageBox.confirm(
+      `重新上传将先卸载"${row.display_name}"并删除旧文件，确认继续？`,
+      '重新上传确认',
+      { confirmButtonText: '确认', cancelButtonText: '取消', type: 'warning' }
+    )
+  } catch { return }
+
+  reUploadingName.value = row.name
+  try {
+    // 1. 卸载
+    if (row.installed) {
+      await uninstallPlugin(row.name)
+    }
+    // 2. 删除旧文件
+    await deletePluginFile(row.name)
+    // 3. 弹出文件选择器
+    reUploadingName.value = ''
+    const input = reUploadInputRefs.value[row.name]
+    if (input) {
+      input.value = ''
+      input.click()
+    }
+    return
+  } catch (err: any) {
+    ElMessage.error(err?.response?.data?.message || err?.message || '操作失败')
+    await loadPlugins()
+  } finally {
+    reUploadingName.value = ''
+  }
+}
+
+async function handleReUploadFileChange(name: string, event: Event) {
+  const target = event.target as HTMLInputElement
+  if (!target.files || !target.files.length) return
+  const file = target.files[0]
+  uploadingName.value = name
+  try {
+    const res = await uploadPlugin(name, file) as any
+    ElMessage.success(res?.message || '上传成功')
+    await loadPlugins()
+  } catch (err: any) {
+    const msg = err?.response?.data?.message || err?.message || '上传失败'
+    ElMessage.error(msg)
+    await loadPlugins()
+  } finally {
+    uploadingName.value = ''
   }
 }
 
@@ -1466,5 +1593,11 @@ watch(activeTab, (tab) => {
   font-size: 12px;
   color: #909399;
   margin-left: 8px;
+}
+.plugin-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
 }
 </style>

@@ -96,8 +96,28 @@
             </el-form-item>
           </el-col>
         </el-row>
-        <el-form-item label="数据库名">
+        <el-form-item>
           <el-input v-model="form.database_name" />
+          <template #label>
+            <span>
+              数据库名
+              <el-tooltip v-if="form.asset_type === 'oracle'" placement="top" :content="'Oracle 中作为 Schema/用户名过滤（如：BUS_USER），仅扫描该 Schema 下的表。不填则扫描所有业务 Schema。'">
+                <el-icon style="margin-left: 4px; color: #909399; cursor: help; font-size: 14px; vertical-align: -2px;"><WarningFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
+        </el-form-item>
+        <!-- 服务名（仅 Oracle 显示） -->
+        <el-form-item v-if="form.asset_type === 'oracle'">
+          <el-input v-model="form.service_name" placeholder="如：ORCL、XE，不填使用默认服务名" />
+          <template #label>
+            <span>
+              服务名
+              <el-tooltip placement="top" :content="'Oracle 连接用服务名，即数据库实例的监听服务名。常见值：ORCL（11g）、XE（11g Express）、FREEPDB1（23c）、ORCLPDB1（12c/19c PDB）。不填则使用默认服务名。'">
+                <el-icon style="margin-left: 4px; color: #909399; cursor: help; font-size: 14px; vertical-align: -2px;"><WarningFilled /></el-icon>
+              </el-tooltip>
+            </span>
+          </template>
         </el-form-item>
         <el-form-item label="用户名">
           <el-input v-model="form.username" />
@@ -172,6 +192,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { WarningFilled } from '@element-plus/icons-vue'
 import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual, stopAssetUpdate } from '@/api/assets'
 import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLabel } from '@/constants/datasource'
 import PageShell from '@/components/common/PageShell.vue'
@@ -199,7 +220,7 @@ const isEdit = ref(false)
 const editId = ref<number | null>(null)
 const form = reactive({
   name: '', asset_type: 'mysql', host: '127.0.0.1', port: 3306,
-  database_name: '', username: 'root', password: '',
+  database_name: '', service_name: '', username: 'root', password: '',
   business_dept: '', app_system: '',
   // 库表更新方式
   execute_type: 'manual',
@@ -283,7 +304,7 @@ function handlePageChange({ page, pageSize: size }: { page: number; pageSize: nu
 
 function resetForm() {
   form.name = ''; form.asset_type = 'mysql'; form.host = '127.0.0.1'; form.port = 3306
-  form.database_name = ''; form.username = 'root'; form.password = ''
+  form.database_name = ''; form.service_name = ''; form.username = 'root'; form.password = ''
   form.business_dept = ''; form.app_system = ''
   form.execute_type = 'manual'; form.cron_expression = ''
   form.update_interval = 24; form.update_time_range = ''
@@ -302,7 +323,7 @@ function handleAdd() {
 function handleEdit(row: any) {
   isEdit.value = true; editId.value = row.id
   form.name = row.name; form.asset_type = row.asset_type; form.host = row.host
-  form.port = row.port; form.database_name = row.database_name || ''
+  form.port = row.port; form.database_name = row.database_name || ''; form.service_name = row.service_name || ''
   form.username = row.username || ''; form.password = ''
   form.business_dept = row.business_dept || ''
   form.app_system = row.app_system || ''
@@ -408,7 +429,8 @@ async function testConnectionHandler() {
         username: form.username,
         password: form.password,
         asset_type: form.asset_type,
-        database: form.database_name || '',
+        database: form.asset_type === 'oracle' ? (form.service_name || '') : (form.database_name || ''),
+        service_name: form.asset_type === 'oracle' ? (form.service_name || '') : undefined,
       })
       ElMessage.success((res as any).message || '连接测试通过')
     } catch (err: any) {

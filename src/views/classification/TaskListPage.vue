@@ -77,7 +77,7 @@
         </el-table-column>
         <el-table-column label="操作" min-width="160" fixed="right">
           <template #default="{ row }">
-            <el-button link type="success" size="small" @click="handleStartTask(row)">启动</el-button>
+            <el-button v-if="row.status !== 'running' && row.status !== 'processing' && row.status !== 'queued'" link type="success" size="small" @click="handleStartTask(row)">启动</el-button>
             <el-button v-if="row.status === 'running' || row.status === 'processing' || row.status === 'queued'" link type="warning" size="small" @click="handleStopTask(row)">停止</el-button>
             <el-button v-if="row.status !== 'running' && row.status !== 'processing' && row.status !== 'queued'" link type="primary" size="small" @click="handleViewTask(row)">查看</el-button>
             <el-button link type="primary" size="small" @click="handleEditTask(row)">编辑</el-button>

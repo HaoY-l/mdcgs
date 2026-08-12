@@ -18,6 +18,7 @@
         <el-descriptions-item label="IP地址">{{ asset?.host || '-' }}</el-descriptions-item>
         <el-descriptions-item label="端口">{{ asset?.port || '-' }}</el-descriptions-item>
         <el-descriptions-item label="数据库名">{{ asset?.database_name || '-' }}</el-descriptions-item>
+        <el-descriptions-item v-if="asset?.asset_type === 'oracle'" label="服务名">{{ asset?.service_name || '-' }}</el-descriptions-item>
         <el-descriptions-item label="版本">{{ asset?.version || '-' }}</el-descriptions-item>
         <el-descriptions-item label="用户名">{{ asset?.username || '-' }}</el-descriptions-item>
         <el-descriptions-item label="更新状态">

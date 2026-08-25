@@ -931,8 +931,8 @@ function getFullAiCategory(aiCategory: any): string {
         const pathParts = path.split('>').filter(Boolean)
         // 父类 = 第一个（可能是"无"）
         const parentClass = pathParts[0] || '无'
-        // 子类优先使用 data_type_name，其次使用路径的最后一部分
-        const childClass = data.data_type_name || (pathParts[pathParts.length - 1] || '无')
+        // 子类从路径最后一部分提取（与表格显示保持一致）
+        const childClass = pathParts[pathParts.length - 1] || '无'
         parts.push('父类: ' + parentClass)
         parts.push('子类: ' + childClass)
       } else {

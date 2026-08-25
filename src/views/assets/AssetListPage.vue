@@ -176,6 +176,10 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item label="采集样本数量">
+          <el-input-number v-model="form.sample_count" :min="1" :max="100" style="width: 140px" />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">每个字段采集的样本数据条数，默认5条</span>
+        </el-form-item>
         <el-form-item>
           <el-button size="small" @click="testConnectionHandler">测试连接</el-button>
         </el-form-item>
@@ -222,6 +226,8 @@ const form = reactive({
   name: '', asset_type: 'mysql', host: '127.0.0.1', port: 3306,
   database_name: '', service_name: '', username: 'root', password: '',
   business_dept: '', app_system: '',
+  // 采集样本数量
+  sample_count: 5,
   // 库表更新方式
   execute_type: 'manual',
   cron_expression: '',
@@ -305,7 +311,7 @@ function handlePageChange({ page, pageSize: size }: { page: number; pageSize: nu
 function resetForm() {
   form.name = ''; form.asset_type = 'mysql'; form.host = '127.0.0.1'; form.port = 3306
   form.database_name = ''; form.service_name = ''; form.username = 'root'; form.password = ''
-  form.business_dept = ''; form.app_system = ''
+  form.business_dept = ''; form.app_system = ''; form.sample_count = 5
   form.execute_type = 'manual'; form.cron_expression = ''
   form.update_interval = 24; form.update_time_range = ''
   form.schedule_freq = 'daily'; form.schedule_time = null
@@ -327,6 +333,7 @@ function handleEdit(row: any) {
   form.username = row.username || ''; form.password = ''
   form.business_dept = row.business_dept || ''
   form.app_system = row.app_system || ''
+  form.sample_count = row.sample_count || 5
   form.execute_type = row.execute_type || 'manual'
   form.cron_expression = row.cron_expression || ''
   form.update_interval = row.update_interval || 0

@@ -58,7 +58,7 @@
                         <span style="font-weight: 500; min-width: 120px;">{{ col.name }}</span>
                         <el-tag size="small" effect="plain" style="min-width: 80px; text-align: center;">{{ col.data_type }}</el-tag>
                         <span style="color: #909399; flex: 1;">{{ col.comment || '' }}</span>
-                        <span style="color: #909399; font-size: 12px; white-space: nowrap;">{{ col.data_length || 0 }} 条</span>
+                        <span style="color: #909399; font-size: 12px; white-space: nowrap;">{{ tbl.row_count || 0 }} 条</span>
                         <el-tag v-if="col.is_primary_key" size="small" type="danger" effect="dark" style="min-width: 32px; text-align: center;">PK</el-tag>
                       </div>
                     </div>

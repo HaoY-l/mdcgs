@@ -203,6 +203,9 @@
             <el-form-item label="AI批处理大小">
               <el-input-number v-model="engineForm.ai_batch_size" :min="1" :max="200" />
               <span class="form-item-tip">每个Prompt中包含的字段数</span>
+              <el-tooltip content="设置的数量越大，建议同步增加AI模型配置中的超时时间，避免请求超时" placement="top">
+                <el-icon style="margin-left: 8px; color: #909399; cursor: help;"><QuestionFilled /></el-icon>
+              </el-tooltip>
             </el-form-item>
             <el-form-item label="规则引擎进度权重">
               <el-input-number v-model="engineForm.progress_weight_rule" :min="10" :max="90" :step="5" />
@@ -363,7 +366,13 @@
                 <el-row :gutter="16">
                   <el-col :span="8">
                     <el-form-item label="Max Tokens">
-                      <el-input-number v-model="configForm.max_tokens" :min="256" :max="32768" :step="512" />
+                      <template #label>
+                        <span>Max Tokens</span>
+                        <el-tooltip content="模型每次请求的最大输出 Token 数。0 表示不限制，由模型自行决定输出长度（取决于模型最大上下文）。值越大处理能力越强，但响应时间也越长。当 AI 返回内容为空时，可以尝试增大此值或减少每批处理的字段数量" placement="top">
+                          <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </template>
+                      <el-input-number v-model="configForm.max_tokens" :min="0" :max="128000" :step="1024" />
                     </el-form-item>
                   </el-col>
                   <el-col :span="8">
@@ -380,7 +389,12 @@
                 <el-row :gutter="16">
                   <el-col :span="8">
                     <el-form-item label="超时(秒)">
-                      <el-input-number v-model="configForm.timeout_seconds" :min="10" :max="600" />
+                      <div style="display: flex; align-items: center; gap: 8px">
+                        <el-input-number v-model="configForm.timeout_seconds" :min="10" :max="600" />
+                        <el-tooltip content="AI请求超时时间（秒）。批处理数量越大或模型越慢，建议将此值调大，通常50个字段批处理建议≥300秒" placement="top">
+                          <el-icon style="color: #909399; cursor: help;"><QuestionFilled /></el-icon>
+                        </el-tooltip>
+                      </div>
                     </el-form-item>
                   </el-col>
                   <el-col :span="8">
@@ -394,11 +408,23 @@
                     </el-form-item>
                   </el-col>
                 </el-row>
-                <el-form-item label="System Prompt">
-                  <el-input v-model="configForm.system_prompt" type="textarea" :rows="4" placeholder="留空使用默认Prompt" />
+                <el-form-item label="System Prompt（附加说明）">
+                  <template #label>
+                    <span>System Prompt（附加说明）</span>
+                    <el-tooltip content="不影响输出格式，仅作为额外上下文提供给 AI。系统输出格式已固定写死在后端代码中，此处修改不会影响分类结果格式" placement="top">
+                      <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                    </el-tooltip>
+                  </template>
+                  <el-input v-model="configForm.system_prompt" type="textarea" :rows="3" placeholder="（可选）附加说明，不影响输出格式" />
                 </el-form-item>
-                <el-form-item label="User Prompt">
-                  <el-input v-model="configForm.user_prompt_template" type="textarea" :rows="4" placeholder="留空使用默认Prompt。可用变量: {column_info} {categories_instruction}" />
+                <el-form-item label="User Prompt（附加说明）">
+                  <template #label>
+                    <span>User Prompt（附加说明）</span>
+                    <el-tooltip content="不影响输出格式，仅作为额外上下文提供给 AI。系统输出格式已固定写死在后端代码中，此处修改不会影响分类结果格式" placement="top">
+                      <el-icon style="margin-left: 4px; cursor: pointer;"><QuestionFilled /></el-icon>
+                    </el-tooltip>
+                  </template>
+                  <el-input v-model="configForm.user_prompt_template" type="textarea" :rows="3" placeholder="（可选）附加说明，不影响输出格式" />
                 </el-form-item>
                 <el-form-item>
                   <el-button type="primary" :loading="configSaving" @click="handleSaveConfig">保存</el-button>
@@ -1062,10 +1088,10 @@ const defaultConfigForm = {
   provider: '',
   api_base: '',
   api_key: '',
-  max_tokens: 4096,
+  max_tokens: 0,
   temperature: 0.1,
   top_p: 1.0,
-  timeout_seconds: 120,
+  timeout_seconds: 300,
   batch_size: 50,
   max_retries: 3,
   system_prompt: '',
@@ -1130,9 +1156,6 @@ function openCreateConfig() {
   isEditingConfig.value = false
   editingConfigId.value = null
   Object.assign(configForm, defaultConfigForm)
-  // 预填默认 Prompt
-  configForm.system_prompt = '你是一个专业的数据分类专家。你的任务是根据数据库字段的信息判断其数据类型、所属分类和数据级别。\n\n请严格按照JSON格式返回结果，不要包含其他文字。'
-  configForm.user_prompt_template = '请对以下数据库字段进行分类：\n\n{column_info}\n\n{categories_instruction}\n\n请返回以下JSON格式：\n{{\n  "category_path": "分类路径，如 个人信息/联系方式",\n  "data_type_name": "数据类型名称，如 手机号",\n  "level_code": "级别代码，如 L2",\n  "reason": "分类依据的简要说明",\n  "is_sensitive": true\n}}'
   showConfigForm.value = true
 }
 
@@ -1144,12 +1167,12 @@ function handleEditConfig(row: any) {
   configForm.provider = row.provider || ''
   configForm.api_base = row.api_base || ''
   configForm.api_key = ''
-  configForm.max_tokens = row.max_tokens || 4096
+  configForm.max_tokens = row.max_tokens ?? 0
   configForm.temperature = row.temperature ?? 0.1
   configForm.top_p = row.top_p ?? 1.0
-  configForm.timeout_seconds = row.timeout_seconds || 120
-  configForm.batch_size = row.batch_size || 50
-  configForm.max_retries = row.max_retries || 3
+  configForm.timeout_seconds = row.timeout_seconds ?? 300
+  configForm.batch_size = row.batch_size ?? 50
+  configForm.max_retries = row.max_retries ?? 3
   configForm.system_prompt = row.system_prompt || ''
   configForm.user_prompt_template = row.user_prompt_template || ''
   showConfigForm.value = true
@@ -1238,9 +1261,17 @@ async function handleTestFormConfig() {
   if (!configForm.model_name.trim()) { ElMessage.warning('请先填写模型名称'); return }
   testingConfig.value = true
   try {
-    const data = { ...configForm }
-    const res = await testAiModelConnection(data) as any
-    const result = res.data
+    let result: any
+    if (isEditingConfig.value && editingConfigId.value) {
+      // 编辑状态下使用后端接口（自动解密已保存的API Key）
+      const res = await testAiModelConfig(editingConfigId.value) as any
+      result = res.data
+    } else {
+      // 新建状态下使用前端表单数据
+      const data = { ...configForm }
+      const res = await testAiModelConnection(data) as any
+      result = res.data
+    }
     const detail = result?.data_type_name || result?.category_path || JSON.stringify(result)
     ElMessage.success(`连接测试成功！识别结果: ${detail}`)
   } catch (err: any) {

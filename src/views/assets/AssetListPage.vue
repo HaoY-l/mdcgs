@@ -97,12 +97,18 @@
           </el-col>
         </el-row>
         <el-form-item>
-          <el-input v-model="form.database_name" />
+          <el-input v-model="form.database_name" :placeholder="form.asset_type === 'oracle' ? '' : '如：db1,db2,db3'" />
           <template #label>
             <span>
               数据库名
               <el-tooltip v-if="form.asset_type === 'oracle'" placement="top" :content="'Oracle 中作为 Schema/用户名过滤（如：BUS_USER），仅扫描该 Schema 下的表。不填则扫描所有业务 Schema。'">
                 <el-icon style="margin-left: 4px; color: #909399; cursor: help; font-size: 14px; vertical-align: -2px;"><WarningFilled /></el-icon>
+              </el-tooltip>
+              <el-tooltip v-else placement="top" :enterable="false">
+                <template #content>
+                  支持逗号分隔多个数据库，如：db1,db2,db3<br/>不填则扫描所有业务库
+                </template>
+                <el-icon style="margin-left: 4px; color: #909399; cursor: help; font-size: 14px; vertical-align: -2px;"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
           </template>
@@ -176,6 +182,10 @@
             </el-form-item>
           </el-col>
         </el-row>
+        <el-form-item label="采集样本数量">
+          <el-input-number v-model="form.sample_count" :min="1" :max="100" style="width: 140px" />
+          <span style="margin-left: 8px; color: #909399; font-size: 12px">每个字段采集的样本数据条数，默认5条</span>
+        </el-form-item>
         <el-form-item>
           <el-button size="small" @click="testConnectionHandler">测试连接</el-button>
         </el-form-item>
@@ -192,7 +202,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { WarningFilled } from '@element-plus/icons-vue'
+import { WarningFilled, QuestionFilled } from '@element-plus/icons-vue'
 import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual, stopAssetUpdate } from '@/api/assets'
 import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLabel } from '@/constants/datasource'
 import PageShell from '@/components/common/PageShell.vue'
@@ -222,6 +232,8 @@ const form = reactive({
   name: '', asset_type: 'mysql', host: '127.0.0.1', port: 3306,
   database_name: '', service_name: '', username: 'root', password: '',
   business_dept: '', app_system: '',
+  // 采集样本数量
+  sample_count: 5,
   // 库表更新方式
   execute_type: 'manual',
   cron_expression: '',
@@ -305,7 +317,7 @@ function handlePageChange({ page, pageSize: size }: { page: number; pageSize: nu
 function resetForm() {
   form.name = ''; form.asset_type = 'mysql'; form.host = '127.0.0.1'; form.port = 3306
   form.database_name = ''; form.service_name = ''; form.username = 'root'; form.password = ''
-  form.business_dept = ''; form.app_system = ''
+  form.business_dept = ''; form.app_system = ''; form.sample_count = 5
   form.execute_type = 'manual'; form.cron_expression = ''
   form.update_interval = 24; form.update_time_range = ''
   form.schedule_freq = 'daily'; form.schedule_time = null
@@ -327,6 +339,7 @@ function handleEdit(row: any) {
   form.username = row.username || ''; form.password = ''
   form.business_dept = row.business_dept || ''
   form.app_system = row.app_system || ''
+  form.sample_count = row.sample_count || 5
   form.execute_type = row.execute_type || 'manual'
   form.cron_expression = row.cron_expression || ''
   form.update_interval = row.update_interval || 0

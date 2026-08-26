@@ -97,12 +97,18 @@
           </el-col>
         </el-row>
         <el-form-item>
-          <el-input v-model="form.database_name" />
+          <el-input v-model="form.database_name" :placeholder="form.asset_type === 'oracle' ? '' : '如：db1,db2,db3'" />
           <template #label>
             <span>
               数据库名
               <el-tooltip v-if="form.asset_type === 'oracle'" placement="top" :content="'Oracle 中作为 Schema/用户名过滤（如：BUS_USER），仅扫描该 Schema 下的表。不填则扫描所有业务 Schema。'">
                 <el-icon style="margin-left: 4px; color: #909399; cursor: help; font-size: 14px; vertical-align: -2px;"><WarningFilled /></el-icon>
+              </el-tooltip>
+              <el-tooltip v-else placement="top" :enterable="false">
+                <template #content>
+                  支持逗号分隔多个数据库，如：db1,db2,db3<br/>不填则扫描所有业务库
+                </template>
+                <el-icon style="margin-left: 4px; color: #909399; cursor: help; font-size: 14px; vertical-align: -2px;"><QuestionFilled /></el-icon>
               </el-tooltip>
             </span>
           </template>
@@ -196,7 +202,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { WarningFilled } from '@element-plus/icons-vue'
+import { WarningFilled, QuestionFilled } from '@element-plus/icons-vue'
 import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual, stopAssetUpdate } from '@/api/assets'
 import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLabel } from '@/constants/datasource'
 import PageShell from '@/components/common/PageShell.vue'

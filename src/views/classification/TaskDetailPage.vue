@@ -283,7 +283,7 @@
               <el-option
                 v-for="a in aiCategoryOptions"
                 :key="a"
-                :label="a"
+                :label="getDisplayAiCategory(a)"
                 :value="a"
               />
             </el-select>
@@ -931,8 +931,8 @@ function getFullAiCategory(aiCategory: any): string {
         const pathParts = path.split('>').filter(Boolean)
         // 父类 = 第一个（可能是"无"）
         const parentClass = pathParts[0] || '无'
-        // 子类优先使用 data_type_name，其次使用路径的最后一部分
-        const childClass = data.data_type_name || (pathParts[pathParts.length - 1] || '无')
+        // 子类从路径最后一部分提取（与表格显示保持一致）
+        const childClass = pathParts[pathParts.length - 1] || '无'
         parts.push('父类: ' + parentClass)
         parts.push('子类: ' + childClass)
       } else {
@@ -951,8 +951,8 @@ function getFullAiCategory(aiCategory: any): string {
       const pathParts = path.split('>').filter(Boolean)
       // 父类 = 第一个
       const parentClass = pathParts[0] || ''
-      // 子类 = 最后一个，但优先使用 data_type_name
-      const childClass = data.data_type_name || (pathParts[pathParts.length - 1] || '')
+      // 子类 = 最后一个（从路径提取，与表格显示保持一致）
+      const childClass = pathParts[pathParts.length - 1] || ''
 
       parts.push('父类: ' + parentClass)
       parts.push('子类: ' + childClass)
@@ -1005,8 +1005,8 @@ function getAiParentChild(aiCategory: any): string {
         const pathParts = path.split('>').filter(Boolean)
         // 父类 = 第一个
         const parentClass = pathParts[0] || '无'
-        // 子类优先使用 data_type_name，其次使用路径的最后一部分
-        let childClass = data.data_type_name || (pathParts[pathParts.length - 1] || '无')
+        // 子类从路径最后一部分提取
+        const childClass = pathParts[pathParts.length - 1] || '无'
         return '父类: ' + parentClass + ' | 子类: ' + childClass
       }
       return '父类: 无 | 子类: ' + (data.data_type_name || '无')
@@ -1022,13 +1022,8 @@ function getAiParentChild(aiCategory: any): string {
     const pathParts = path.split('>').filter(Boolean)
     // 父类 = 第一个
     const parentClass = pathParts[0] || '无'
-    // 子类 = 最后一个
-    let childClass = pathParts[pathParts.length - 1] || '无'
-
-    if (data.data_type_name && childClass !== data.data_type_name) {
-      // 子类名称和AI推荐类型不一致时显示AI推荐
-      childClass = data.data_type_name
-    }
+    // 子类 = 最后一个（从路径提取，与表格显示保持一致）
+    const childClass = pathParts[pathParts.length - 1] || '无'
 
     return '父类: ' + parentClass + ' | 子类: ' + childClass
   } catch {
@@ -1446,15 +1441,20 @@ async function fetchColumns() {
 
     // 提取系统类型/AI类型/人工类型的选项（用API原始字段名）
     const sysTypes = new Set<string>()
-    const aiTypes = new Set<string>()
+    const aiTypeMap = new Map<string, string>()  // key=显示名, value=原始JSON, 去重
     const manTypes = new Set<string>()
     for (const c of allData) {
       if (c.data_type_name) sysTypes.add(c.data_type_name)
-      if (c.ai_category) aiTypes.add(c.ai_category)
+      if (c.ai_category) {
+        const display = getDisplayAiCategory(c.ai_category)
+        if (!aiTypeMap.has(display)) {
+          aiTypeMap.set(display, c.ai_category)
+        }
+      }
       if (c.data_type_name_manual) manTypes.add(c.data_type_name_manual)
     }
     systemTypeOptions.value = Array.from(sysTypes).sort()
-    aiCategoryOptions.value = Array.from(aiTypes).sort()
+    aiCategoryOptions.value = Array.from(aiTypeMap.values()).sort()
     manualTypeOptions.value = Array.from(manTypes).sort()
 
     // 再获取当前分页数据用于显示

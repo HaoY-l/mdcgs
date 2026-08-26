@@ -118,7 +118,20 @@
             </el-select>
           </el-form-item>
         </template>
-        <el-form-item label="IP范围" required><el-input v-model="form.ip_range" placeholder="192.168.1.0/24" /></el-form-item>
+        <el-form-item label="IP范围" required>
+          <el-input v-model="form.ip_range" placeholder="192.168.1.0/24">
+            <template #suffix>
+              <el-tooltip content="支持格式：
+• 单个IP：192.168.1.100
+• CIDR：192.168.1.0/24
+• 逗号分隔：192.168.1.1,192.168.1.2
+• 范围：192.168.1.1-192.168.1.50
+最多支持256个IP地址" placement="top" :enterable="false">
+                <el-icon style="cursor: pointer; color: #909399;"><QuestionFilled /></el-icon>
+              </el-tooltip>
+            </template>
+          </el-input>
+        </el-form-item>
         <el-form-item label="端口范围">
           <el-input v-model="form.port_range" placeholder="如：80,443,3306 或 1-1000" />
           <div class="form-tip">留空则自动扫描常见数据库端口</div>
@@ -135,7 +148,8 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElIcon } from 'element-plus'
+import { QuestionFilled } from '@element-plus/icons-vue'
 import client from '@/api/client'
 import { getScanTasks, createScanTask, updateScanTask, deleteScanTask, startScanTask, stopScanTask } from '@/api/assets'
 

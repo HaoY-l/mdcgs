@@ -242,8 +242,8 @@ DATABASE_URL=mysql+pymysql://root:密码@宿主机IP:3306/mdcgs
 # Redis
 REDIS_URL=redis://宿主机IP:6379/0
 REDIS_PASSWORD=123456
-CELERY_BROKER_URL=redis://密码@宿主机IP:6379/1
-CELERY_RESULT_BACKEND=redis://密码@宿主机IP:6379/2
+CELERY_BROKER_URL=redis://:密码@宿主机IP:6379/1
+CELERY_RESULT_BACKEND=redis://:密码@宿主机IP:6379/2
 
 # 安全（建议随机生成）
 SECRET_KEY=your-random-secret-key

@@ -30,11 +30,11 @@
         <el-form ref="formRef" :model="loginForm" :rules="rules" class="login-form" @keyup.enter="handleLogin">
           <el-form-item prop="username">
             <div class="input-label">用户名</div>
-            <el-input v-model="loginForm.username" placeholder="请输入用户名" size="large" />
+            <el-input v-model="loginForm.username" placeholder="请输入username" size="large" />
           </el-form-item>
           <el-form-item prop="password">
             <div class="input-label">密码</div>
-            <el-input v-model="loginForm.password" type="password" placeholder="请输入密码" size="large" show-password />
+            <el-input v-model="loginForm.password" type="password" placeholder="请输入password" size="large" show-password />
           </el-form-item>
           <el-form-item>
             <div class="login-options">

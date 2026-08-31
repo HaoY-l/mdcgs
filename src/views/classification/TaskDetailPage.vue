@@ -1105,7 +1105,7 @@ async function loadEncryptionTypes() {
 async function handleChangeMask(row: any, ruleName: string) {
   try {
     if (!ruleName) return
-    await confirmMask(taskId, row.column_id, { masking_rule_name: ruleName })
+    await confirmMask(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name, column_name: row.column_name }, { masking_rule_name: ruleName })
     ElMessage.success('脱敏方式已设置')
   } catch { ElMessage.error('设置脱敏方式失败') }
 }
@@ -1113,7 +1113,7 @@ async function handleChangeMask(row: any, ruleName: string) {
 async function handleChangeEncrypt(row: any, typeName: string) {
   try {
     if (!typeName) return
-    await confirmEncrypt(taskId, row.column_id, { encryption_type_name: typeName })
+    await confirmEncrypt(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name, column_name: row.column_name }, { encryption_type_name: typeName })
     ElMessage.success('加密方式已设置')
   } catch { ElMessage.error('设置加密方式失败') }
 }
@@ -1345,8 +1345,13 @@ async function handleBatchConfirm() {
     ElMessage.warning(`已过滤 ${selectedColumns.value.length - confirmable.length} 个已确认的字段`)
   }
   try {
-    const column_ids = confirmable.map((c: any) => c.column_id)
-    await batchConfirm(taskId, { column_ids, confirm_source: batchConfirmSource.value })
+    const fields = confirmable.map((c: any) => ({
+      asset_id: c.asset_id,
+      database_name: c.database_name,
+      table_name: c.table_name,
+      column_name: c.column_name,
+    }))
+    await batchConfirm(taskId, { fields, confirm_source: batchConfirmSource.value })
     ElMessage.success(`批量确认成功（${batchConfirmSource.value === 'ai' ? 'AI分类' : '系统分类'}）`)
     selectedColumns.value = []
     fetchColumns()
@@ -1526,7 +1531,10 @@ function resetColumnFilter() {
 
 const changing = ref(false)
 const changeForm = reactive({
-  column_id: null as number | null,
+  asset_id: null as number | null,
+  database_name: '',
+  table_name: '',
+  column_name: '',
   current_type: '',
   current_level: '',
   current_category: '',
@@ -1541,7 +1549,10 @@ const changeForm = reactive({
 })
 
 function openChangeDialog(row: any) {
-  changeForm.column_id = row.column_id
+  changeForm.asset_id = row.asset_id
+  changeForm.database_name = row.database_name
+  changeForm.table_name = row.table_name
+  changeForm.column_name = row.column_name
   changeForm.current_type = row.system_type || ''
   changeForm.current_level = row.level || ''
   changeForm.current_category = row.category_path || ''
@@ -1578,7 +1589,7 @@ async function submitChange() {
     if (changeForm.encryption_type_id !== null) {
       payload.encryption_type_id = changeForm.encryption_type_id
     }
-    await changeResult(taskId, changeForm.column_id!, payload)
+    await changeResult(taskId, { asset_id: changeForm.asset_id!, database_name: changeForm.database_name, table_name: changeForm.table_name, column_name: changeForm.column_name }, payload)
     ElMessage.success('变更已提交')
     showChangeDialog.value = false
     fetchColumns()
@@ -1592,7 +1603,8 @@ async function submitChange() {
 // ========== 表级变更 ==========
 const showTableLevelDialog = ref(false)
 const tableLevelForm = reactive({
-  table_id: null as number | null,
+  asset_id: null as number | null,
+  database_name: '',
   table_name: '',
   current_level: '',
   new_level: '',
@@ -1600,7 +1612,8 @@ const tableLevelForm = reactive({
 })
 
 function openChangeTableLevel(row: any) {
-  tableLevelForm.table_id = row.id
+  tableLevelForm.asset_id = row.asset_id
+  tableLevelForm.database_name = row.database_name || ''
   tableLevelForm.table_name = row.table_name || ''
   tableLevelForm.current_level = row.level || ''
   tableLevelForm.new_level = ''
@@ -1613,7 +1626,7 @@ async function submitTableLevelChange() {
   if (!tableLevelForm.reason.trim()) { ElMessage.warning('请输入变更原因'); return }
   changing.value = true
   try {
-    await changeTableLevel(taskId, tableLevelForm.table_id!, {
+    await changeTableLevel(taskId, { asset_id: tableLevelForm.asset_id!, database_name: tableLevelForm.database_name, table_name: tableLevelForm.table_name }, {
       level: tableLevelForm.new_level,
       reason: tableLevelForm.reason.trim(),
     })
@@ -1628,7 +1641,7 @@ async function submitTableLevelChange() {
 async function handleUnlockTableLevel(row: any) {
   try {
     await ElMessageBox.confirm('确定解锁该表的级别吗？', '提示', { type: 'warning' })
-    await unlockTableLevel(taskId, row.id)
+    await unlockTableLevel(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name })
     ElMessage.success('已解锁')
     fetchTables()
   } catch {
@@ -1672,7 +1685,8 @@ function clearConfirmDialog() {
 // 从弹窗确认分类
 async function handleConfirmFromDialog(source: string) {
   if (!confirmDialogRow.value) return
-  await confirmResult(taskId, confirmDialogRow.value.column_id, { confirm_source: source })
+  const row = confirmDialogRow.value
+  await confirmResult(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name, column_name: row.column_name }, { confirm_source: source })
   ElMessage.success('已确认')
   showConfirmDialog.value = false
   confirmDialogRow.value = null
@@ -1684,7 +1698,7 @@ async function handleConfirmWithSource(row: any, source: 'system' | 'ai') {
   try {
     // 双击时如果勾选了跳过弹窗，直接确认
     if (skipConfirmDialog.value) {
-      await confirmResult(taskId, row.column_id, { confirm_source: source })
+      await confirmResult(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name, column_name: row.column_name }, { confirm_source: source })
       ElMessage.success('已确认')
       fetchColumns()
       return
@@ -1702,7 +1716,7 @@ async function handleConfirmWithSource(row: any, source: 'system' | 'ai') {
 async function handleConfirmColumn(row: any) {
   try {
     await ElMessageBox.confirm(`确定确认字段 "${row.column_name}" 的分类结果吗？`, '确认', { type: 'info' })
-    await confirmResult(taskId, row.column_id, {})
+    await confirmResult(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name, column_name: row.column_name }, {})
     ElMessage.success('已确认')
     fetchColumns()
   } catch (err: any) {
@@ -1713,7 +1727,7 @@ async function handleConfirmColumn(row: any) {
 async function handleUnlockColumn(row: any) {
   try {
     await ElMessageBox.confirm(`确定解锁字段 "${row.column_name}" 吗？`, '提示', { type: 'warning' })
-    await unlockResult(taskId, row.column_id)
+    await unlockResult(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name, column_name: row.column_name })
     ElMessage.success('已解锁')
     fetchColumns()
   } catch (err: any) {
@@ -1731,7 +1745,7 @@ async function handleColumnSample(row: any) {
   showSampleDialog.value = true
   sampleLoading.value = true
   try {
-    const res = await getColumnSample(taskId, row.column_id)
+    const res = await getColumnSample(taskId, { asset_id: row.asset_id, database_name: row.database_name, table_name: row.table_name, column_name: row.column_name })
     if (Array.isArray(res.data)) {
       sampleData.value = res.data
     } else if (res.data?.values) {

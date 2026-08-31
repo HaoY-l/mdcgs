@@ -101,7 +101,7 @@ export async function unlockResult(taskId: number, fieldMeta: { asset_id: number
 /**
  * 批量确认 - data.fields: [{asset_id, database_name, table_name, column_name}, ...]
  */
-export async function batchConfirm(taskId: number, data: Record<string, any> = {}) {
+export async function batchConfirm(taskId: number, data: Record<string, any> = {}): Promise<any> {
   return client.post(`/classification-tasks/${taskId}/results/batch-confirm`, data)
 }
 

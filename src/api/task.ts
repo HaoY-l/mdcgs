@@ -53,61 +53,103 @@ export async function getTaskTables(taskId: number, params: Record<string, any> 
 }
 
 export async function getTaskColumns(taskId: number, params: Record<string, any> = {}) {
-  // Support table_id filter
   const queryParams = { ...params }
   return client.get(`/classification-tasks/${taskId}/results/columns`, { params: queryParams })
 }
 
-export async function getColumnResult(taskId: number, columnId: number) {
-  return client.get(`/classification-tasks/${taskId}/results/${columnId}`)
+// ===== 单字段操作（使用元数据键定位） =====
+
+/**
+ * 获取单列结果
+ * @param taskId 任务ID
+ * @param fieldMeta 元数据键 { asset_id, database_name, table_name, column_name }
+ */
+export async function getColumnResult(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string; column_name: string }) {
+  return client.get(`/classification-tasks/${taskId}/results/field`, { params: fieldMeta })
 }
 
-export async function confirmResult(taskId: number, columnId: number, data: Record<string, any> = {}) {
-  return client.post(`/classification-tasks/${taskId}/results/${columnId}/confirm`, data)
+/**
+ * 确认字段分类结果
+ * @param taskId 任务ID
+ * @param fieldMeta 元数据键
+ * @param data 请求体数据
+ */
+export async function confirmResult(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string; column_name: string }, data: Record<string, any> = {}) {
+  return client.post(`/classification-tasks/${taskId}/results/field/confirm`, { ...fieldMeta, ...data })
 }
 
-export async function changeResult(taskId: number, columnId: number, data: Record<string, any> = {}) {
-  return client.post(`/classification-tasks/${taskId}/results/${columnId}/change`, data)
+/**
+ * 变更字段分类结果
+ */
+export async function changeResult(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string; column_name: string }, data: Record<string, any> = {}) {
+  return client.post(`/classification-tasks/${taskId}/results/field/change`, { ...fieldMeta, ...data })
 }
 
-export async function unlockResult(taskId: number, columnId: number) {
-  return client.post(`/classification-tasks/${taskId}/results/${columnId}/unlock`)
+/**
+ * 解锁字段
+ */
+export async function unlockResult(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string; column_name: string }) {
+  return client.post(`/classification-tasks/${taskId}/results/field/unlock`, fieldMeta)
 }
 
 // ===== 批次操作 =====
 
+/**
+ * 批量确认 - data.fields: [{asset_id, database_name, table_name, column_name}, ...]
+ */
 export async function batchConfirm(taskId: number, data: Record<string, any> = {}) {
   return client.post(`/classification-tasks/${taskId}/results/batch-confirm`, data)
 }
 
+/**
+ * 批量变更 - data.fields: [{asset_id, database_name, table_name, column_name}, ...]
+ */
 export async function batchChange(taskId: number, data: Record<string, any> = {}) {
   return client.post(`/classification-tasks/${taskId}/results/batch-change`, data)
 }
 
+/**
+ * 批量解锁 - data.fields: [{asset_id, database_name, table_name, column_name}, ...]
+ */
 export async function batchUnlock(taskId: number, data: Record<string, any> = {}) {
   return client.post(`/classification-tasks/${taskId}/results/batch-unlock`, data)
 }
 
+/**
+ * 批量备注 - data.fields: [{asset_id, database_name, table_name, column_name}, ...]
+ */
 export async function batchNote(taskId: number, data: Record<string, any> = {}) {
   return client.post(`/classification-tasks/${taskId}/results/batch-note`, data)
 }
 
 // ===== 脱敏与加密 =====
 
-export async function confirmMask(taskId: number, columnId: number, data: Record<string, any> = {}) {
-  return client.post(`/classification-tasks/${taskId}/results/${columnId}/confirm-mask`, data)
+/**
+ * 确认脱敏 - fieldMeta: {asset_id, database_name, table_name, column_name}
+ */
+export async function confirmMask(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string; column_name: string }, data: Record<string, any> = {}) {
+  return client.post(`/classification-tasks/${taskId}/results/field/confirm-mask`, { ...fieldMeta, ...data })
 }
 
-export async function confirmEncrypt(taskId: number, columnId: number, data: Record<string, any> = {}) {
-  return client.post(`/classification-tasks/${taskId}/results/${columnId}/confirm-encrypt`, data)
+/**
+ * 确认加密 - fieldMeta: {asset_id, database_name, table_name, column_name}
+ */
+export async function confirmEncrypt(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string; column_name: string }, data: Record<string, any> = {}) {
+  return client.post(`/classification-tasks/${taskId}/results/field/confirm-encrypt`, { ...fieldMeta, ...data })
 }
 
-export async function changeTableLevel(taskId: number, tableId: number, data: Record<string, any> = {}) {
-  return client.post(`/classification-tasks/${taskId}/tables/${tableId}/change-level`, data)
+/**
+ * 变更表级别 - fieldMeta: {asset_id, database_name, table_name}
+ */
+export async function changeTableLevel(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string }, data: Record<string, any> = {}) {
+  return client.post(`/classification-tasks/${taskId}/tables/change-level`, { ...fieldMeta, ...data })
 }
 
-export async function unlockTableLevel(taskId: number, tableId: number) {
-  return client.post(`/classification-tasks/${taskId}/tables/${tableId}/unlock`)
+/**
+ * 解锁表级别 - fieldMeta: {asset_id, database_name, table_name}
+ */
+export async function unlockTableLevel(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string }) {
+  return client.post(`/classification-tasks/${taskId}/tables/unlock`, fieldMeta)
 }
 
 // ===== 分类视图与统计 =====
@@ -148,8 +190,11 @@ export async function aiClassify(taskId: number) {
 
 // ===== 样本数据 =====
 
-export async function getColumnSample(taskId: number, columnId: number) {
-  return client.get(`/classification-tasks/${taskId}/results/${columnId}/sample`)
+/**
+ * 获取字段样本数据 - fieldMeta: {asset_id, database_name, table_name, column_name}
+ */
+export async function getColumnSample(taskId: number, fieldMeta: { asset_id: number; database_name: string; table_name: string; column_name: string }) {
+  return client.get(`/classification-tasks/${taskId}/results/field/sample`, { params: fieldMeta })
 }
 
 // ===== 审核相关 =====

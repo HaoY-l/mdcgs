@@ -34,6 +34,10 @@ export async function stopTask(id: number) {
   return client.post(`/classification-tasks/${id}/stop`)
 }
 
+export async function batchStartTasks(taskIds: number[]): Promise<Record<string, any>> {
+  return client.post('/classification-tasks/batch-start', { task_ids: taskIds }) as any
+}
+
 export async function clearTaskResults(id: number) {
   return client.post(`/classification-tasks/${id}/clear-results`)
 }

@@ -96,7 +96,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getTasks, deleteTask, startTask, stopTask } from '@/api/task'
+import { getTasks, deleteTask, startTask, stopTask, batchStartTasks } from '@/api/task'
 
 const router = useRouter()
 const loading = ref(false)
@@ -245,48 +245,26 @@ async function handleBatchStart() {
       confirmButtonText: '全部启动',
       cancelButtonText: '取消',
     })
-    let successCount = 0
-    let failCount = 0
-    let alreadyRunningCount = 0
-    let queuedCount = 0
 
-    for (const row of selectedTasks.value) {
-      // 过滤掉已经在运行/排队中的
-      if (row.status === 'running' || row.status === 'processing') {
-        alreadyRunningCount++
-        continue
-      }
-      if (row.status === 'queued') {
-        queuedCount++
-        continue
-      }
-      try {
-        const res = await startTask(row.id)
-        // 拦截器返回的是 { code, data, message }，code=0 表示成功
-        // 消息中如果包含"排队"则算作排队，否则算成功
-        const msgText = res?.message || ''
-        if (res?.code === 0) {
-          if (msgText.includes('排队')) {
-            queuedCount++
-          } else {
-            successCount++
-          }
-        } else {
-          failCount++
-        }
-      } catch {
-        failCount++
-      }
-      // 每间隔500ms发一个请求，避免后端瞬间并发
-      await new Promise(r => setTimeout(r, 500))
+    // 调用批量启动API
+    const res = await batchStartTasks(selectedTaskIds.value)
+    if (res?.code === 0) {
+      const results = res?.data || []
+      const successCount = results.filter((r: any) => r.status === 'submitted').length
+      const runningCount = results.filter((r: any) => r.status === 'running').length
+      const queuedCount = results.filter((r: any) => r.status === 'queued').length
+      const notFoundCount = results.filter((r: any) => r.status === 'not_found').length
+
+      let msg = ''
+      if (successCount > 0) msg += `成功启动 ${successCount} 个任务`
+      if (queuedCount > 0) msg += (msg ? '；' : '') + `${queuedCount} 个正在排队中`
+      if (runningCount > 0) msg += (msg ? '；' : '') + `${runningCount} 个正在运行`
+      if (notFoundCount > 0) msg += (msg ? '；' : '') + `${notFoundCount} 个任务不存在`
+      ElMessage.info(msg || '批量启动完成')
+    } else {
+      ElMessage.error(res?.message || '批量启动失败')
     }
 
-    let msg = ''
-    if (successCount > 0) msg += `成功启动 ${successCount} 个任务`
-    if (queuedCount > 0) msg += (msg ? '；' : '') + `${queuedCount} 个正在排队中`
-    if (alreadyRunningCount > 0) msg += (msg ? '；' : '') + `${alreadyRunningCount} 个正在运行`
-    if (failCount > 0) msg += (msg ? '；' : '') + `${failCount} 个启动失败`
-    ElMessage.info(msg || '批量启动完成')
     selectedTaskIds.value = []
     selectedTasks.value = []
     fetchTasks()

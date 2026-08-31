@@ -1351,8 +1351,12 @@ async function handleBatchConfirm() {
       table_name: c.table_name,
       column_name: c.column_name,
     }))
-    await batchConfirm(taskId, { fields, confirm_source: batchConfirmSource.value })
-    ElMessage.success(`批量确认成功（${batchConfirmSource.value === 'ai' ? 'AI分类' : '系统分类'}）`)
+    const res = await batchConfirm(taskId, { fields, confirm_source: batchConfirmSource.value })
+    if (res?.code === 0) {
+      ElMessage.success(res?.message || '操作成功')
+    } else {
+      ElMessage.error(res?.message || '批量确认失败')
+    }
     selectedColumns.value = []
     fetchColumns()
   } catch (err: any) {

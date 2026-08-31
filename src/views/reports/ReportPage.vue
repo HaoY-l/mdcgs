@@ -276,9 +276,6 @@ const REPORT_TYPE_OPTIONS = [
   { value: 'classification_catalog', label: '数据分类分级目录' },
   { value: 'annual_security', label: '数据安全年度评估' },
   { value: 'pia', label: '个人信息保护影响评估' },
-  { value: 'important_data', label: '重要数据识别报告' },
-  { value: 'audit_summary', label: '审计合规摘要' },
-  { value: 'change_log', label: '分类分级变更报告' },
 ]
 
 const reportTypeOptions = REPORT_TYPE_OPTIONS

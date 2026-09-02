@@ -317,6 +317,11 @@ MDCGS 内置了一套**通用分类分级模板**，同时也支持导入行业�
   <img src="https://img.shields.io/badge/💬%20微信-tomorrow_me--0891b2?style=for-the-badge"/>
 </p>
 
+<p align="center">
+  <img src="./public/wechat-qrcode.png" width="180" alt="微信二维码：tomorrow_me-"/>
+</p>
+
+
 ---
 
 <p align="center">

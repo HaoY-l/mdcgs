@@ -61,8 +61,9 @@ export async function getFileTaskFilterOptions(taskId: number) {
 }
 
 // 确认 / 变更（兼容旧路由）
-export async function confirmFileResult(taskId: number, resultId: number) {
-  return client.post(`/file-classification-tasks/${taskId}/results/${resultId}/confirm`)
+export async function confirmFileResult(taskId: number, resultId: number, confirmSource?: string) {
+  const data = confirmSource ? { confirm_source: confirmSource } : {}
+  return client.post(`/file-classification-tasks/${taskId}/results/${resultId}/confirm`, data)
 }
 export async function changeFileResult(taskId: number, resultId: number, data: any) {
   return client.post(`/file-classification-tasks/${taskId}/results/${resultId}/change`, data)

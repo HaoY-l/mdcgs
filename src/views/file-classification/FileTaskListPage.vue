@@ -168,8 +168,8 @@ function formatTime(s?: string) {
   const d = new Date(s)
   return isNaN(d.getTime()) ? '-' : d.toLocaleString('zh-CN', { hour12: false })
 }
-function statusText(s: string) { return ({ pending: '待处理', running: '执行中', completed: '已完成', stopped: '已停止', failed: '失败' } as any)[s] || s }
-function statusType(s: string) { return ({ pending: 'info', running: 'warning', completed: 'success', stopped: '', failed: 'danger' } as any)[s] || 'info' }
+function statusText(s: string) { return ({ pending: '待处理', queued: '排队中', running: '执行中', completed: '已完成', stopped: '已停止', failed: '失败' } as any)[s] || s }
+function statusType(s: string) { return ({ pending: 'info', queued: 'warning', running: 'warning', completed: 'success', stopped: '', failed: 'danger' } as any)[s] || 'info' }
 
 async function fetch() {
   loading.value = true
@@ -365,7 +365,8 @@ async function onBatchDelete() {
 function startAutoRefresh() {
   if (refreshTimer) return
   refreshTimer = setInterval(() => {
-    if (items.value.some(t => t.status === 'running' || t.status === 'queued')) {
+    const hasRunning = items.value?.some(t => t.status === 'running' || t.status === 'queued')
+    if (hasRunning) {
       fetch()
     } else {
       stopAutoRefresh()
@@ -373,7 +374,10 @@ function startAutoRefresh() {
   }, 5000)
 }
 function stopAutoRefresh() {
-  if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null }
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
 }
 
 // 加载模板列表和文件资产列表（用于表格列的 id→name 渲染）

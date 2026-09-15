@@ -184,14 +184,18 @@
                     :class="['dblclick-confirm', { 'is-locked': row.is_confirmed || row.is_changed }]"
                     :title="(row.is_confirmed || row.is_changed) ? '已确认或变更' : '双击确认'"
                     @dblclick.stop="!(row.is_confirmed || row.is_changed) && handleAiConfirm(row)"
-                  >{{ row.ai_category }}</span>
+                  >{{ parseAiCategory(row.ai_category) }}</span>
                   <span v-else style="color: #c0c4cc">-</span>
                 </template>
               </el-table-column>
               <el-table-column label="人工确认" min-width="100" show-overflow-tooltip>
                 <template #default="{ row }">
-                  <el-tag v-if="row.is_changed" type="warning" size="small" effect="plain">已变更</el-tag>
-                  <el-tag v-else-if="row.is_confirmed" type="success" size="small" effect="plain">已确认</el-tag>
+                  <template v-if="row.is_changed">
+                    <el-tag type="warning" size="small" effect="plain">{{ row.sensitive_type || '已变更' }}</el-tag>
+                  </template>
+                  <template v-else-if="row.is_confirmed">
+                    <span class="manual-type-name">{{ row.sensitive_type || getManualTypeName(row) }}</span>
+                  </template>
                   <el-button v-else type="primary" link size="small" @click="openConfirmDialog(row)">待确认</el-button>
                 </template>
               </el-table-column>
@@ -341,15 +345,34 @@
     </template>
 
     <!-- 确认弹窗 -->
-    <el-dialog v-model="showConfirmDialog" title="确认分类" width="420px">
+    <el-dialog v-model="showConfirmDialog" title="确认分类" width="500px">
       <div v-if="confirmDialogRow">
         <el-descriptions :column="1" border size="small">
           <el-descriptions-item label="块路径">{{ confirmDialogRow.block_path }}</el-descriptions-item>
           <el-descriptions-item label="文件">{{ confirmDialogRow.file_name }}</el-descriptions-item>
           <el-descriptions-item label="内容">{{ (confirmDialogRow.content_preview || '-').substring(0, 100) }}</el-descriptions-item>
-          <el-descriptions-item label="敏感类型">{{ confirmDialogRow.sensitive_type || '-' }}</el-descriptions-item>
-          <el-descriptions-item label="级别">{{ confirmDialogRow.level_code || '-' }}</el-descriptions-item>
         </el-descriptions>
+        <div style="margin-top: 16px">
+          <el-radio-group v-model="confirmSourceChoice">
+            <el-card shadow="never" style="margin-bottom: 8px">
+              <el-radio label="system">
+                <span style="font-weight: 500">系统分类</span>
+              </el-radio>
+              <div style="margin-left: 24px; margin-top: 4px; color: #606266">
+                <span>敏感类型：{{ confirmDialogRow.sensitive_type || '-' }}</span>
+                <span style="margin-left: 16px">级别：{{ confirmDialogRow.level_code || '-' }}</span>
+              </div>
+            </el-card>
+            <el-card v-if="confirmDialogRow.ai_category" shadow="never">
+              <el-radio label="ai">
+                <span style="font-weight: 500">AI分类</span>
+              </el-radio>
+              <div style="margin-left: 24px; margin-top: 4px; color: #606266">
+                <span>{{ parseAiCategory(confirmDialogRow.ai_category) }}</span>
+              </div>
+            </el-card>
+          </el-radio-group>
+        </div>
       </div>
       <template #footer>
         <el-button @click="showConfirmDialog = false">取消</el-button>
@@ -522,6 +545,7 @@ const taskLogs = ref<any[]>([])
 const showConfirmDialog = ref(false)
 const confirmDialogRow = ref<any>(null)
 const confirming = ref(false)
+const confirmSourceChoice = ref<'system' | 'ai'>('system')
 
 const showChangeDialog = ref(false)
 const changing = ref(false)
@@ -551,6 +575,65 @@ watch(skipConfirmDialog, (val) => {
   localStorage.setItem('skipConfirmDialog', val ? 'true' : 'false')
 })
 
+// ========== 轮询进度（与数据库资产一致） ==========
+let progressTimer: number | null = null
+
+function startProgressPolling() {
+  if (progressTimer) clearInterval(progressTimer)
+  progressTimer = window.setInterval(async () => {
+    if (task.value?.status === 'running' || task.value?.status === 'queued') {
+      try {
+        const res: any = await getFileTaskProgress(taskId.value)
+        if (res.data) {
+          task.value.progress = res.data.progress ?? task.value.progress
+          task.value.current_step = res.data.current_step ?? task.value.current_step
+          task.value.processed_files = res.data.processed_files ?? task.value.processed_files
+          task.value.processed_blocks = res.data.processed_blocks ?? task.value.processed_blocks
+          task.value.ai_processed = res.data.ai_processed ?? task.value.ai_processed
+          if (res.data.status && res.data.status !== 'running' && res.data.status !== 'queued') {
+            task.value.status = res.data.status
+            loadAll()
+          }
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }
+  }, 5000)
+}
+
+function stopProgressPolling() {
+  if (progressTimer) {
+    clearInterval(progressTimer)
+    progressTimer = null
+  }
+}
+
+// 解析AI分类JSON，返回分类名称
+function parseAiCategory(aiCategory: string | null): string {
+  if (!aiCategory) return '-'
+  try {
+    const data = typeof aiCategory === 'string' ? JSON.parse(aiCategory) : aiCategory
+    const path = data.category_path || ''
+    if (path) {
+      const parts = path.split('>').map((p: string) => p.trim()).filter(Boolean)
+      return parts[parts.length - 1] || data.data_type_name || '-'
+    }
+    return data.data_type_name || '-'
+  } catch {
+    return aiCategory || '-'
+  }
+}
+
+// 获取人工确认后的实际分类名称（与数据库资产一致）
+function getManualTypeName(row: any): string {
+  // 优先使用sensitive_type（确认时会把分类名写入此字段）
+  if (row.sensitive_type) return row.sensitive_type
+  // 如果有level_code说明已分类
+  if (row.level_code) return row.level_code
+  return '-'
+}
+
 let pollTimer: any = null
 
 // ========== 加载函数 ==========
@@ -560,9 +643,9 @@ async function loadTask() {
     const res: any = await getFileTask(taskId.value)
     task.value = res.data || res
     if (task.value?.status === 'running' || task.value?.status === 'queued' || task.value?.status === 'pending') {
-      startPolling()
+      startProgressPolling()
     } else {
-      stopPolling()
+      stopProgressPolling()
     }
   } catch {
     task.value = null
@@ -661,7 +744,7 @@ async function loadFilterOptions() {
       const aiCategories = new Set<string>()
       for (const item of items) {
         if (item.sensitive_type) systemTypes.add(item.sensitive_type)
-        if (item.ai_category) aiCategories.add(item.ai_category)
+        if (item.ai_category) aiCategories.add(parseAiCategory(item.ai_category))
       }
       systemTypeOptions.value = Array.from(systemTypes).sort()
       aiCategoryOptions.value = Array.from(aiCategories).sort()
@@ -733,6 +816,7 @@ function handleBlockPageChange() {
 // ========== 确认/变更弹窗 ==========
 function openConfirmDialog(row: any) {
   confirmDialogRow.value = row
+  confirmSourceChoice.value = 'system'
   showConfirmDialog.value = true
 }
 
@@ -740,7 +824,7 @@ async function handleConfirm() {
   if (!confirmDialogRow.value) return
   confirming.value = true
   try {
-    await confirmFileResult(taskId.value, confirmDialogRow.value.id)
+    await confirmFileResult(taskId.value, confirmDialogRow.value.id, confirmSourceChoice.value)
     ElMessage.success('已确认')
     showConfirmDialog.value = false
     confirmDialogRow.value = null
@@ -799,7 +883,7 @@ function handleBlockSelectionChange(selection: any[]) {
 async function handleSystemConfirm(row: any) {
   if (skipConfirmDialog.value) {
     try {
-      await confirmFileResult(taskId.value, row.id)
+      await confirmFileResult(taskId.value, row.id, 'system')
       ElMessage.success('已确认')
       loadBlocks()
     } catch (err: any) {
@@ -815,7 +899,7 @@ async function handleSystemConfirm(row: any) {
 async function handleAiConfirm(row: any) {
   if (skipConfirmDialog.value) {
     try {
-      await confirmFileResult(taskId.value, row.id)
+      await confirmFileResult(taskId.value, row.id, 'ai')
       ElMessage.success('已确认')
       loadBlocks()
     } catch (err: any) {
@@ -840,7 +924,7 @@ async function handleBatchConfirm() {
   }
   try {
     for (const block of confirmable) {
-      await confirmFileResult(taskId.value, block.id)
+      await confirmFileResult(taskId.value, block.id, batchConfirmSource.value || 'system')
     }
     ElMessage.success(`已确认 ${confirmable.length} 项`)
     selectedBlocks.value = []

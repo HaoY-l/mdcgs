@@ -26,9 +26,34 @@
           </el-radio-group>
         </el-form-item>
 
-        <el-form-item v-if="form.execute_type === 'periodic'" label="Cron表达式" required>
-          <el-input v-model="form.cron_expression" placeholder="如: 0 0 2 * * *" style="width: 100%" />
-          <div style="font-size: 12px; color: #909399; margin-top: 4px">格式: 秒 分 时 日 月 周，如: 0 0 2 * * * 表示每天凌晨2点</div>
+        <el-form-item v-if="form.execute_type === 'periodic'" label="执行频率" required>
+          <el-radio-group v-model="form.schedule_freq">
+            <el-radio value="daily">每天</el-radio>
+            <el-radio value="weekly">每周</el-radio>
+            <el-radio value="monthly">每月</el-radio>
+          </el-radio-group>
+        </el-form-item>
+
+        <el-form-item v-if="form.execute_type === 'periodic'" label="执行时间" required>
+          <el-time-picker v-model="form.schedule_time" format="HH:mm" placeholder="选择时间" style="width: 140px" />
+        </el-form-item>
+
+        <el-form-item v-if="form.execute_type === 'periodic' && form.schedule_freq === 'weekly'" label="选择星期" required>
+          <el-checkbox-group v-model="form.schedule_week_days">
+            <el-checkbox :label="1">周一</el-checkbox>
+            <el-checkbox :label="2">周二</el-checkbox>
+            <el-checkbox :label="3">周三</el-checkbox>
+            <el-checkbox :label="4">周四</el-checkbox>
+            <el-checkbox :label="5">周五</el-checkbox>
+            <el-checkbox :label="6">周六</el-checkbox>
+            <el-checkbox :label="0">周日</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+
+        <el-form-item v-if="form.execute_type === 'periodic' && form.schedule_freq === 'monthly'" label="选择日期" required>
+          <el-select v-model="form.schedule_month_day" style="width: 120px">
+            <el-option v-for="d in 31" :key="d" :label="d + '日'" :value="d" />
+          </el-select>
         </el-form-item>
 
         <el-form-item label="文件资产" required>
@@ -69,6 +94,11 @@ const form = ref({
   template_id: null as number | null,
   execute_type: 'manual',
   cron_expression: '',
+  // 周期执行友好字段
+  schedule_freq: 'daily',
+  schedule_time: new Date(),
+  schedule_week_days: [] as number[],
+  schedule_month_day: 1,
   file_asset_ids: [] as number[],
 })
 
@@ -82,12 +112,66 @@ async function loadTask() {
     form.value.execute_type = data.execute_type || 'manual'
     form.value.cron_expression = data.cron_expression || ''
     form.value.file_asset_ids = data.file_asset_ids || []
+
+    // 解析 cron 表达式回显友好字段
+    parseCronToForm(data.cron_expression || '')
   } catch {
     ElMessage.error('加载任务信息失败')
     goBack()
   } finally {
     loading.value = false
   }
+}
+
+function parseCronToForm(cron: string) {
+  if (!cron) return
+  const parts = cron.trim().split(/\s+/)
+  if (parts.length < 5) return
+
+  // 0 0 2 * * * => 每天凌晨2点
+  // 0 30 8 ? * 1,2,3,4,5 => 每周一到周五 8:30
+  // 0 0 3 15 * * => 每月15号凌晨3点
+
+  // 解析时间 (分 时)
+  const minute = parseInt(parts[0]) || 0
+  const hour = parseInt(parts[1]) || 0
+  form.value.schedule_time = new Date(2024, 0, 1, hour, minute)
+
+  // 解析频率
+  if (parts[4] === '*' && parts[3] === '*') {
+    // 每天
+    form.value.schedule_freq = 'daily'
+  } else if (parts[4] === '*' && parts[3] !== '*') {
+    // 每月
+    form.value.schedule_freq = 'monthly'
+    form.value.schedule_month_day = parseInt(parts[3]) || 1
+  } else if (parts[4] !== '*' && parts[4] !== '?' && parts[3] === '*') {
+    // 每周
+    form.value.schedule_freq = 'weekly'
+    const days = parts[4].split(',').map(d => parseInt(d))
+    form.value.schedule_week_days = days
+  } else if (parts[4] === '?') {
+    // 周中某天
+    form.value.schedule_freq = 'weekly'
+    const days = parts[5] ? parts[5].split(',').map(d => parseInt(d)) : [1, 2, 3, 4, 5]
+    form.value.schedule_week_days = days
+  }
+}
+
+function buildCronExpression(): string {
+  const time = form.value.schedule_time
+  const minute = time.getMinutes()
+  const hour = time.getHours()
+
+  if (form.value.schedule_freq === 'daily') {
+    return `0 ${minute} ${hour} * * *`
+  } else if (form.value.schedule_freq === 'weekly') {
+    const days = form.value.schedule_week_days.sort().join(',')
+    return `0 ${minute} ${hour} ? * ${days}`
+  } else if (form.value.schedule_freq === 'monthly') {
+    return `0 ${minute} ${hour} ${form.value.schedule_month_day} * *`
+  }
+  return ''
 }
 
 async function loadTemplates() {
@@ -118,41 +202,65 @@ async function handleSave() {
     return
   }
   if (!form.value.template_id) {
-    ElMessage.warning('请选择模板')
+    ElMessage.warning('请选择分类模板')
     return
   }
-  if (!form.value.file_asset_ids.length) {
-    ElMessage.warning('请选择至少一个文件资产')
+  if (form.value.file_asset_ids.length === 0) {
+    ElMessage.warning('请选择文件资产')
     return
   }
   if (form.value.execute_type === 'periodic') {
-    if (!form.value.cron_expression.trim()) {
-      ElMessage.warning('周期任务请填写Cron表达式')
+    if (form.value.schedule_freq === 'weekly' && form.value.schedule_week_days.length === 0) {
+      ElMessage.warning('请选择星期')
       return
     }
   }
 
   saving.value = true
   try {
-    await updateFileTask(taskId, {
-      name: form.value.name.trim(),
+    const payload: any = {
+      name: form.value.name,
       template_id: form.value.template_id,
       execute_type: form.value.execute_type,
-      cron_expression: form.value.execute_type === 'periodic' ? form.value.cron_expression.trim() : undefined,
       file_asset_ids: form.value.file_asset_ids,
-    })
-    ElMessage.success('更新成功')
-    router.push('/classification/file-tasks')
-  } catch (err: any) {
-    ElMessage.error(err?.message || err?.response?.data?.message || '更新失败')
+    }
+
+    if (form.value.execute_type === 'periodic') {
+      payload.cron_expression = buildCronExpression()
+    }
+
+    await updateFileTask(taskId, payload)
+    ElMessage.success('保存成功')
+    goBack()
+  } catch (e: any) {
+    ElMessage.error(e.message || '保存失败')
   } finally {
     saving.value = false
   }
 }
 
-onMounted(() => {
-  loadTask()
-  loadTemplates()
-  loadFileAssets()
+onMounted(async () => {
+  loading.value = true
+  try {
+    await Promise.all([
+      loadTask(),
+      loadTemplates(),
+      loadFileAssets(),
+    ])
+  } finally {
+    loading.value = false
+  }
 })
 </script>
+
+<style scoped>
+.page-container {
+  padding: 20px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20px;
+}
+</style>

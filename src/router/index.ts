@@ -43,6 +43,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '敏感表盘', icon: 'Collection' },
       },
       {
+        path: 'overview/file-dashboard',
+        name: 'FileDashboard',
+        component: () => import('@/views/overview/FileDashboardPage.vue'),
+        meta: { title: '文件表盘', icon: 'Document' },
+      },
+      {
         path: 'assets',
         name: 'AssetList',
         component: () => import('@/views/assets/AssetListPage.vue'),
@@ -108,6 +114,12 @@ const routes: RouteRecordRaw[] = [
         name: 'FileClassifyTaskDetailAlt',
         component: () => import('@/views/file-classification/FileTaskDetailPage.vue'),
         meta: { title: '文件分类任务详情' },
+      },
+      {
+        path: 'file-classification-tasks/:id/edit',
+        name: 'FileClassifyTaskEditAlt',
+        component: () => import('@/views/file-classification/FileTaskEditPage.vue'),
+        meta: { title: '编辑文件分类任务' },
       },
       {
         path: 'classification/tasks/:id/edit',

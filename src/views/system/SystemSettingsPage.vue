@@ -770,7 +770,7 @@ const logoFile = ref<File | null>(null)
 const uploadRef = ref()
 const currentLogoUrl = ref('')
 
-const basicForm = reactive({ asset_task_limit: 5, classify_task_limit: 3, refresh_interval: 60 })
+const basicForm = reactive({ asset_task_limit: 5, classify_task_limit: 5, refresh_interval: 60 })
 
 // 安全设置 - 值都是字符串，后端 SysSettings 存字符串
 const securityForm = reactive({
@@ -794,9 +794,9 @@ const dataAppForm = reactive({ name: '', app_type: '', endpoint_url: '' })
 const engineLoading = ref(false)
 const engineSaving = ref(false)
 const engineForm = reactive({
-  rule_threads: 1,
-  ai_concurrency: 3,
-  ai_batch_size: 50,
+  rule_threads: 10,
+  ai_concurrency: 10,
+  ai_batch_size: 20,
   progress_weight_rule: 50,
   progress_weight_ai: 50,
 })

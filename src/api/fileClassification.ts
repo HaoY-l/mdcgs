@@ -65,6 +65,15 @@ export async function confirmFileResult(taskId: number, resultId: number, confir
   const data = confirmSource ? { confirm_source: confirmSource } : {}
   return client.post(`/file-classification-tasks/${taskId}/results/${resultId}/confirm`, data)
 }
+// 批量确认 - 打包一次接口调用（与数据库任务一致）
+export async function batchConfirmFileResults(taskId: number, blockIds: number[], confirmSource?: string) {
+  const data = { block_ids: blockIds, confirm_source: confirmSource || 'system' }
+  return client.post(`/file-classification-tasks/${taskId}/results/batch-confirm`, data)
+}
 export async function changeFileResult(taskId: number, resultId: number, data: any) {
   return client.post(`/file-classification-tasks/${taskId}/results/${resultId}/change`, data)
+}
+// 批量变更 - 打包一次接口调用（与数据库任务一致）
+export async function batchChangeFileResults(taskId: number, blockIds: number[], data: any) {
+  return client.post(`/file-classification-tasks/${taskId}/results/batch-change`, { block_ids: blockIds, ...data })
 }

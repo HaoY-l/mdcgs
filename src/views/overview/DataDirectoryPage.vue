@@ -4,8 +4,11 @@
       <h2>数据目录</h2>
     </div>
 
-    <!-- Filter Panel -->
-    <el-card shadow="hover" class="filter-card">
+    <el-tabs v-model="activeTab" type="border-card" @tab-change="handleTabChange">
+      <!-- ====== 数据库目录 ====== -->
+      <el-tab-pane label="数据库目录" name="database">
+        <!-- Filter Panel -->
+        <el-card shadow="hover" class="filter-card">
       <el-form :model="filterForm" label-width="90px" size="small">
         <el-row :gutter="16">
           <el-col :xs="24" :sm="12" :md="8" :lg="4">
@@ -350,15 +353,339 @@
         />
       </div>
     </el-card>
-  </div>
+
+    </el-tab-pane>
+
+    <!-- ====== 文件目录 ====== -->
+    <el-tab-pane label="文件目录" name="file">
+      <!-- File Filter Panel -->
+      <el-card shadow="hover" class="filter-card">
+        <el-form :model="fileFilterForm" label-width="80px" size="small">
+          <el-row :gutter="16">
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="关键词">
+                <el-input
+                  v-model="fileFilterForm.keyword"
+                  placeholder="块路径 / 文件名 / 内容"
+                  clearable
+                  @keyup.enter="handleFileSearch"
+                  @clear="handleFileSearch"
+                />
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="资产">
+                <el-select
+                  v-model="fileFilterForm.asset_id"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  filterable
+                  @change="onFileAssetChange"
+                >
+                  <el-option
+                    v-for="a in fileAssetOptions"
+                    :key="a.id"
+                    :label="a.name"
+                    :value="a.id"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="文件">
+                <el-select
+                  v-model="fileFilterForm.file_name"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  filterable
+                  @change="handleFileSearch"
+                >
+                  <el-option
+                    v-for="fn in fileFileNameOptions"
+                    :key="fn"
+                    :label="fn"
+                    :value="fn"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="文件类型">
+                <el-select
+                  v-model="fileFilterForm.file_ext"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  @change="handleFileSearch"
+                >
+                  <el-option
+                    v-for="ext in fileExtOptions"
+                    :key="ext"
+                    :label="ext"
+                    :value="ext"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="敏感类型">
+                <el-select
+                  v-model="fileFilterForm.data_type_status"
+                  placeholder="全部"
+                  clearable
+                  filterable
+                  style="width: 100%"
+                  @change="handleFileSearch"
+                >
+                  <el-option label="未确认" value="unconfirmed" />
+                  <el-option label="已确认" value="confirmed" />
+                  <el-option
+                    v-for="t in fileDataTypeOptions"
+                    :key="t"
+                    :label="t"
+                    :value="t"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="分级">
+                <el-select
+                  v-model="fileFilterForm.level"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  @change="handleFileSearch"
+                >
+                  <el-option
+                    v-for="l in fileLevelOptions"
+                    :key="l"
+                    :label="l"
+                    :value="l"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="16">
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="敏感">
+                <el-select
+                  v-model="fileFilterForm.is_sensitive"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  @change="handleFileSearch"
+                >
+                  <el-option label="是" :value="1" />
+                  <el-option label="否" :value="0" />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="分类路径">
+                <el-select
+                  v-model="fileFilterForm.category_path"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  filterable
+                  @change="handleFileSearch"
+                >
+                  <el-option
+                    v-for="path in fileCategoryPathOptions"
+                    :key="path"
+                    :label="path"
+                    :value="path"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="业务部门">
+                <el-select
+                  v-model="fileFilterForm.business_dept"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  filterable
+                  @change="handleFileSearch"
+                >
+                  <el-option
+                    v-for="d in fileBusinessDeptOptions"
+                    :key="d"
+                    :label="d"
+                    :value="d"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="应用系统">
+                <el-select
+                  v-model="fileFilterForm.app_system"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  filterable
+                  @change="handleFileSearch"
+                >
+                  <el-option
+                    v-for="a in fileAppSystemOptions"
+                    :key="a"
+                    :label="a"
+                    :value="a"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+            <el-col :xs="24" :sm="12" :md="8" :lg="4">
+              <el-form-item label="所属任务">
+                <el-select
+                  v-model="fileFilterForm.task_name"
+                  placeholder="全部"
+                  clearable
+                  style="width: 100%"
+                  filterable
+                  @change="handleFileSearch"
+                >
+                  <el-option
+                    v-for="t in fileTaskNameOptions"
+                    :key="t"
+                    :label="t"
+                    :value="t"
+                  />
+                </el-select>
+              </el-form-item>
+            </el-col>
+          </el-row>
+
+          <el-row :gutter="16">
+            <el-col :span="24">
+              <el-form-item label-width="0">
+                <div class="action-bar">
+                  <el-button type="primary" @click="handleFileSearch">查询</el-button>
+                  <el-button @click="handleFileReset">重置</el-button>
+                  <el-divider direction="vertical" />
+                  <el-button size="small" @click="fileExportDialogVisible = true" :loading="fileExporting || fileExportingAll">
+                    导出
+                  </el-button>
+                </div>
+              </el-form-item>
+            </el-col>
+          </el-row>
+        </el-form>
+      </el-card>
+
+      <!-- File Data Table -->
+      <el-card shadow="hover" class="table-card">
+        <div class="table-wrapper" v-loading="fileLoading">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th style="min-width: 60px; width: 60px">序号</th>
+                <th style="min-width: 160px">内容块路径</th>
+                <th style="min-width: 100px">敏感类型</th>
+                <th style="min-width: 60px; text-align: center">分级</th>
+                <th style="min-width: 50px; text-align: center">敏感</th>
+                <th style="min-width: 120px">文件</th>
+                <th style="min-width: 60px">类型</th>
+                <th style="min-width: 200px">内容预览</th>
+                <th style="min-width: 120px">分类路径</th>
+                <th style="min-width: 100px">资产</th>
+                <th style="min-width: 100px">业务部门</th>
+                <th style="min-width: 100px">应用系统</th>
+                <th style="min-width: 100px">所属任务</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="(row, idx) in fileTableData" :key="idx">
+                <td style="min-width: 65px; width: 65px; text-align: center">{{ (fileCurrentPage - 1) * filePageSize + idx + 1 }}</td>
+                <td><span class="cell-text">{{ row.block_path }}</span></td>
+                <td><span class="cell-text">{{ row.sensitive_type || '-' }}</span></td>
+                <td style="text-align: center">
+                  <span v-if="row.level_code" class="level-badge" :style="getLevelBadgeStyle(row.level_code)">{{ row.level_code }}</span>
+                  <span v-else class="empty-cell">-</span>
+                </td>
+                <td style="text-align: center">
+                  <span v-if="row.is_sensitive === ''" class="empty-cell">-</span>
+                  <span v-else class="tag" :class="row.is_sensitive ? 'tag-danger' : 'tag-info'">{{ row.is_sensitive ? '是' : '否' }}</span>
+                </td>
+                <td><span class="cell-text">{{ row.file_name }}</span></td>
+                <td><span class="cell-text">{{ row.file_ext || '-' }}</span></td>
+                <td><span class="cell-text">{{ row.content_preview || '-' }}</span></td>
+                <td><span class="cell-text">{{ row.category_path || '-' }}</span></td>
+                <td><span class="cell-text">{{ row.asset_name }}</span></td>
+                <td><span class="cell-text">{{ row.business_dept || '-' }}</span></td>
+                <td><span class="cell-text">{{ row.app_system || '-' }}</span></td>
+                <td><span class="cell-text">{{ row.task_name || '-' }}</span></td>
+              </tr>
+              <tr v-if="!fileTableData.length && !fileLoading">
+                <td colspan="12" class="empty-row">暂无数据</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="pagination-wrapper" v-if="fileTotal > 0">
+          <el-pagination
+            v-model:current-page="fileCurrentPage"
+            v-model:page-size="filePageSize"
+            :page-sizes="[20, 50, 100]"
+            :total="fileTotal"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="fetchFileDirectory(fileBuildParams())"
+            @current-change="fetchFileDirectory(fileBuildParams())"
+          />
+        </div>
+      </el-card>
+    </el-tab-pane>
+
+  </el-tabs>
+
+  <!-- 文件目录导出弹窗 -->
+  <el-dialog v-model="fileExportDialogVisible" title="导出文件目录" width="420px" :close-on-click-modal="false">
+    <el-form label-width="180px" size="small">
+      <el-form-item label="导出范围">
+        <el-radio-group v-model="fileExportScope">
+          <el-radio value="query">导出查询结果</el-radio>
+          <el-radio value="all">导出全部结果</el-radio>
+        </el-radio-group>
+      </el-form-item>
+      <el-form-item label="内容预览明文导出">
+        <el-switch v-model="fileExportPlainContent" />
+        <span style="margin-left: 8px; font-size: 12px; color: #909399;">
+          {{ fileExportPlainContent ? '明文导出' : '全 *** 导出' }}
+        </span>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <el-button @click="fileExportDialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="handleFileExportConfirm" :loading="fileExporting">确认导出</el-button>
+    </template>
+  </el-dialog>
+</div>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getDirectory } from '@/api/overview'
+import { getDirectory, getFileDirectory, getFileDirectoryOptions } from '@/api/overview'
 import { getLevels } from '@/api/classification'
 import client from '@/api/client'
+
+// ===== Tab =====
+const activeTab = ref('database')
+
+function handleTabChange(name: string) {
+  if (name === 'file' && !fileTableData.value.length) {
+    fetchFileDirectoryOptions()
+    fetchFileDirectory(fileBuildParams())
+  }
+}
 
 // 级别颜色映射（动态加载）
 const levelColorMap = reactive<Record<string, string>>({})
@@ -709,6 +1036,237 @@ onMounted(() => {
   fetchFilterOptions()
   fetchDirectory(buildParams())
 })
+
+// ============================================================
+// 文件目录
+// ============================================================
+
+// ==== State ====
+const fileLoading = ref(false)
+const fileTableData = ref<any[]>([])
+const fileTotal = ref(0)
+const fileCurrentPage = ref(1)
+const filePageSize = ref(20)
+
+const fileAssetOptions = ref<any[]>([])
+const fileFileNameOptions = ref<string[]>([])
+const fileExtOptions = ref<string[]>([])
+const fileDataTypeOptions = ref<string[]>([])
+const fileLevelOptions = ref<string[]>([])
+const fileCategoryPathOptions = ref<string[]>([])
+const fileBusinessDeptOptions = ref<string[]>([])
+const fileAppSystemOptions = ref<string[]>([])
+const fileTaskNameOptions = ref<string[]>([])
+
+// 文件名联动
+const fileNamesByAsset = ref<Record<number, string[]>>({})
+
+const fileFilterForm = reactive({
+  keyword: '',
+  asset_id: null as number | null,
+  file_name: '',
+  file_ext: '',
+  data_type_status: '',
+  level: '',
+  is_sensitive: null as number | null,
+  category_path: '',
+  business_dept: '',
+  app_system: '',
+  task_name: '',
+})
+
+// ==== Helpers ====
+function fileBuildParams(): Record<string, any> {
+  const params: Record<string, any> = {
+    page: fileCurrentPage.value,
+    page_size: filePageSize.value,
+  }
+  if (fileFilterForm.keyword.trim()) params.keyword = fileFilterForm.keyword.trim()
+  if (fileFilterForm.asset_id !== null) params.asset_id = fileFilterForm.asset_id
+  if (fileFilterForm.file_name) params.file_name = fileFilterForm.file_name
+  if (fileFilterForm.file_ext) params.file_ext = fileFilterForm.file_ext
+  if (fileFilterForm.data_type_status) params.data_type_status = fileFilterForm.data_type_status
+  if (fileFilterForm.level) params.level = fileFilterForm.level
+  if (fileFilterForm.is_sensitive !== null) params.is_sensitive = fileFilterForm.is_sensitive
+  if (fileFilterForm.category_path) params.category_path = fileFilterForm.category_path
+  if (fileFilterForm.business_dept) params.business_dept = fileFilterForm.business_dept
+  if (fileFilterForm.app_system) params.app_system = fileFilterForm.app_system
+  if (fileFilterForm.task_name) params.task_name = fileFilterForm.task_name
+  return params
+}
+
+// ==== Fetch ====
+async function fetchFileDirectory(params: Record<string, any>) {
+  fileLoading.value = true
+  try {
+    const res: any = await getFileDirectory(params)
+    const d = res.data || {}
+    fileTableData.value = d.items || []
+    fileTotal.value = d.total ?? 0
+  } catch (err: any) {
+    ElMessage.error(err?.message || '获取文件目录失败')
+  } finally {
+    fileLoading.value = false
+  }
+}
+
+async function fetchFileDirectoryOptions() {
+  try {
+    const params: Record<string, any> = {}
+    if (fileFilterForm.asset_id !== null) params.asset_id = fileFilterForm.asset_id
+    const res: any = await getFileDirectoryOptions(params)
+    const d = res.data || {}
+    if (d.assets) fileAssetOptions.value = d.assets
+    if (d.file_name_options) fileFileNameOptions.value = d.file_name_options
+    if (d.file_ext_options) fileExtOptions.value = d.file_ext_options
+    if (d.data_type_options) fileDataTypeOptions.value = d.data_type_options
+    if (d.level_options) fileLevelOptions.value = d.level_options
+    if (d.category_paths) fileCategoryPathOptions.value = d.category_paths
+    if (d.business_dept_options) fileBusinessDeptOptions.value = d.business_dept_options
+    if (d.app_system_options) fileAppSystemOptions.value = d.app_system_options
+    if (d.task_name_options) fileTaskNameOptions.value = d.task_name_options
+    if (d.files_by_asset) fileNamesByAsset.value = d.files_by_asset
+  } catch {
+    // silently fail
+  }
+}
+
+// ==== Handlers ====
+function onFileAssetChange() {
+  // 联动：选择资产后刷新文件名选项
+  fileFilterForm.file_name = ''
+  if (fileFilterForm.asset_id !== null && fileNamesByAsset.value[fileFilterForm.asset_id]) {
+    fileFileNameOptions.value = fileNamesByAsset.value[fileFilterForm.asset_id]
+  } else {
+    // 重新获取全部文件名选项
+    fetchFileDirectoryOptions()
+  }
+  handleFileSearch()
+}
+
+function handleFileSearch() {
+  fileCurrentPage.value = 1
+  fetchFileDirectory(fileBuildParams())
+}
+
+function handleFileReset() {
+  fileFilterForm.keyword = ''
+  fileFilterForm.asset_id = null
+  fileFilterForm.file_name = ''
+  fileFilterForm.file_ext = ''
+  fileFilterForm.data_type_status = ''
+  fileFilterForm.level = ''
+  fileFilterForm.is_sensitive = null
+  fileFilterForm.category_path = ''
+  fileFilterForm.business_dept = ''
+  fileFilterForm.app_system = ''
+  fileFilterForm.task_name = ''
+  fileCurrentPage.value = 1
+  fetchFileDirectoryOptions()
+  handleFileSearch()
+}
+
+// ==== 文件目录导出 ====
+const fileExportDialogVisible = ref(false)
+const fileExportScope = ref('query')
+const fileExportPlainContent = ref(false)
+const fileExporting = ref(false)
+
+const FILE_EXPORT_COLUMNS = [
+  { key: 'block_path', label: '内容块路径' },
+  { key: 'sensitive_type', label: '敏感类型' },
+  { key: 'level_code', label: '分级' },
+  { key: 'is_sensitive', label: '敏感' },
+  { key: 'file_name', label: '文件' },
+  { key: 'file_ext', label: '类型' },
+  { key: 'content_preview', label: '内容预览' },
+  { key: 'category_path', label: '分类路径' },
+  { key: 'asset_name', label: '资产' },
+  { key: 'business_dept', label: '业务部门' },
+  { key: 'app_system', label: '应用系统' },
+  { key: 'task_name', label: '所属任务' },
+]
+
+async function handleFileExportConfirm() {
+  fileExporting.value = true
+  try {
+    const isAll = fileExportScope.value === 'all'
+    const params: Record<string, any> = { export: 1, export_plain_content: fileExportPlainContent.value ? 1 : 0 }
+    if (!isAll) {
+      // 带上当前筛选条件
+      if (fileFilterForm.keyword.trim()) params.keyword = fileFilterForm.keyword.trim()
+      if (fileFilterForm.asset_id !== null) params.asset_id = fileFilterForm.asset_id
+      if (fileFilterForm.file_name) params.file_name = fileFilterForm.file_name
+      if (fileFilterForm.file_ext) params.file_ext = fileFilterForm.file_ext
+      if (fileFilterForm.data_type_status) params.data_type_status = fileFilterForm.data_type_status
+      if (fileFilterForm.level) params.level = fileFilterForm.level
+      if (fileFilterForm.is_sensitive !== null) params.is_sensitive = fileFilterForm.is_sensitive
+      if (fileFilterForm.category_path) params.category_path = fileFilterForm.category_path
+      if (fileFilterForm.business_dept) params.business_dept = fileFilterForm.business_dept
+      if (fileFilterForm.app_system) params.app_system = fileFilterForm.app_system
+      if (fileFilterForm.task_name) params.task_name = fileFilterForm.task_name
+    }
+    const res: any = await getFileDirectory(params)
+    const filename = isAll ? '文件目录_全部' : '文件目录_查询结果'
+    triggerFileDownload(res, filename)
+    fileExportDialogVisible.value = false
+  } catch (err: any) {
+    ElMessage.error(err?.message || '导出失败')
+  } finally {
+    fileExporting.value = false
+  }
+}
+
+function triggerFileDownload(res: any, filename: string) {
+  if (res instanceof Blob) {
+    const url = URL.createObjectURL(res)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${filename}.xlsx`
+    link.click()
+    URL.revokeObjectURL(url)
+    return
+  }
+  if (res.data?.download_url) {
+    window.open(res.data.download_url, '_blank')
+    return
+  }
+  if (res.data?.items || Array.isArray(res.data)) {
+    const items = res.data?.items || res.data || []
+    if (items.length > 0) {
+      const csvContent = fileJsonToCsv(items)
+      const blob = new Blob(['﻿' + csvContent], { type: 'text/csv;charset=utf-8;' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${filename}.csv`
+      link.click()
+      URL.revokeObjectURL(url)
+    }
+  }
+}
+
+function fileJsonToCsv(items: any[]): string {
+  if (items.length === 0) return ''
+  const lines = [FILE_EXPORT_COLUMNS.map(c => c.label).join(',')]
+  for (const item of items) {
+    const row = FILE_EXPORT_COLUMNS.map(col => {
+      let val = item[col.key]
+      // 敏感显示中文
+      if (col.key === 'is_sensitive') {
+        val = val === '' ? '-' : (val ? '是' : '否')
+      }
+      if (val === null || val === undefined) return ''
+      val = String(val).replace(/"/g, '""')
+      if (val.includes(',') || val.includes('"') || val.includes('\n')) {
+        val = `"${val}"`
+      }
+      return val
+    })
+    lines.push(row.join(','))
+  }
+  return lines.join('\n')
+}
 </script>
 
 <style scoped>

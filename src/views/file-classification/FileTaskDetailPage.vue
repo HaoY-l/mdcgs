@@ -145,7 +145,6 @@
               <el-select v-model="manualTypeStatus" placeholder="人工分类" clearable size="small" style="width: 110px; margin-right: 4px" @change="onFilterChange">
                 <el-option label="未确认" value="unconfirmed" />
                 <el-option label="已确认" value="confirmed" />
-                <el-option label="已变更" value="changed" />
               </el-select>
               <el-select v-model="levelFilter" placeholder="分级" clearable size="small" style="width: 80px" @change="onFilterChange">
                 <el-option v-for="l in levelOptions" :key="l.level_code" :label="l.level_code" :value="l.level_code" />
@@ -229,6 +228,7 @@
                 <el-option label="AI分类确认" value="ai" />
               </el-select>
               <el-button size="small" type="success" @click="handleBatchConfirm">批量确认</el-button>
+              <el-button size="small" type="warning" @click="handleBatchChange">批量变更</el-button>
             </div>
             <div class="pagination-wrapper" v-if="blockTotal > 0">
               <el-pagination
@@ -249,13 +249,13 @@
               <el-tree
                 v-if="categoryTree.length > 0"
                 :data="categoryTree"
-                :props="{ label: 'label', children: 'children' }"
+                :props="{ label: 'name', children: 'children' }"
                 highlight-current
               >
                 <template #default="{ data }">
                   <span class="category-node">
-                    <span>{{ data.label }}</span>
-                    <el-tag size="small" type="info" style="margin-left: 8px">{{ data.count }}</el-tag>
+                    <span>{{ data.name }}</span>
+                    <el-tag size="small" type="info" style="margin-left: 8px">{{ data.hit_count }}</el-tag>
                   </span>
                 </template>
               </el-tree>
@@ -392,7 +392,8 @@
     </el-dialog>
 
     <!-- 变更弹窗 -->
-    <el-dialog v-model="showChangeDialog" title="变更分类" width="500px">
+    <el-dialog v-model="showChangeDialog" title="变更分类" width="550px">
+      <el-alert v-if="batchChangeCount > 1" :title="`批量变更模式：将对 ${batchChangeCount} 项生效`" type="info" :closable="false" style="margin-bottom: 16px" />
       <el-form :model="changeForm" label-width="100px">
         <el-form-item label="当前分类">
           <el-input :model-value="changeForm.current_type || '-'" disabled />
@@ -400,16 +401,22 @@
         <el-form-item label="当前级别">
           <el-input :model-value="changeForm.current_level || '-'" disabled />
         </el-form-item>
-        <el-form-item label="新级别" required>
-          <el-select v-model="changeForm.level_code" placeholder="选择新级别" style="width: 100%">
-            <el-option v-for="l in levelOptions" :key="l.level_code" :label="l.level_code" :value="l.level_code" />
-          </el-select>
+        <el-form-item label="新分类">
+          <el-tree-select
+            v-model="changeForm.new_category_id"
+            :data="categoryTreeForSelect"
+            :props="{ label: 'name', value: 'id', children: 'children' } as any"
+            placeholder="请选择分类(可选)"
+            style="width: 100%"
+            filterable
+            clearable
+          />
         </el-form-item>
-        <el-form-item label="新分类路径">
-          <el-input v-model="changeForm.category_path" placeholder="可选" />
+        <el-form-item label="将设为类型">
+          <el-input :model-value="selectedCategoryInfo?.data_type_name || '选择分类后自动带出'" disabled />
         </el-form-item>
-        <el-form-item label="新敏感类型">
-          <el-input v-model="changeForm.sensitive_type" placeholder="可选" />
+        <el-form-item label="将设为级别">
+          <el-input :model-value="selectedCategoryInfo?.level_code || '选择分类后自动带出'" disabled />
         </el-form-item>
         <el-form-item label="变更原因" required>
           <el-input v-model="changeForm.reason" type="textarea" :rows="3" placeholder="请输入变更原因" />
@@ -432,7 +439,7 @@ import {
   getFileTask, getFileTaskResults, getFileTaskResultsSummary,
   getFileTaskStatistics, getFileTaskCategoryView, getFileTaskExecutions,
   getFileTaskFilterOptions,
-  confirmFileResult, changeFileResult,
+  confirmFileResult, batchConfirmFileResults, changeFileResult, batchChangeFileResults,
 } from '@/api/fileClassification'
 import { getFileAssets } from '@/api/fileAsset'
 import client from '@/api/client'
@@ -536,6 +543,23 @@ const maxTypeCount = computed(() => Math.max(...Object.values(stats.type_distrib
 // ========== 分类视图 ==========
 const categoryLoading = ref(false)
 const categoryTree = ref<any[]>([])
+const categoryTreeForSelect = computed(() => categoryTree.value)
+
+// 根据选中的分类ID获取类型和级别
+const selectedCategoryInfo = computed(() => {
+  if (!changeForm.new_category_id) return null
+  function findCategory(cats: any[]): any {
+    for (const c of cats) {
+      if (c.id === changeForm.new_category_id) return c
+      if (c.children?.length) {
+        const found = findCategory(c.children)
+        if (found) return found
+      }
+    }
+    return null
+  }
+  return findCategory(categoryTree.value) || null
+})
 
 // ========== 任务日志 ==========
 const logsLoading = ref(false)
@@ -553,6 +577,9 @@ const changeForm = reactive({
   result_id: null as number | null,
   current_type: '',
   current_level: '',
+  new_category_id: null as number | null,
+  new_type_name: '',
+  new_level_code: '',
   level_code: '',
   category_path: '',
   sensitive_type: '',
@@ -562,6 +589,8 @@ const changeForm = reactive({
 // 批量确认
 const selectedBlocks = ref<any[]>([])
 const batchConfirmSource = ref<'system' | 'ai'>('system')
+// 批量变更计数
+const batchChangeCount = ref(0)
 
 // 样本数据
 const showSampleDialog = ref(false)
@@ -681,7 +710,6 @@ async function loadBlocks() {
     if (aiTypeStatus.value) params.ai_type_status = aiTypeStatus.value
     if (systemTypeStatus.value) params.system_type_status = systemTypeStatus.value
     if (manualTypeStatus.value === 'confirmed') params.is_confirmed = 1
-    else if (manualTypeStatus.value === 'changed') params.is_changed = 1
     else if (manualTypeStatus.value === 'unconfirmed') { params.is_confirmed = 0; params.is_changed = 0 }
     if (levelFilter.value) params.level_code = levelFilter.value
 
@@ -765,7 +793,8 @@ async function loadLookups() {
     const lvlItems = levelsRes.data?.items || levelsRes.data || []
     levelOptions.value = lvlItems
     allFileAssets.value = assetsRes.data?.items || []
-    fileAssetOptions.value = allFileAssets.value
+    // 只显示当前任务关联的文件资产
+    fileAssetOptions.value = allFileAssets.value.filter(a => task.value?.file_asset_ids?.includes(a.id))
   } catch {
     levelOptions.value = []
   }
@@ -836,10 +865,17 @@ async function handleConfirm() {
   }
 }
 
-function openChangeDialog(row: any) {
+async function openChangeDialog(row: any) {
+  // 先加载分类树（如果还没加载）
+  if (!categoryTree.value.length) {
+    await loadCategoryView()
+  }
   changeForm.result_id = row.id
   changeForm.current_type = row.sensitive_type || ''
   changeForm.current_level = row.level_code || row.level_code_manual || ''
+  changeForm.new_category_id = null
+  changeForm.new_type_name = ''
+  changeForm.new_level_code = ''
   changeForm.level_code = row.level_code_manual || row.level_code || ''
   changeForm.category_path = row.category_path_manual || row.category_path || ''
   changeForm.sensitive_type = row.sensitive_type || ''
@@ -848,8 +884,8 @@ function openChangeDialog(row: any) {
 }
 
 async function submitChange() {
-  if (!changeForm.level_code && !changeForm.category_path && !changeForm.sensitive_type) {
-    ElMessage.warning('请至少填写一项变更')
+  if (!changeForm.new_category_id && !changeForm.level_code && !changeForm.category_path && !changeForm.sensitive_type) {
+    ElMessage.warning('请至少选择一项变更（新分类或新级别）')
     return
   }
   if (!changeForm.reason.trim()) {
@@ -858,14 +894,43 @@ async function submitChange() {
   }
   changing.value = true
   try {
-    await changeFileResult(taskId.value, changeForm.result_id!, {
-      level_code: changeForm.level_code || undefined,
-      category_path: changeForm.category_path || undefined,
-      sensitive_type: changeForm.sensitive_type || undefined,
-      reason: changeForm.reason.trim(),
-    })
-    ElMessage.success('变更已提交')
+    const payload: Record<string, any> = { reason: changeForm.reason.trim() }
+    if (changeForm.new_category_id) {
+      payload.category_id = changeForm.new_category_id
+      payload.level_code = selectedCategoryInfo.value?.level_code || changeForm.new_level_code
+      payload.category_path = selectedCategoryInfo.value?.path || changeForm.category_path
+      // 变更时 sensitive_type 应为新分类的叶子分类名（与数据库资产一致）
+      const leafName = selectedCategoryInfo.value?.name || changeForm.new_type_name
+      if (leafName) {
+        payload.sensitive_type = leafName
+      }
+    }
+    if (changeForm.level_code && !changeForm.new_category_id) {
+      payload.level_code = changeForm.level_code
+    }
+    if (changeForm.category_path && !changeForm.new_category_id) {
+      payload.category_path = changeForm.category_path
+    }
+    if (changeForm.sensitive_type && !changeForm.new_category_id) {
+      payload.sensitive_type = changeForm.sensitive_type
+    }
+    // 批量变更模式
+    if (batchChangeCount.value > 1) {
+      const changeable = selectedBlocks.value.filter((b: any) => !b.is_confirmed && !b.is_changed)
+      const blockIds = changeable.map((b: any) => b.id)
+      const res = await batchChangeFileResults(taskId.value, blockIds, payload)
+      if (res?.code === 0) {
+        ElMessage.success(res?.message || `已变更 ${blockIds.length} 项`)
+      } else {
+        ElMessage.error(res?.message || '批量变更失败')
+      }
+    } else {
+      await changeFileResult(taskId.value, changeForm.result_id!, payload)
+      ElMessage.success('变更已提交')
+    }
     showChangeDialog.value = false
+    batchChangeCount.value = 0
+    selectedBlocks.value = []
     loadBlocks()
   } catch (err: any) {
     ElMessage.error(err?.message || '变更失败')
@@ -923,14 +988,41 @@ async function handleBatchConfirm() {
     return
   }
   try {
-    for (const block of confirmable) {
-      await confirmFileResult(taskId.value, block.id, batchConfirmSource.value || 'system')
+    // 打包一次接口调用（与数据库任务一致）
+    const blockIds = confirmable.map((b: any) => b.id)
+    const res = await batchConfirmFileResults(taskId.value, blockIds, batchConfirmSource.value || 'system')
+    if (res?.code === 0) {
+      ElMessage.success(res?.message || `已确认 ${confirmable.length} 项`)
+    } else {
+      ElMessage.error(res?.message || '批量确认失败')
     }
-    ElMessage.success(`已确认 ${confirmable.length} 项`)
     selectedBlocks.value = []
     loadBlocks()
   } catch (err: any) {
     ElMessage.error(err?.message || '批量确认失败')
+  }
+}
+
+// 批量变更
+async function handleBatchChange() {
+  if (!selectedBlocks.value.length) {
+    ElMessage.warning('请先选择要变更的项')
+    return
+  }
+  // 过滤出可以变更的项（没有人工确认过的）
+  const changeable = selectedBlocks.value.filter((b: any) => !b.is_confirmed && !b.is_changed)
+  if (!changeable.length) {
+    ElMessage.warning('所选项均已确认或变更，无法再次变更')
+    return
+  }
+  if (changeable.length < selectedBlocks.value.length) {
+    ElMessage.warning(`已过滤 ${selectedBlocks.value.length - changeable.length} 个已确认/变更的项`)
+  }
+  // 打开变更弹窗，选择第一个可变更的项作为模板
+  if (changeable.length > 0) {
+    batchChangeCount.value = changeable.length
+    openChangeDialog(changeable[0])
+    ElMessage.info('请在变更弹窗中选择目标分类，提交后将对所选可变更项生效')
   }
 }
 

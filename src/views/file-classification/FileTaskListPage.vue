@@ -97,6 +97,38 @@
             <el-option v-for="t in templates" :key="t.id" :label="t.name" :value="t.id" />
           </el-select>
         </el-form-item>
+        <el-form-item label="执行方式" required>
+          <el-radio-group v-model="form.execute_type">
+            <el-radio value="manual">手动执行</el-radio>
+            <el-radio value="periodic">周期执行</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="form.execute_type === 'periodic'" label="执行频率" required>
+          <el-radio-group v-model="form.schedule_freq">
+            <el-radio value="daily">每天</el-radio>
+            <el-radio value="weekly">每周</el-radio>
+            <el-radio value="monthly">每月</el-radio>
+          </el-radio-group>
+        </el-form-item>
+        <el-form-item v-if="form.execute_type === 'periodic'" label="执行时间" required>
+          <el-time-picker v-model="form.schedule_time" format="HH:mm" placeholder="选择时间" style="width: 140px" />
+        </el-form-item>
+        <el-form-item v-if="form.execute_type === 'periodic' && form.schedule_freq === 'weekly'" label="选择星期" required>
+          <el-checkbox-group v-model="form.schedule_week_days">
+            <el-checkbox :label="1">周一</el-checkbox>
+            <el-checkbox :label="2">周二</el-checkbox>
+            <el-checkbox :label="3">周三</el-checkbox>
+            <el-checkbox :label="4">周四</el-checkbox>
+            <el-checkbox :label="5">周五</el-checkbox>
+            <el-checkbox :label="6">周六</el-checkbox>
+            <el-checkbox :label="0">周日</el-checkbox>
+          </el-checkbox-group>
+        </el-form-item>
+        <el-form-item v-if="form.execute_type === 'periodic' && form.schedule_freq === 'monthly'" label="选择日期" required>
+          <el-select v-model="form.schedule_month_day" style="width: 120px">
+            <el-option v-for="d in 31" :key="d" :label="d + '日'" :value="d" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="文件资产" required>
           <el-select v-model="form.file_asset_ids" multiple style="width: 100%" placeholder="选择要分类的文件资产（可多选）" filterable>
             <el-option v-for="a in fileAssets" :key="a.id" :label="`${a.name} (${a.file_count} 文件)`" :value="a.id" />
@@ -161,7 +193,26 @@ const fileAssets = ref<any[]>([])
 
 const createDialog = ref(false)
 const creating = ref(false)
-const form = reactive({ name: '', template_id: null as any, file_asset_ids: [] as number[] })
+const form = reactive({
+  name: '',
+  template_id: null as any,
+  execute_type: 'manual',
+  schedule_freq: 'daily',
+  schedule_time: new Date(),
+  schedule_week_days: [] as number[],
+  schedule_month_day: 1,
+  file_asset_ids: [] as number[],
+})
+
+function buildCronExpression(): string {
+  const time = form.schedule_time
+  const minute = time.getMinutes()
+  const hour = time.getHours()
+  if (form.schedule_freq === 'daily') return `0 ${minute} ${hour} * * *`
+  if (form.schedule_freq === 'weekly') return `0 ${minute} ${hour} ? * ${form.schedule_week_days.sort().join(',')}`
+  if (form.schedule_freq === 'monthly') return `0 ${minute} ${hour} ${form.schedule_month_day} * *`
+  return ''
+}
 
 function formatTime(s?: string) {
   if (!s) return '-'
@@ -202,17 +253,25 @@ async function onCreate() {
   if (!form.name.trim()) { ElMessage.warning('请填写任务名称'); return }
   if (!form.template_id) { ElMessage.warning('请选择模板'); return }
   if (!form.file_asset_ids.length) { ElMessage.warning('请选择至少一个文件资产'); return }
+  if (form.execute_type === 'periodic' && form.schedule_freq === 'weekly' && form.schedule_week_days.length === 0) {
+    ElMessage.warning('请选择星期'); return
+  }
   creating.value = true
   try {
-    const res: any = await createFileTask({
+    const payload: any = {
       name: form.name,
       template_id: form.template_id,
       file_asset_ids: form.file_asset_ids,
-      execute_type: 'manual',
-    })
-    ElMessage.success('已创建，可在任务列表中手动启动')
+      execute_type: form.execute_type,
+    }
+    if (form.execute_type === 'periodic') {
+      payload.cron_expression = buildCronExpression()
+    }
+    await createFileTask(payload)
+    ElMessage.success('已创建')
     createDialog.value = false
     form.name = ''; form.template_id = null; form.file_asset_ids = []
+    form.execute_type = 'manual'; form.schedule_freq = 'daily'; form.schedule_week_days = []
     fetch()
   } finally {
     creating.value = false

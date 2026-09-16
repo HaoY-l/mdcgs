@@ -118,9 +118,6 @@
           <el-tab-pane label="块详情" name="blocks">
             <div class="tab-toolbar">
               <el-input v-model="blockKeyword" placeholder="关键字" clearable size="small" style="width: 140px; margin-right: 8px" @input="onFilterChange" />
-              <el-select v-model="blockFileAssetFilter" placeholder="文件资产" clearable size="small" style="width: 130px; margin-right: 8px" filterable @change="onFilterChange">
-                <el-option v-for="a in fileAssetOptions" :key="a.id" :label="a.name" :value="a.id" />
-              </el-select>
               <el-select v-model="blockFileFilter" placeholder="文件" clearable size="small" style="width: 130px; margin-right: 8px" filterable @change="onFilterChange">
                 <el-option v-for="f in fileNameOptions" :key="f" :label="f" :value="f" />
               </el-select>
@@ -441,7 +438,6 @@ import {
   getFileTaskFilterOptions,
   confirmFileResult, batchConfirmFileResults, changeFileResult, batchChangeFileResults,
 } from '@/api/fileClassification'
-import { getFileAssets } from '@/api/fileAsset'
 import client from '@/api/client'
 
 const route = useRoute()
@@ -496,7 +492,6 @@ const blocksLoading = ref(false)
 
 // 筛选条件（与数据资产完全对齐）
 const blockKeyword = ref('')
-const blockFileAssetFilter = ref<number | null>(null)
 const blockFileFilter = ref('')
 const blockTypeFilter = ref('')
 const blockContentFilter = ref('')
@@ -514,8 +509,6 @@ const blockIndexOffset = computed(() => (blockPage.value - 1) * blockPageSize.va
 // 下拉选项（从后端实时加载）
 const fileNameOptions = ref<string[]>([])
 const blockTypeOptions = ref<string[]>([])
-const fileAssetOptions = ref<any[]>([])
-const allFileAssets = ref<any[]>([])
 const systemTypeOptions = ref<string[]>([])
 const aiCategoryOptions = ref<string[]>([])
 
@@ -702,7 +695,6 @@ async function loadBlocks() {
     }
     if (blockKeyword.value.trim()) params.keyword = blockKeyword.value.trim()
     else if (blockContentFilter.value.trim()) params.keyword = blockContentFilter.value.trim()
-    if (blockFileAssetFilter.value !== null) params.file_asset_id = blockFileAssetFilter.value
     if (blockFileFilter.value) params.file_name = blockFileFilter.value
     if (blockTypeFilter.value) params.block_type = blockTypeFilter.value
     if (isSensitiveFilter.value === 'true') params.is_sensitive = 1
@@ -783,18 +775,14 @@ async function loadFilterOptions() {
 // 加载下拉数据源
 async function loadLookups() {
   try {
-    const [templatesRes, levelsRes, assetsRes] = await Promise.all([
+    const [templatesRes, levelsRes] = await Promise.all([
       client.get('/templates', { params: { page: 1, page_size: 100 } }),
       client.get('/levels', { params: { page: 1, page_size: 100 } }),
-      getFileAssets({ page: 1, page_size: 100 }),
     ])
     const tplItems = templatesRes.data?.items || templatesRes.data || []
     for (const t of tplItems) templateMap.value[t.id] = t.name
     const lvlItems = levelsRes.data?.items || levelsRes.data || []
     levelOptions.value = lvlItems
-    allFileAssets.value = assetsRes.data?.items || []
-    // 只显示当前任务关联的文件资产
-    fileAssetOptions.value = allFileAssets.value.filter(a => task.value?.file_asset_ids?.includes(a.id))
   } catch {
     levelOptions.value = []
   }

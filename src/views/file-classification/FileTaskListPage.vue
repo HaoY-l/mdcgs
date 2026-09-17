@@ -238,10 +238,10 @@ async function fetch() {
 }
 
 function goCreate() {
-  // 加载下拉数据
+  // 加载下拉数据，排除已被任务占用的资产
   Promise.all([
     client.get('/templates', { params: { page: 1, page_size: 100 } }),
-    getFileAssets({ page: 1, page_size: 100 }),
+    getFileAssets({ page: 1, page_size: 100, exclude_task_assets: true }),
   ]).then(([t, a]) => {
     templates.value = t.data?.items || []
     fileAssets.value = a.data?.items || []

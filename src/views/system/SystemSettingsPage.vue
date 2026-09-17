@@ -1009,9 +1009,9 @@ async function loadEngineSettings() {
   try {
     const res = await getSettings({ category: 'scan_engine' })
     const data = res.data?.scan_engine || {}
-    engineForm.rule_threads = parseInt(data.rule_threads || '1')
-    engineForm.ai_concurrency = parseInt(data.ai_concurrency || '3')
-    engineForm.ai_batch_size = parseInt(data.ai_batch_size || '50')
+    engineForm.rule_threads = parseInt(data.rule_threads || '10')
+    engineForm.ai_concurrency = parseInt(data.ai_concurrency || '10')
+    engineForm.ai_batch_size = parseInt(data.ai_batch_size || '30')
     engineForm.progress_weight_rule = parseInt(data.progress_weight_rule || '50')
     engineForm.progress_weight_ai = parseInt(data.progress_weight_ai || '50')
   } finally { engineLoading.value = false }

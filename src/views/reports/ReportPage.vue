@@ -114,7 +114,22 @@
 
       <el-table-column label="状态" width="100">
         <template #default="{ row }">
+          <el-tooltip
+            v-if="row.status === 'failed' && row.error_message"
+            :content="row.error_message"
+            placement="top"
+            effect="dark"
+          >
+            <el-tag
+              :type="statusTagType(row.status)"
+              size="small"
+              effect="light"
+            >
+              {{ statusLabel(row.status) }}
+            </el-tag>
+          </el-tooltip>
           <el-tag
+            v-else
             :type="statusTagType(row.status)"
             size="small"
             effect="light"
@@ -253,7 +268,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { Search, Plus, Document, CircleCheck, CircleClose, Loading, Download, WarningFilled, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageShell from '@/components/common/PageShell.vue'
@@ -261,6 +276,7 @@ import DataTable from '@/components/common/DataTable.vue'
 import ReportGenerateDialog from './ReportGenerateDialog.vue'
 import {
   getReports,
+  getReportTypes,
   getReportStats,
   previewReport,
   downloadReport,
@@ -272,13 +288,7 @@ import {
 } from '@/api/reports'
 
 // ===== 报告类型选项 =====
-const REPORT_TYPE_OPTIONS = [
-  { value: 'classification_catalog', label: '数据分类分级目录' },
-  { value: 'annual_security', label: '数据安全年度评估' },
-  { value: 'pia', label: '个人信息保护影响评估' },
-]
-
-const reportTypeOptions = REPORT_TYPE_OPTIONS
+const reportTypeOptions = ref<any[]>([])
 
 // ===== 状态 =====
 const loading = ref(false)
@@ -307,10 +317,34 @@ const previewTarget = ref<ReportItem | null>(null)
 const generateDialogVisible = ref(false)
 
 // ===== 初始化 =====
+let refreshTimer: ReturnType<typeof setInterval> | null = null
+
 onMounted(() => {
+  fetchReportTypes()
   fetchStats()
   fetchReports()
+  // 启动定时刷新（有生成中的报告时）
+  refreshTimer = setInterval(() => {
+    const hasGenerating = reportList.value.some(r => r.status === 'generating')
+    if (hasGenerating) {
+      fetchReports()
+      fetchStats()
+    }
+  }, 3000)
 })
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer)
+})
+
+async function fetchReportTypes() {
+  try {
+    const data = await getReportTypes()
+    reportTypeOptions.value = data || []
+  } catch {
+    // 不影响主流程
+  }
+}
 
 // ===== 获取列表 =====
 async function fetchReports() {
@@ -366,15 +400,6 @@ function onReportGenerated(reportId: number) {
   fetchStats()
   pagination.page = 1
   fetchReports()
-  // 自动打开新生成报告的预览
-  const newly = reportList.value.find((r) => r.id === reportId)
-  if (!newly) {
-    // 列表刷新后查找
-    setTimeout(() => {
-      const r = reportList.value.find((x) => x.id === reportId)
-      if (r) openPreview(r)
-    }, 1000)
-  }
 }
 
 // ===== 预览 =====
@@ -460,7 +485,7 @@ async function handleDelete(row: ReportItem) {
 
 // ===== 辅助 =====
 function getTypeLabel(type: string) {
-  return REPORT_TYPE_OPTIONS.find((t) => t.value === type)?.label || type
+  return reportTypeOptions.value.find((t: any) => t.value === type)?.label || type
 }
 
 function statusLabel(status: string) {

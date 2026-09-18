@@ -61,6 +61,7 @@ export interface GenerateReportDTO {
   description?: string
   start_date?: string
   end_date?: string
+  mask_file_content?: boolean  // 文件数据是否脱敏
 }
 
 export interface GenerateResult {

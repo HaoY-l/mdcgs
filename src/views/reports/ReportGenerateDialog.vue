@@ -48,13 +48,15 @@
         >
           <el-option
             v-for="t in taskList"
-            :key="t.id"
+            :key="`${t._taskType}-${t.id}`"
             :label="`${t.name}（${t.status}）`"
             :value="t.id"
           >
             <div style="display:flex;justify-content:space-between;align-items:center;">
               <span>{{ t.name }}</span>
               <el-tag size="small" :type="taskStatusType(t.status)">{{ taskStatusLabel(t.status) }}</el-tag>
+              <el-tag v-if="t._taskType === 'db'" size="small" type="info" style="margin-left:4px;">数据资产</el-tag>
+              <el-tag v-else-if="t._taskType === 'file'" size="small" type="warning" style="margin-left:4px;">文件资产</el-tag>
             </div>
           </el-option>
         </el-select>
@@ -81,6 +83,12 @@
             {{ fmt.toUpperCase() }}
           </el-radio>
         </el-radio-group>
+      </el-form-item>
+
+      <!-- 文件数据脱敏 -->
+      <el-form-item label="文件数据脱敏">
+        <el-switch v-model="form.mask_file_content" />
+        <span style="margin-left: 8px; color: #909399; font-size: 12px;">开启后将隐藏文件内容摘要</span>
       </el-form-item>
 
       <!-- 备注 -->
@@ -148,7 +156,7 @@ import { ref, computed, watch } from 'vue'
 import { InfoFilled, CircleCheckFilled, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { generateReport, getReportTypes, type ReportType, type ReportFormat, type ReportTypeOption, type GenerateResult } from '@/api/reports'
-import { getTasks } from '@/api/task'
+import { getTasks, getFileTasks } from '@/api/task'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
@@ -173,11 +181,12 @@ const taskList = ref<any[]>([])
 const selectedTypeDesc = ref('')
 
 const form = ref({
-  report_type: '' as string,
+  report_type: 'classification_catalog' as string,
   task_ids: [] as number[],
   file_format: 'pdf' as string,
   title: '',
   description: '',
+  mask_file_content: true,
 })
 
 const rules = {
@@ -210,10 +219,18 @@ async function loadReportTypes() {
 async function loadTasks() {
   tasksLoading.value = true
   try {
-    const res = await getTasks({ page: 1, page_size: 100 })
-    console.log('[DEBUG] getTasks raw res:', JSON.stringify(res))
-    // client.get() 经拦截器返回 {code, data, message}，data 里有 items
-    taskList.value = (res as any)?.data?.items || (res as any)?.items || []
+    // 并行加载数据资产任务和文件资产任务
+    const [dbRes, fileRes] = await Promise.all([
+      getTasks({ page: 1, page_size: 100 }),
+      getFileTasks({ page: 1, page_size: 100 }),
+    ])
+    const dbTasks = (dbRes as any)?.data?.items || (dbRes as any)?.items || []
+    const fileTasks = (fileRes as any)?.data?.items || (fileRes as any)?.items || []
+    // 标记任务类型并合并
+    taskList.value = [
+      ...dbTasks.map((t: any) => ({ ...t, _taskType: 'db' })),
+      ...fileTasks.map((t: any) => ({ ...t, _taskType: 'file' })),
+    ]
   } catch (err: any) {
     console.error('加载任务列表失败', err)
   } finally {
@@ -235,13 +252,15 @@ async function handleSubmit() {
       task_ids: form.value.task_ids.length > 0 ? form.value.task_ids : undefined,
       title: form.value.title || undefined,
       description: form.value.description || undefined,
+      mask_file_content: form.value.mask_file_content,
     })
 
     generateResult.value = res
-    resultVisible.value = true
+    resultVisible.value = false
     visible.value = false
     emit('generated', res.id)
-    form.value = { report_type: '', task_ids: [], file_format: 'pdf', title: '', description: '' }
+    form.value = { report_type: 'classification_catalog', task_ids: [], file_format: 'pdf', title: '', description: '', mask_file_content: true }
+    ElMessage.success('报告已提交生成，请稍后在报告中心查看')
   } catch (err: any) {
     ElMessage.error(err?.message || '生成报告失败')
   } finally {
@@ -280,7 +299,7 @@ function taskStatusLabel(status?: string) {
 // 每次打开重置并加载
 watch(visible, async (val) => {
   if (val) {
-    form.value = { report_type: '', task_ids: [], file_format: 'pdf', title: '', description: '' }
+    form.value = { report_type: 'classification_catalog', task_ids: [], file_format: 'pdf', title: '', description: '', mask_file_content: true }
     selectedTypeDesc.value = ''
     await Promise.all([loadReportTypes(), loadTasks()])
   }

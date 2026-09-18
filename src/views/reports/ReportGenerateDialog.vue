@@ -34,9 +34,9 @@
       </div>
 
       <!-- 关联任务（多选） -->
-      <el-form-item label="关联任务" prop="task_ids">
+      <el-form-item label="关联任务">
         <el-select
-          v-model="form.task_ids"
+          v-model="selectedTaskIds"
           placeholder="全部任务（可选，多选）"
           style="width: 100%"
           clearable
@@ -182,12 +182,14 @@ const selectedTypeDesc = ref('')
 
 const form = ref({
   report_type: 'classification_catalog' as string,
-  task_ids: [] as number[],
   file_format: 'pdf' as string,
   title: '',
   description: '',
   mask_file_content: true,
 })
+
+// 临时存储选择的任务ID，提交时分离为 db_task_ids 和 file_task_ids
+const selectedTaskIds = ref<number[]>([])
 
 const rules = {
   report_type: [{ required: true, message: '请选择报告类型', trigger: 'change' }],
@@ -246,10 +248,16 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
+    // 从 selectedTaskIds 分离出 db_task_ids 和 file_task_ids
+    const dbTaskIdSet = new Set(taskList.value.filter(t => t._taskType === 'db').map(t => t.id))
+    const db_task_ids = selectedTaskIds.value.filter(id => dbTaskIdSet.has(id))
+    const file_task_ids = selectedTaskIds.value.filter(id => !dbTaskIdSet.has(id))
+
     const res = await generateReport({
       report_type: form.value.report_type as ReportType,
       file_format: form.value.file_format as ReportFormat,
-      task_ids: form.value.task_ids.length > 0 ? form.value.task_ids : undefined,
+      db_task_ids: db_task_ids.length > 0 ? db_task_ids : undefined,
+      file_task_ids: file_task_ids.length > 0 ? file_task_ids : undefined,
       title: form.value.title || undefined,
       description: form.value.description || undefined,
       mask_file_content: form.value.mask_file_content,
@@ -259,7 +267,8 @@ async function handleSubmit() {
     resultVisible.value = false
     visible.value = false
     emit('generated', res.id)
-    form.value = { report_type: 'classification_catalog', task_ids: [], file_format: 'pdf', title: '', description: '', mask_file_content: true }
+    form.value = { report_type: 'classification_catalog', file_format: 'pdf', title: '', description: '', mask_file_content: true }
+    selectedTaskIds.value = []
     ElMessage.success('报告已提交生成，请稍后在报告中心查看')
   } catch (err: any) {
     ElMessage.error(err?.message || '生成报告失败')
@@ -299,7 +308,8 @@ function taskStatusLabel(status?: string) {
 // 每次打开重置并加载
 watch(visible, async (val) => {
   if (val) {
-    form.value = { report_type: 'classification_catalog', task_ids: [], file_format: 'pdf', title: '', description: '', mask_file_content: true }
+    form.value = { report_type: 'classification_catalog', file_format: 'pdf', title: '', description: '', mask_file_content: true }
+    selectedTaskIds.value = []
     selectedTypeDesc.value = ''
     await Promise.all([loadReportTypes(), loadTasks()])
   }

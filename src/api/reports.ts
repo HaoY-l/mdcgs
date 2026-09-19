@@ -56,9 +56,6 @@ export interface ReportStats {
 export interface GenerateReportDTO {
   report_type: ReportType
   file_format?: ReportFormat
-  task_ids?: number[]  // 多选任务（已废弃）
-  db_task_ids?: number[]  // 数据资产任务ID列表
-  file_task_ids?: number[]  // 文件资产任务ID列表
   title?: string
   description?: string
   start_date?: string

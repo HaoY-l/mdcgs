@@ -33,35 +33,6 @@
         <span>{{ selectedTypeDesc }}</span>
       </div>
 
-      <!-- 关联任务（多选） -->
-      <el-form-item label="关联任务">
-        <el-select
-          v-model="selectedTaskIds"
-          placeholder="全部任务（可选，多选）"
-          style="width: 100%"
-          clearable
-          filterable
-          multiple
-          collapse-tags
-          collapse-tags-tooltip
-          :loading="tasksLoading"
-        >
-          <el-option
-            v-for="t in taskList"
-            :key="`${t._taskType}-${t.id}`"
-            :label="`${t.name}（${t.status}）`"
-            :value="t.id"
-          >
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-              <span>{{ t.name }}</span>
-              <el-tag size="small" :type="taskStatusType(t.status)">{{ taskStatusLabel(t.status) }}</el-tag>
-              <el-tag v-if="t._taskType === 'db'" size="small" type="info" style="margin-left:4px;">数据资产</el-tag>
-              <el-tag v-else-if="t._taskType === 'file'" size="small" type="warning" style="margin-left:4px;">文件资产</el-tag>
-            </div>
-          </el-option>
-        </el-select>
-      </el-form-item>
-
       <!-- 报告标题 -->
       <el-form-item label="报告标题">
         <el-input
@@ -156,7 +127,6 @@ import { ref, computed, watch } from 'vue'
 import { InfoFilled, CircleCheckFilled, WarningFilled } from '@element-plus/icons-vue'
 import { ElMessage } from 'element-plus'
 import { generateReport, getReportTypes, type ReportType, type ReportFormat, type ReportTypeOption, type GenerateResult } from '@/api/reports'
-import { getTasks, getFileTasks } from '@/api/task'
 
 const props = defineProps<{ modelValue: boolean }>()
 const emit = defineEmits<{
@@ -174,10 +144,8 @@ const submitting = ref(false)
 const resultVisible = ref(false)
 const generateResult = ref<GenerateResult | null>(null)
 const typesLoading = ref(false)
-const tasksLoading = ref(false)
 
 const reportTypes = ref<ReportTypeOption[]>([])
-const taskList = ref<any[]>([])
 const selectedTypeDesc = ref('')
 
 const form = ref({
@@ -187,9 +155,6 @@ const form = ref({
   description: '',
   mask_file_content: true,
 })
-
-// 临时存储选择的任务ID，提交时分离为 db_task_ids 和 file_task_ids
-const selectedTaskIds = ref<number[]>([])
 
 const rules = {
   report_type: [{ required: true, message: '请选择报告类型', trigger: 'change' }],
@@ -218,28 +183,6 @@ async function loadReportTypes() {
   }
 }
 
-async function loadTasks() {
-  tasksLoading.value = true
-  try {
-    // 并行加载数据资产任务和文件资产任务
-    const [dbRes, fileRes] = await Promise.all([
-      getTasks({ page: 1, page_size: 100 }),
-      getFileTasks({ page: 1, page_size: 100 }),
-    ])
-    const dbTasks = (dbRes as any)?.data?.items || (dbRes as any)?.items || []
-    const fileTasks = (fileRes as any)?.data?.items || (fileRes as any)?.items || []
-    // 标记任务类型并合并
-    taskList.value = [
-      ...dbTasks.map((t: any) => ({ ...t, _taskType: 'db' })),
-      ...fileTasks.map((t: any) => ({ ...t, _taskType: 'file' })),
-    ]
-  } catch (err: any) {
-    console.error('加载任务列表失败', err)
-  } finally {
-    tasksLoading.value = false
-  }
-}
-
 async function handleSubmit() {
   if (!form.value.report_type) {
     ElMessage.warning('请选择报告类型')
@@ -248,16 +191,9 @@ async function handleSubmit() {
 
   submitting.value = true
   try {
-    // 从 selectedTaskIds 分离出 db_task_ids 和 file_task_ids
-    const dbTaskIdSet = new Set(taskList.value.filter(t => t._taskType === 'db').map(t => t.id))
-    const db_task_ids = selectedTaskIds.value.filter(id => dbTaskIdSet.has(id))
-    const file_task_ids = selectedTaskIds.value.filter(id => !dbTaskIdSet.has(id))
-
     const res = await generateReport({
       report_type: form.value.report_type as ReportType,
       file_format: form.value.file_format as ReportFormat,
-      db_task_ids: db_task_ids.length > 0 ? db_task_ids : undefined,
-      file_task_ids: file_task_ids.length > 0 ? file_task_ids : undefined,
       title: form.value.title || undefined,
       description: form.value.description || undefined,
       mask_file_content: form.value.mask_file_content,
@@ -268,7 +204,6 @@ async function handleSubmit() {
     visible.value = false
     emit('generated', res.id)
     form.value = { report_type: 'classification_catalog', file_format: 'pdf', title: '', description: '', mask_file_content: true }
-    selectedTaskIds.value = []
     ElMessage.success('报告已提交生成，请稍后在报告中心查看')
   } catch (err: any) {
     ElMessage.error(err?.message || '生成报告失败')
@@ -284,34 +219,12 @@ function handleViewReport() {
   }
 }
 
-function taskStatusType(status?: string): 'success' | 'warning' | 'danger' | 'info' {
-  const map: Record<string, 'success' | 'warning' | 'danger' | 'info'> = {
-    completed: 'success',
-    running: 'warning',
-    failed: 'danger',
-    pending: 'info',
-  }
-  return map[status || ''] || 'info'
-}
-
-function taskStatusLabel(status?: string) {
-  const map: Record<string, string> = {
-    completed: '已完成',
-    running: '执行中',
-    failed: '失败',
-    pending: '待执行',
-    idle: '空闲',
-  }
-  return map[status || ''] || status || ''
-}
-
 // 每次打开重置并加载
 watch(visible, async (val) => {
   if (val) {
     form.value = { report_type: 'classification_catalog', file_format: 'pdf', title: '', description: '', mask_file_content: true }
-    selectedTaskIds.value = []
     selectedTypeDesc.value = ''
-    await Promise.all([loadReportTypes(), loadTasks()])
+    await loadReportTypes()
   }
 })
 </script>

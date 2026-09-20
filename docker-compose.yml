@@ -3,9 +3,10 @@ version: '3.8'
 services:
   # ========== 前端 ==========
   frontend:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    # build:
+    #   context: .
+    #   dockerfile: Dockerfile
+    image: monday1/mdcgs-frontend:v1.1.2
     container_name: mdcgs-frontend
     restart: unless-stopped
     ports:

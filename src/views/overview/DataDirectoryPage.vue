@@ -570,7 +570,7 @@
                   <el-button type="primary" @click="handleFileSearch">查询</el-button>
                   <el-button @click="handleFileReset">重置</el-button>
                   <el-divider direction="vertical" />
-                  <el-button size="small" @click="fileExportDialogVisible = true" :loading="fileExporting || fileExportingAll">
+                  <el-button size="small" @click="fileExportDialogVisible = true" :loading="fileExporting">
                     导出
                   </el-button>
                 </div>
@@ -680,7 +680,7 @@ import client from '@/api/client'
 // ===== Tab =====
 const activeTab = ref('database')
 
-function handleTabChange(name: string) {
+function handleTabChange(name: string | number) {
   if (name === 'file' && !fileTableData.value.length) {
     fetchFileDirectoryOptions()
     fetchFileDirectory(fileBuildParams())

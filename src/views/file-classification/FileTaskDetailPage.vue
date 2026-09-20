@@ -435,7 +435,7 @@ import { ArrowLeft } from '@element-plus/icons-vue'
 import {
   getFileTask, getFileTaskResults, getFileTaskResultsSummary,
   getFileTaskStatistics, getFileTaskCategoryView, getFileTaskExecutions,
-  getFileTaskFilterOptions,
+  getFileTaskFilterOptions, getFileTaskProgress,
   confirmFileResult, batchConfirmFileResults, changeFileResult, batchChangeFileResults,
 } from '@/api/fileClassification'
 import client from '@/api/client'
@@ -906,7 +906,7 @@ async function submitChange() {
     if (batchChangeCount.value > 1) {
       const changeable = selectedBlocks.value.filter((b: any) => !b.is_confirmed && !b.is_changed)
       const blockIds = changeable.map((b: any) => b.id)
-      const res = await batchChangeFileResults(taskId.value, blockIds, payload)
+      const res = await batchChangeFileResults(taskId.value, blockIds, payload) as any
       if (res?.code === 0) {
         ElMessage.success(res?.message || `已变更 ${blockIds.length} 项`)
       } else {
@@ -978,7 +978,7 @@ async function handleBatchConfirm() {
   try {
     // 打包一次接口调用（与数据库任务一致）
     const blockIds = confirmable.map((b: any) => b.id)
-    const res = await batchConfirmFileResults(taskId.value, blockIds, batchConfirmSource.value || 'system')
+    const res = await batchConfirmFileResults(taskId.value, blockIds, batchConfirmSource.value || 'system') as any
     if (res?.code === 0) {
       ElMessage.success(res?.message || `已确认 ${confirmable.length} 项`)
     } else {

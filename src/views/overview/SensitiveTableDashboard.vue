@@ -2,7 +2,7 @@
   <div class="page-container">
     <div class="page-header">
       <div>
-        <h2>敏感表盘</h2>
+        <h2>敏感表盘（数据资产）</h2>
         <p class="page-desc">实时展示所有数据资产的表级敏感等级分布情况</p>
       </div>
       <div class="header-actions">

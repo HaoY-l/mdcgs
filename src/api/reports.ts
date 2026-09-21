@@ -56,11 +56,11 @@ export interface ReportStats {
 export interface GenerateReportDTO {
   report_type: ReportType
   file_format?: ReportFormat
-  task_ids?: number[]  // 多选任务
   title?: string
   description?: string
   start_date?: string
   end_date?: string
+  mask_file_content?: boolean  // 文件数据是否脱敏
 }
 
 export interface GenerateResult {

@@ -3,21 +3,7 @@
     <div class="page-header">
       <h2>分类任务管理</h2>
       <div class="header-actions">
-        <el-input v-model="searchKeyword" placeholder="搜索任务名称" clearable size="small" style="width: 180px" @clear="handleKeywordSearch" @keyup.enter="handleKeywordSearch" />
-        <el-select v-model="filterStatus" placeholder="任务状态" clearable size="small" style="width: 130px" @change="handleStatusFilter">
-          <el-option label="待处理" value="pending" />
-          <el-option label="排队中" value="queued" />
-          <el-option label="执行中" value="running" />
-          <el-option label="已完成" value="completed" />
-          <el-option label="已停止" value="stopped" />
-          <el-option label="失败" value="failed" />
-        </el-select>
-        <el-select v-model="filterExecuteType" placeholder="执行方式" clearable size="small" style="width: 130px" @change="handleExecuteTypeFilter">
-          <el-option label="手动执行" value="manual" />
-          <el-option label="周期执行" value="periodic" />
-        </el-select>
-        <el-button size="small" @click="fetchTasks">刷新</el-button>
-        <el-button type="primary" size="small" @click="handleCreateTask">新建任务</el-button>
+        <!-- 通用搜索/状态/执行方式/刷新/新建任务 已上移到 PageShell 顶部 -->
       </div>
     </div>
 
@@ -93,7 +79,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getTasks, deleteTask, startTask, stopTask, batchStartTasks } from '@/api/task'
@@ -104,9 +90,12 @@ const tasks = ref<any[]>([])
 const total = ref(0)
 const currentPage = ref(1)
 const pageSize = ref(20)
-const searchKeyword = ref('')
-const filterStatus = ref('')
-const filterExecuteType = ref('')
+// 通用搜索/状态/执行方式 由父组件 TaskTabPage 提供
+const props = defineProps<{
+  searchKeyword: string
+  filterStatus: string
+  filterExecuteType: string
+}>()
 
 // 选中项
 const selectedTaskIds = ref<number[]>([])
@@ -148,9 +137,9 @@ function handleSelectionChange(rows: any[]) {
 
 function getParams() {
   const params: any = { page: currentPage.value, page_size: pageSize.value }
-  if (searchKeyword.value.trim()) params.keyword = searchKeyword.value.trim()
-  if (filterStatus.value) params.status = filterStatus.value
-  if (filterExecuteType.value) params.execute_type = filterExecuteType.value
+  if (props.searchKeyword?.trim()) params.keyword = props.searchKeyword.trim()
+  if (props.filterStatus) params.status = props.filterStatus
+  if (props.filterExecuteType) params.execute_type = props.filterExecuteType
   return params
 }
 
@@ -187,11 +176,18 @@ onUnmounted(() => {
 
 function handleKeywordSearch() { currentPage.value = 1; fetchTasks() }
 function handleStatusFilter() { currentPage.value = 1; fetchTasks() }
-function handleExecuteTypeFilter() { currentPage.value = 1; fetchTasks() }
+
+// 监听父组件传入的通用搜索/状态/执行方式变化
+watch(
+  () => [props.searchKeyword, props.filterStatus, props.filterExecuteType],
+  () => { currentPage.value = 1; fetchTasks() }
+)
+
+// 暴露给父组件调用
+defineExpose({ fetchTasks })
 function handleSizeChange(size: number) { pageSize.value = size; currentPage.value = 1; fetchTasks() }
 function handleCurrentChange(page: number) { currentPage.value = page; fetchTasks() }
 
-function handleCreateTask() { router.push('/classification/tasks/create') }
 function handleViewTask(row: any) { router.push(`/classification/tasks/${row.id}`) }
 function handleEditTask(row: any) { router.push(`/classification/tasks/${row.id}/edit`) }
 

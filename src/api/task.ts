@@ -10,6 +10,12 @@ export async function getTasks(params: Record<string, any> = {}) {
   return client.get('/classification-tasks', { params })
 }
 
+// ===== 文件分类任务管理 =====
+
+export async function getFileTasks(params: Record<string, any> = {}) {
+  return client.get('/file-classification-tasks', { params })
+}
+
 export async function createTask(data: Record<string, any>) {
   return client.post('/classification-tasks', data)
 }

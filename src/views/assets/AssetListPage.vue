@@ -1,19 +1,21 @@
 <template>
-  <PageShell title="资产列表" description="管理数据库资产，添加资产后点击「更新」同步数据库表结构">
+  <PageShell title="资产列表" description="管理数据库资产和文件资产，添加资产后点击「更新」同步数据库表结构">
     <template #header-actions>
       <el-input v-model="searchKeyword" placeholder="搜索资产名称" clearable size="small"
-        style="width: 200px; margin-right: 12px" @clear="fetchAssets" @keyup.enter="fetchAssets" />
-      <el-select v-model="filterBusinessDept" placeholder="业务部门" clearable size="small" style="width: 140px" @change="fetchAssets">
+        style="width: 200px; margin-right: 12px" @clear="handleSearch" @keyup.enter="handleSearch" />
+      <el-select v-model="filterBusinessDept" placeholder="业务部门" clearable size="small" style="width: 140px" @change="handleSearch">
         <el-option v-for="d in businessDeptOptions" :key="d" :label="d" :value="d" />
       </el-select>
-      <el-select v-model="filterAppSystem" placeholder="应用系统" clearable size="small" style="width: 140px" @change="fetchAssets">
+      <el-select v-model="filterAppSystem" placeholder="应用系统" clearable size="small" style="width: 140px" @change="handleSearch">
         <el-option v-for="a in appSystemOptions" :key="a" :label="a" :value="a" />
       </el-select>
+      <el-button size="small" @click="handleRefresh">刷新</el-button>
       <el-button type="primary" size="small" @click="handleAdd">新增资产</el-button>
-      <el-button size="small" @click="fetchAssets">刷新</el-button>
     </template>
 
-    <DataTable :data="assets" :loading="loading" :total="total" :current-page="currentPage" :page-size="pageSize"
+    <el-tabs v-model="activeTab" type="border-card" class="asset-tabs">
+      <el-tab-pane label="数据库资产" name="db">
+        <DataTable :data="assets" :loading="loading" :total="total" :current-page="currentPage" :page-size="pageSize"
       :selectable="true" @page-change="handlePageChange" @selection-change="selection = $event">
       <el-table-column prop="name" label="资产名称" min-width="150" />
       <el-table-column prop="asset_type" label="资产类型" min-width="100">
@@ -68,7 +70,7 @@
       </el-table-column>
     </DataTable>
 
-    <!-- 新增/编辑资产弹窗 -->
+    <!-- 数据库资产编辑弹窗：原位置保留 -->
     <el-dialog v-model="showDialog" :title="isEdit ? '编辑资产' : '新增资产'" width="700px">
       <el-form :model="form" label-width="120px">
         <el-form-item label="资产名称" required>
@@ -195,6 +197,32 @@
         <el-button type="primary" :loading="submitting" @click="handleSave">确定</el-button>
       </template>
     </el-dialog>
+      </el-tab-pane>
+
+      <el-tab-pane label="文件资产" name="file">
+        <FileAssetListPage
+          :search-keyword="searchKeyword"
+          :filter-business-dept="filterBusinessDept"
+          :filter-app-system="filterAppSystem"
+        />
+      </el-tab-pane>
+    </el-tabs>
+
+    <!-- 资产类型选择：新增资产时先选数据库资产还是文件资产 -->
+    <el-dialog v-model="showTypeDialog" title="选择资产类型" width="420px" align-center>
+      <div class="asset-type-picker">
+        <div class="asset-type-card" @click="chooseAssetType('database')">
+          <el-icon class="card-icon" :size="40"><Monitor /></el-icon>
+          <div class="card-title">数据库资产</div>
+          <div class="card-desc">已有逻辑：连接数据库同步表结构后分类分级</div>
+        </div>
+        <div class="asset-type-card" @click="chooseAssetType('file')">
+          <el-icon class="card-icon" :size="40"><Document /></el-icon>
+          <div class="card-title">文件资产</div>
+          <div class="card-desc">上传 Excel 等文件，解析后分类分级</div>
+        </div>
+      </div>
+    </el-dialog>
   </PageShell>
 </template>
 
@@ -202,16 +230,20 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { WarningFilled, QuestionFilled } from '@element-plus/icons-vue'
+import { WarningFilled, QuestionFilled, Monitor, Document } from '@element-plus/icons-vue'
 import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual, stopAssetUpdate } from '@/api/assets'
 import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLabel } from '@/constants/datasource'
 import PageShell from '@/components/common/PageShell.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ActionColumn from '@/components/common/ActionColumn.vue'
+import FileAssetListPage from '@/views/file-assets/FileAssetListPage.vue'
 import client from '@/api/client'
 
 const router = useRouter()
 const route = useRoute()
+
+// 当前激活的 tab：默认数据库资产；通过 ?tab=file 切换到文件资产
+const activeTab = ref<string>((route.query.tab as string) === 'file' ? 'file' : 'db')
 
 const loading = ref(false)
 const submitting = ref(false)
@@ -227,6 +259,7 @@ const businessDeptOptions = ref<string[]>([])
 const appSystemOptions = ref<string[]>([])
 const showDialog = ref(false)
 const isEdit = ref(false)
+const showTypeDialog = ref(false)
 const editId = ref<number | null>(null)
 const form = reactive({
   name: '', asset_type: 'mysql', host: '127.0.0.1', port: 3306,
@@ -329,7 +362,42 @@ function resetForm() {
 }
 
 function handleAdd() {
+  // 根据当前激活的 tab 决定行为：
+  // - 数据库资产 tab：弹类型选择对话框（保持原有逻辑）
+  // - 文件资产 tab：直接跳转上传页（不再弹选择）
+  if (activeTab.value === 'file') {
+    router.push('/file-assets/create')
+    return
+  }
+  showTypeDialog.value = true
+}
+
+function chooseAssetType(type: 'database' | 'file') {
+  showTypeDialog.value = false
+  if (type === 'file') {
+    router.push('/file-assets/create')
+    return
+  }
+  // 数据库资产：保留原有逻辑不变
   resetForm(); showDialog.value = true
+}
+
+// 通用搜索/筛选：触发当前 tab 的列表刷新
+function handleSearch() {
+  currentPage.value = 1
+  if (activeTab.value === 'db') {
+    fetchAssets()
+  }
+  // 文件 tab 由 FileAssetListPage 内部 watch props 触发
+}
+
+function handleRefresh() {
+  if (activeTab.value === 'db') {
+    fetchAssets()
+  } else {
+    // 文件 tab 没有暴露刷新方法，触发一次 v-model 同步以重新拉取
+    filterBusinessDept.value = filterBusinessDept.value
+  }
 }
 
 function handleEdit(row: any) {
@@ -583,5 +651,44 @@ onUnmounted(() => {
 }
 @keyframes spin {
   to { transform: rotate(360deg); }
+}
+
+.asset-type-picker {
+  display: flex;
+  gap: 16px;
+  padding: 8px 4px;
+}
+.asset-tabs { background: #fff; }
+.toolbar { margin-bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.asset-type-card {
+  flex: 1;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 24px 16px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: #fff;
+}
+.asset-type-card:hover {
+  border-color: #409eff;
+  background: #f5f9ff;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.15);
+}
+.card-icon {
+  color: #409eff;
+  margin-bottom: 8px;
+}
+.card-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 4px;
+}
+.card-desc {
+  font-size: 12px;
+  color: #909399;
+  line-height: 1.5;
 }
 </style>

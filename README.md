@@ -26,9 +26,9 @@
 
 ## 🚀 究竟是什么？
 
-> **把杂乱无章的数据库字段，变成清晰可见的资产目录。**
+> **把杂乱无章的数据库字段&&非结构化资产，变成清晰可见的资产目录。**
 
-MDCGS 是一款面向企业的**数据资产分类分级平台**，自动扫描数据库表结构，通过 **规则引擎 + AI 模型**双重识别身份证、手机号、银行卡等敏感字段，按行业模板自动分类分级，一键生成合规报告。
+MDCGS 是一款面向企业的**数据资产分类分级平台**，自动扫描数据库表结构，自主分析非结构化资产，通过 **规则引擎 + AI 模型**双重识别身份证、手机号、银行卡等敏感字段，按行业模板自动分类分级，一键生成合规报告。
 
 ---
 
@@ -40,6 +40,7 @@ flowchart TB
         DB1[("MySQL")]
         DB2[("PostgreSQL")]
         DB3[("Oracle / SQL Server")]
+        Files[("📄 文件资产<br/>PDF/Word/Excel/图片")]
     end
 
     subgraph Engine["⚙️ 引擎层"]
@@ -67,6 +68,7 @@ flowchart TB
     end
 
     DB1 & DB2 & DB3 --> Scan
+    Files --> Scan
     Scan --> Rule & AI
     Rule & AI --> MySQL
     Scheduler --> Queue --> Rule & AI
@@ -99,8 +101,15 @@ flowchart TB
 | Oracle | 完整支持，自动扫描表结构与元数据 |
 | SQL Server | 完整支持，自动扫描表结构与元数据 |
 | 达梦 DM | 国产信创数据库，完整支持 |
-| OpenGauss | 暂未支持 |
-| PolarDB | 暂未支持 |
+
+### 📁 文件资产（非结构化数据）
+
+| 类型 | 说明 |
+|:---|:---|
+| 办公文档 | .docx, .xlsx, .xls, .csv |
+| PDF | .pdf |
+| 文本类 | .txt, .md, .json |
+| 图片 | .png, .jpg, .jpeg（支持 OCR 识别） |
 
 ---
 
@@ -108,11 +117,15 @@ flowchart TB
 
 | 🕵️ **资产自动发现** | 🤖 **AI 智能分类** | 📊 **一键合规报告** |
 |:---|:---|:---|
-| 支持 MySQL / PostgreSQL等国产数据库 自动扫描表结构，告别手工台账 | 规则引擎 + 正则 + AI 模型三重识别，自动命中敏感字段 | 自动生成符合监管格式的数据资产报告，导出 PDF / Excel |
+| 支持 MySQL / PostgreSQL等国产数据库 自动扫描表结构，告别手工台账 | 规则引擎 + AI 模型双重识别，自动命中敏感字段 | 自动生成符合监管格式的数据资产报告，导出 PDF / Html |
 
 | 🎯 **多级分类分级** | 🔄 **批量任务执行** | 🔐 **分级授权管控** |
 |:---|:---|:---|
-| 内置可配置模板（个人信息 / 商业秘密 / 一般数据），支持自定义 | 全库万表批量分类，异步执行，进度实时可见 | 根据数据级别自动推荐脱敏规则、加密方式 |
+| 内置可配置模板（个人信息 / 商业秘密 / 一般数据），支持自定义 | 全库万表批量分类，异步执行，进度实时可见 | 自动推荐脱敏规则、加密方式 |
+
+| 📄 **非结构化分类** | 🖼️ **图片 OCR 识别** | 📑 **文件敏感内容提取** |
+|:---|:---|:---|
+| PDF/Word/Excel/图片等内容自动解析，识别敏感信息 | 支持图片中敏感数据 OCR 识别 | 提取文件内容块，自动分类分级 |
 
 | 📝 **全程操作审计** | 👥 **LDAP 自动同步** | ⏰ **定时增量扫描** |
 |:---|:---|:---|
@@ -174,6 +187,11 @@ flowchart TB
 <tr>
 <td width="50%"><b>📝 审计日志</b><br/><sub>所有操作可追溯</sub><br/><img src="public/日志中心.png"/></td>
 <td width="50%"><b>📈 数量分级</b><br/><sub>敏感字段数据量是多少</sub><br/><img src="public/数量分级.png"/></td>
+
+</tr>
+<tr>
+<td width="50%"><b>📈 文件资产</b><br/><sub>各类型文件资产导入</sub><br/><img src="public/文件资产.png"/></td>
+<td width="50%"><b>📈 文件表盘</b><br/><sub>非结构化资产分类</sub><br/><img src="public/文件表盘.png"/></td>
 </tr>
 </table>
 
@@ -204,7 +222,29 @@ docker compose up -d
 
 > 服务地址：**http://localhost:7785**　｜　默认账号：**admin / admin123**
 
-### 2. 基础设施（如未准备好 MySQL / Redis）
+### 2. 离线安装
+
+下载离线安装包，包含前端镜像文件和后端镜像文件
+```bash
+# 进入项目目录
+cd mdcgs
+# 镜像部署前端
+gunzip mdcgs-frontend-v1.1.2.tar.gz
+docker load -i mdcgs-frontend-v1.1.2.tar
+# 镜像部署后端
+gunzip mdcgs-backend-v1.1.2.tar.gz
+docker load -i mdcgs-backend-v1.1.2.tar
+
+# 复制配置文件，并修改配置
+mv .env-example .env
+
+# 启动服务
+docker compose up -d
+
+```
+
+
+### 3. 基础设施（如未准备好 MySQL / Redis）
 
 <details>
 <summary><b>📦 点击展开：快速创建 MySQL + Redis 容器</b></summary>

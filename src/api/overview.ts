@@ -51,6 +51,24 @@ export async function getDirectory(params: Record<string, any> = {}) {
   return client.get('/directory', { params })
 }
 
+// ===== 文件目录 =====
+export async function getFileDirectory(params: Record<string, any> = {}) {
+  return client.get('/file-directory/entries', { params })
+}
+
+export async function getFileDirectoryOptions(params: Record<string, any> = {}) {
+  return client.get('/file-directory/options', { params })
+}
+
+// ===== 文件表盘 =====
+export async function getFileDashboardStatistics(params: Record<string, any> = {}) {
+  return client.get('/file-directory/dashboard/statistics', { params })
+}
+
+export async function getFileDashboardFiles(params: Record<string, any> = {}) {
+  return client.get('/file-directory/dashboard/files', { params })
+}
+
 // ===== 字段安全概览 =====
 export async function getEncryptedColumns(params: Record<string, any> = {}) {
   return client.get('/overview/encrypted-columns', { params })

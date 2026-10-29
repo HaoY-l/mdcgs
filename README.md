@@ -368,3 +368,7 @@ MDCGS 内置了一套**通用分类分级模板**，同时也支持导入行业�
   <sub>Built with ❤️ by <a href="https://github.com/HaoY-l/mdcgs">MDCGS Team</a></sub><br/>
   <sub>如果这个项目对你有帮助，请给个 ⭐ Star 支持一下！</sub>
 </p>
+
+## 授权说明
+本仓库采用 MIT 协议开源，你可以自由修改、本地构建、二次分发前端代码。
+后端仅提供预编译容器镜像,不受本仓库 MIT 协议约束。

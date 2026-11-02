@@ -199,6 +199,8 @@ flowchart TB
 
 ## 🚀 快速开始
 
+📘 [MDCGS 用户使用手册](public/MDCGS用户使用手册.pdf)　｜　🚀 [MDCGS 部署手册](public/MDCGS部署手册.pdf)
+
 ### 环境要求
 
 | 依赖 | 版本 |

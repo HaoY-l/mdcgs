@@ -187,17 +187,17 @@
               <el-table-column label="人工确认" min-width="100" show-overflow-tooltip>
                 <template #default="{ row }">
                   <template v-if="row.is_changed">
-                    <el-tag type="warning" size="small" effect="plain">{{ row.sensitive_type || '已变更' }}</el-tag>
+                    <el-tag type="warning" size="small" effect="plain">{{ row.sensitive_type_manual || '已变更' }}</el-tag>
                   </template>
                   <template v-else-if="row.is_confirmed">
-                    <span class="manual-type-name">{{ row.sensitive_type || getManualTypeName(row) }}</span>
+                    <span class="manual-type-name">{{ getManualTypeName(row) }}</span>
                   </template>
                   <el-button v-else type="primary" link size="small" @click="openConfirmDialog(row)">待确认</el-button>
                 </template>
               </el-table-column>
               <el-table-column label="分级" min-width="70" align="center">
                 <template #default="{ row }">
-                  <el-tag v-if="row.level_code" size="small" effect="plain">{{ row.level_code }}</el-tag>
+                  <el-tag v-if="row.level_code_manual || row.level_code" size="small" effect="plain">{{ row.level_code_manual || row.level_code }}</el-tag>
                   <span v-else style="color: #999">-</span>
                 </template>
               </el-table-column>
@@ -208,7 +208,7 @@
               </el-table-column>
               <el-table-column label="分类路径" min-width="130" show-overflow-tooltip>
                 <template #default="{ row }">
-                  <span>{{ (row.category_path || '').split('>')[0] || '-' }}</span>
+                  <span>{{ ((row.category_path_manual || row.category_path) || '').split('>')[0] || '-' }}</span>
                 </template>
               </el-table-column>
               <el-table-column label="操作" width="150" fixed="right">
@@ -649,10 +649,12 @@ function parseAiCategory(aiCategory: string | null): string {
 
 // 获取人工确认后的实际分类名称（与数据库资产一致）
 function getManualTypeName(row: any): string {
-  // 优先使用sensitive_type（确认时会把分类名写入此字段）
+  // 优先使用人工确认字段（确认/变更时写入此字段，不再覆盖系统分类）
+  if (row.sensitive_type_manual) return row.sensitive_type_manual
+  // 兼容历史数据
   if (row.sensitive_type) return row.sensitive_type
   // 如果有level_code说明已分类
-  if (row.level_code) return row.level_code
+  if (row.level_code_manual || row.level_code) return row.level_code_manual || row.level_code
   return '-'
 }
 
@@ -859,14 +861,14 @@ async function openChangeDialog(row: any) {
     await loadCategoryView()
   }
   changeForm.result_id = row.id
-  changeForm.current_type = row.sensitive_type || ''
+  changeForm.current_type = row.sensitive_type_manual || row.sensitive_type || ''
   changeForm.current_level = row.level_code || row.level_code_manual || ''
   changeForm.new_category_id = null
   changeForm.new_type_name = ''
   changeForm.new_level_code = ''
   changeForm.level_code = row.level_code_manual || row.level_code || ''
   changeForm.category_path = row.category_path_manual || row.category_path || ''
-  changeForm.sensitive_type = row.sensitive_type || ''
+  changeForm.sensitive_type = row.sensitive_type_manual || row.sensitive_type || ''
   changeForm.reason = ''
   showChangeDialog.value = true
 }

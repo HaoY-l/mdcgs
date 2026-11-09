@@ -98,6 +98,19 @@ export interface RiskItem {
   harm_level?: string | null
   likelihood_level?: string | null
   risk_level?: string | null
+  /** 取消判定标记：保存时后端直接删除该条款记录（整条作废，回到未判定） */
+  cleared?: boolean
+}
+
+export interface RiskProgress {
+  done: number
+  total: number
+  pct: number
+  ok: number
+  part: number
+  no: number
+  na: number
+  none: number
 }
 
 export interface RiskAssessment {
@@ -139,6 +152,8 @@ export interface RiskAssessment {
   conclusion?: string | null
   residual_risk?: string | null
   report_id?: number | null
+  progress?: RiskProgress | null
+  report_status?: string | null
   created_by?: string | null
   created_at?: string | null
   updated_at?: string | null

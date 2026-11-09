@@ -154,9 +154,25 @@ export async function downloadReport(id: number): Promise<void> {
   }
   const contentDisposition = response.headers.get('content-disposition') || ''
   let fileName = `report_${id}.pdf`
-  const match = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/)
-  if (match) {
-    fileName = decodeURIComponent(match[1].replace(/['"]/g, ''))
+  // 优先按 RFC 5987 解析 filename*=utf-8''%E7%80%9A...，
+  // 直接用 filename[^;=]*= 会把 "utf-8''" 当成文件名的一部分（导致下载名多出 utf-8 前缀）
+  const starMatch = contentDisposition.match(/filename\*\s*=\s*[^']*'[^']*'([^;\n]+)/i)
+  if (starMatch) {
+    try {
+      fileName = decodeURIComponent(starMatch[1].trim())
+    } catch {
+      fileName = starMatch[1].trim()
+    }
+  } else {
+    const match = contentDisposition.match(/filename\s*=\s*(?:"([^"]*)"|'([^']*)'|([^;\n]*))/i)
+    if (match) {
+      const raw = (match[1] ?? match[2] ?? match[3] ?? '').trim()
+      try {
+        fileName = decodeURIComponent(raw)
+      } catch {
+        fileName = raw
+      }
+    }
   }
   const blob = await response.blob()
   const url = window.URL.createObjectURL(blob)

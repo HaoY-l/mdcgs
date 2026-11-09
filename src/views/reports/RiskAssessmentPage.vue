@@ -62,6 +62,35 @@
         <el-table-column prop="target_scope" label="评估对象" min-width="180" show-overflow-tooltip>
           <template #default="{ row }">{{ row.target_scope || '—' }}</template>
         </el-table-column>
+        <el-table-column label="状态" width="118">
+          <template #default="{ row }">
+            <el-tag v-if="row.report_status === 'generating'" type="primary" size="small" effect="light">
+              生成中
+            </el-tag>
+            <el-tag v-else-if="row.report_status === 'completed'" type="success" size="small" effect="light">
+              已生成报告
+            </el-tag>
+            <el-tag v-else-if="row.report_status === 'failed'" type="danger" size="small" effect="light">
+              生成失败
+            </el-tag>
+            <el-tag v-else type="info" size="small" effect="light">草稿</el-tag>
+          </template>
+        </el-table-column>
+        <el-table-column label="评估进度" width="190">
+          <template #default="{ row }">
+            <el-tooltip :content="progressTip(row as RiskAssessment)" placement="top">
+              <div class="list-progress">
+                <div class="lp-track">
+                  <div class="lp-fill" :style="{ width: (row.progress?.pct || 0) + '%' }"></div>
+                  <span
+                    class="lp-text"
+                    :class="{ 'on-fill': (row.progress?.pct || 0) >= 50 }"
+                  >{{ (row.progress?.pct || 0) >= 100 ? '已完成' : (row.progress?.pct || 0) + '%' }}</span>
+                </div>
+              </div>
+            </el-tooltip>
+          </template>
+        </el-table-column>
         <el-table-column prop="assess_date" label="评估日期" width="120">
           <template #default="{ row }">{{ row.assess_date || '—' }}</template>
         </el-table-column>
@@ -106,6 +135,24 @@
         </div>
       </div>
 
+      <!-- 整体核查进度 -->
+      <div class="overall-bar">
+        <span class="ob-label">整体核查进度</span>
+        <el-progress
+          :percentage="judgedPct"
+          :stroke-width="12"
+          style="width: 240px"
+          color="#2E86AB"
+        />
+        <span class="ob-text" :class="{ done: judgedPct >= 100 }">{{ overallText }}</span>
+        <span class="ob-legend">
+          <span class="lg"><i class="dot ok"></i>符合 {{ resultCount.ok }}</span>
+          <span class="lg"><i class="dot part"></i>部分符合 {{ resultCount.part }}</span>
+          <span class="lg"><i class="dot no"></i>不符合 {{ resultCount.no }}</span>
+          <span class="lg"><i class="dot na"></i>不适用 {{ resultCount.na }}</span>
+        </span>
+      </div>
+
       <!-- 步骤条 -->
       <div class="stepper">
         <div
@@ -131,32 +178,32 @@
             <el-form :model="form" label-width="130px" size="default">
               <div class="grid-2">
                 <el-form-item label="单位名称">
-                  <el-input v-model="form.org_name" placeholder="被评估方单位全称" />
+                  <el-input id="f-org_name" v-model="form.org_name" placeholder="被评估方单位全称" />
                 </el-form-item>
                 <el-form-item label="统一社会信用代码">
-                  <el-input v-model="form.credit_code" placeholder="18 位统一社会信用代码" />
+                  <el-input id="f-credit_code" v-model="form.credit_code" placeholder="18 位统一社会信用代码" />
                 </el-form-item>
                 <el-form-item label="单位地址">
-                  <el-input v-model="form.org_address" />
+                  <el-input id="f-org_address" v-model="form.org_address" />
                 </el-form-item>
                 <el-form-item label="邮政编码">
-                  <el-input v-model="form.postal_code" />
+                  <el-input id="f-postal_code" v-model="form.postal_code" />
                 </el-form-item>
                 <el-form-item label="单位性质">
-                  <el-input v-model="form.org_type" placeholder="如：企业 / 事业单位" />
+                  <el-input id="f-org_type" v-model="form.org_type" placeholder="如：企业 / 事业单位" />
                 </el-form-item>
                 <el-form-item label="所属行业领域">
-                  <el-input v-model="form.industry" placeholder="如：金融 / 医疗 / 政务" />
+                  <el-input id="f-industry" v-model="form.industry" placeholder="如：金融 / 医疗 / 政务" />
                 </el-form-item>
                 <el-form-item label="人员/业务规模">
                   <el-input v-model="form.org_scale" placeholder="如：2000 人，日均处理 100 万条" />
                 </el-form-item>
                 <el-form-item label="数据安全负责人">
-                  <el-input v-model="form.data_security_officer" />
+                  <el-input id="f-data_security_officer" v-model="form.data_security_officer" />
                 </el-form-item>
               </div>
               <el-form-item label="评估对象">
-                <el-input v-model="form.target_scope" placeholder="如：核心业务系统及承载的数据资产" />
+                <el-input id="f-target_scope" v-model="form.target_scope" placeholder="如：核心业务系统及承载的数据资产" />
               </el-form-item>
               <el-form-item label="评估对象说明">
                 <el-input v-model="form.target_desc" type="textarea" :rows="2" />
@@ -170,8 +217,8 @@
           <div class="card-bd">
             <el-form :model="form" label-width="130px">
               <div class="grid-2">
-                <el-form-item label="姓名"><el-input v-model="form.contact_name" /></el-form-item>
-                <el-form-item label="联系方式"><el-input v-model="form.contact_phone" /></el-form-item>
+                <el-form-item label="姓名"><el-input id="f-contact_name" v-model="form.contact_name" /></el-form-item>
+                <el-form-item label="联系方式"><el-input id="f-contact_phone" v-model="form.contact_phone" /></el-form-item>
                 <el-form-item label="职务/职称"><el-input v-model="form.contact_title" /></el-form-item>
                 <el-form-item label="所属部门"><el-input v-model="form.contact_dept" /></el-form-item>
               </div>
@@ -185,7 +232,7 @@
             <el-form :model="form" label-width="130px">
               <div class="grid-2">
                 <el-form-item label="评估单位名称">
-                  <el-input v-model="form.assessor_org_name" />
+                  <el-input id="f-assessor_org_name" v-model="form.assessor_org_name" />
                 </el-form-item>
                 <el-form-item label="邮政编码">
                   <el-input v-model="form.assessor_postal_code" />
@@ -200,16 +247,16 @@
                   <el-input v-model="form.assessor_contact_name" />
                 </el-form-item>
                 <el-form-item label="评估日期">
-                  <el-input v-model="form.assess_date" placeholder="YYYY-MM-DD" />
+                  <el-input id="f-assess_date" v-model="form.assess_date" placeholder="YYYY-MM-DD" />
                 </el-form-item>
                 <el-form-item label="评估组长">
-                  <el-input v-model="form.team_leader" />
+                  <el-input id="f-team_leader" v-model="form.team_leader" />
                 </el-form-item>
                 <el-form-item label="评估组长日期">
                   <el-input v-model="form.leader_sign_date" placeholder="YYYY-MM-DD" />
                 </el-form-item>
                 <el-form-item label="审核人">
-                  <el-input v-model="form.reviewer" />
+                  <el-input id="f-reviewer" v-model="form.reviewer" />
                 </el-form-item>
                 <el-form-item label="审核人日期">
                   <el-input v-model="form.reviewer_sign_date" placeholder="YYYY-MM-DD" />
@@ -227,8 +274,9 @@
           <div class="card-bd">
             <el-form :model="form" label-width="130px" label-position="top">
               <el-form-item label="7.2 业务和信息系统情况">
-                <el-input v-model="form.business_info" type="textarea" :rows="3" placeholder="业务情况说明" />
+                <el-input id="f-business_info" v-model="form.business_info" type="textarea" :rows="3" placeholder="业务情况说明" />
                 <el-input
+                  id="f-system_info"
                   v-model="form.system_info"
                   type="textarea"
                   :rows="3"
@@ -245,7 +293,7 @@
                     </el-button>
                   </span>
                 </template>
-                <el-input v-model="form.data_asset_info" type="textarea" :rows="4" placeholder="数据结构与数量、数据分布、数据关联关系等" />
+                <el-input id="f-data_asset_info" v-model="form.data_asset_info" type="textarea" :rows="4" placeholder="数据结构与数量、数据分布、数据关联关系等" />
                 <div v-if="prefill" class="prefill-box">
                   <span>数据库资产 {{ prefill.assets.total_assets }} 个 · 表 {{ prefill.assets.total_tables }} 张 · 字段 {{ prefill.assets.total_columns }} 个</span>
                   <span>已确认分类分级字段 {{ prefill.assets.classified_count }} 个（覆盖率 {{ prefill.assets.classification_rate }}%）</span>
@@ -253,10 +301,10 @@
                 </div>
               </el-form-item>
               <el-form-item label="7.4 数据处理活动情况">
-                <el-input v-model="form.processing_info" type="textarea" :rows="3" placeholder="数据收集、存储、传输、使用和加工、提供、公开、删除等环节说明" />
+                <el-input id="f-processing_info" v-model="form.processing_info" type="textarea" :rows="3" placeholder="数据收集、存储、传输、使用和加工、提供、公开、删除等环节说明" />
               </el-form-item>
               <el-form-item label="7.5 安全防护措施情况">
-                <el-input v-model="form.measure_info" type="textarea" :rows="3" placeholder="安全测评认证、安全管理机构与人员、制度及技术措施等" />
+                <el-input id="f-measure_info" v-model="form.measure_info" type="textarea" :rows="3" placeholder="安全测评认证、安全管理机构与人员、制度及技术措施等" />
               </el-form-item>
             </el-form>
           </div>
@@ -276,10 +324,10 @@
                 <el-input v-model="form.summary" type="textarea" :rows="2" placeholder="不填写则按核查结果自动生成" />
               </el-form-item>
               <el-form-item label="10.2 风险处置建议">
-                <el-input v-model="form.conclusion" type="textarea" :rows="2" />
+                <el-input id="f-conclusion" v-model="form.conclusion" type="textarea" :rows="2" />
               </el-form-item>
               <el-form-item label="10.3 残余风险分析">
-                <el-input v-model="form.residual_risk" type="textarea" :rows="2" />
+                <el-input id="f-residual_risk" v-model="form.residual_risk" type="textarea" :rows="2" />
               </el-form-item>
             </el-form>
           </div>
@@ -362,7 +410,7 @@
                 </template>
 
                 <!-- 条款原文（只读，标准内容不可修改） -->
-                <div class="standard">
+                <div class="standard" :id="'c-' + c.code">
                   <div v-for="(seg, si) in c.segments" :key="si" class="std-seg">
                     <div class="std-intro">{{ seg.intro }}</div>
                     <ol class="std-items">
@@ -393,6 +441,7 @@
                   <div class="field">
                     <label>核查情况 / 证据</label>
                     <el-input
+                      :id="'ev-' + c.code"
                       v-model="itemOf(c.code).evidence"
                       type="textarea"
                       :rows="2"
@@ -402,6 +451,7 @@
                   <div class="field">
                     <label>整改建议</label>
                     <el-input
+                      :id="'sg-' + c.code"
                       v-model="itemOf(c.code).suggestion"
                       type="textarea"
                       :rows="2"
@@ -587,8 +637,31 @@
         </div>
 
         <div class="card">
-          <div class="card-hd">生成报告</div>
+          <div class="card-hd">生成报告<span class="card-hd-sub">完整性检查</span></div>
           <div class="card-bd">
+            <!-- 完整性检查：信息未填写完整时不允许生成报告 -->
+            <div class="check-state" :class="missingItems.length ? 'bad' : 'ok'">
+              <div class="cs-hd">
+                <el-icon>
+                  <CircleCheckFilled v-if="!missingItems.length" />
+                  <WarningFilled v-else />
+                </el-icon>
+                <span v-if="!missingItems.length">评估信息已填写完整，可以生成报告</span>
+                <span v-else>还有 {{ missingItems.length }} 项未填写完整，无法生成报告</span>
+              </div>
+              <div v-if="missingItems.length" class="cs-list">
+                <el-tag
+                  v-for="(m, i) in missingItems"
+                  :key="i"
+                  size="small"
+                  type="danger"
+                  effect="plain"
+                  class="cs-item"
+                  @click="jumpToMissing(m)"
+                >{{ m.label }}</el-tag>
+              </div>
+            </div>
+
             <div class="gen-row">
               <el-radio-group v-model="genFormat" size="default">
                 <el-radio value="pdf">PDF</el-radio>
@@ -599,9 +672,22 @@
                 placeholder="报告标题（不填写则自动生成）"
                 style="width: 340px"
               />
-              <el-button type="primary" :loading="generating" @click="handleGenerate">
-                <el-icon style="margin-right: 4px"><Document /></el-icon>生成报告
-              </el-button>
+              <el-tooltip
+                :disabled="!missingItems.length"
+                :content="`尚有 ${missingItems.length} 项未填写完整，请先补全`"
+                placement="top"
+              >
+                <span class="gen-btn-wrap">
+                  <el-button
+                    type="primary"
+                    :loading="generating"
+                    :disabled="missingItems.length > 0"
+                    @click="handleGenerate"
+                  >
+                    <el-icon style="margin-right: 4px"><Document /></el-icon>生成报告
+                  </el-button>
+                </span>
+              </el-tooltip>
               <el-button
                 v-if="lastReportId && reportReady"
                 type="success"
@@ -634,10 +720,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, nextTick } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   Search, Plus, ArrowLeft, Select, Document, Loading, Download,
+  CircleCheckFilled, WarningFilled,
 } from '@element-plus/icons-vue'
 import DataTable from '@/components/common/DataTable.vue'
 import {
@@ -742,6 +829,7 @@ function blankItem(code: string): RiskItem {
     harm_level: null,
     likelihood_level: null,
     risk_level: null,
+    cleared: false,
   }
 }
 
@@ -755,13 +843,75 @@ function initItems() {
   })
 }
 
+// ============================================================
+// 增量保存：记录加载时的快照，判断「本次编辑了哪些条款」
+// ============================================================
+
+/** 参与比较的字段（risk_level 由后端按表 4 矩阵计算，不在此列） */
+const ITEM_COMPARE_FIELDS = [
+  'result', 'evidence', 'suggestion', 'risk_type_nos', 'risk_desc',
+  'source_desc', 'data_involved', 'activity_involved', 'harm_level', 'likelihood_level',
+] as const
+
+/** 条款内容的归一化签名，用于与快照比较 */
+function itemSig(it: RiskItem): string {
+  return JSON.stringify(ITEM_COMPARE_FIELDS.map((f) => {
+    const v = (it as any)[f]
+    if (f === 'risk_type_nos') return Array.isArray(v) ? [...v].sort((a, b) => a - b) : []
+    return v ?? null
+  }))
+}
+
+/** 当前已加载内容的快照（条款号 -> 签名） */
+const itemsSnapshot = ref<Record<string, string>>({})
+
+/** 记录/刷新快照（加载完成后、保存成功后调用） */
+function takeSnapshot() {
+  const snap: Record<string, string> = {}
+  Object.keys(items).forEach((code) => { snap[code] = itemSig(items[code]) })
+  itemsSnapshot.value = snap
+}
+
+/** 本次被编辑过的条款（含被取消的条款，只提交这些） */
+function dirtyItems(): RiskItem[] {
+  const out: RiskItem[] = []
+  Object.keys(items).forEach((code) => {
+    const it = items[code]
+    if (it.cleared) { out.push(it); return }
+    if ((itemsSnapshot.value[code] ?? '') !== itemSig(it)) out.push(it)
+  })
+  return out
+}
+
 function itemOf(code: string): RiskItem {
   return items[code] || (items[code] = blankItem(code))
 }
 
+/**
+ * 判定结论。
+ * 再次点击已选中的同一结论 = 取消判定 → 该条款整条作废：
+ * 界面回到「未判定」并清空核查情况/整改建议/风险信息，同时打上 cleared 标记；
+ * 点保存时前端把该标记提交给后端，后端直接删除该条款记录（而不是写入空值）。
+ */
 function setResult(code: string, value: string) {
   const it = itemOf(code)
-  it.result = it.result === value ? null : value
+  if (it.result === value) {
+    it.result = null
+    it.evidence = null
+    it.suggestion = null
+    it.risk_type_nos = []
+    it.risk_desc = null
+    it.source_desc = null
+    it.data_involved = null
+    it.activity_involved = null
+    it.harm_level = null
+    it.likelihood_level = null
+    it.risk_level = null
+    it.cleared = true
+  } else {
+    it.result = value
+    it.cleared = false
+  }
 }
 
 function showRisk(code: string) {
@@ -829,6 +979,133 @@ const judgedPct = computed(() =>
     ? Math.round((judgedCount.value / framework.value.clause_count) * 100)
     : 0,
 )
+
+/** 编辑页顶部整体进度文案：满 100% 显示「已完成」 */
+const overallText = computed(() =>
+  judgedPct.value >= 100
+    ? '已完成'
+    : `${judgedCount.value} / ${framework.value.clause_count} 条款（${judgedPct.value}%）`,
+)
+
+// ============================================================
+// 完整性校验（与后端 _missing_items 规则保持一致）
+// ============================================================
+
+/** 基本信息必填项（对应报告封面、附录 E.2 基本信息表与正文各章节） */
+const REQUIRED_FIELDS: { key: string; label: string }[] = [
+  { key: 'org_name', label: '被评估方单位名称' },
+  { key: 'credit_code', label: '统一社会信用代码' },
+  { key: 'org_address', label: '单位地址' },
+  { key: 'postal_code', label: '邮政编码' },
+  { key: 'org_type', label: '单位性质' },
+  { key: 'industry', label: '所属行业领域' },
+  { key: 'data_security_officer', label: '数据安全负责人' },
+  { key: 'target_scope', label: '评估对象' },
+  { key: 'assess_date', label: '评估日期' },
+  { key: 'contact_name', label: '被评估方联系人' },
+  { key: 'contact_phone', label: '联系方式' },
+  { key: 'assessor_org_name', label: '评估单位名称' },
+  { key: 'team_leader', label: '评估组长' },
+  { key: 'reviewer', label: '审核人' },
+  { key: 'business_info', label: '7.2 业务情况' },
+  { key: 'system_info', label: '7.2 信息系统情况' },
+  { key: 'data_asset_info', label: '7.3 数据资产情况' },
+  { key: 'processing_info', label: '7.4 数据处理活动情况' },
+  { key: 'measure_info', label: '7.5 安全防护措施情况' },
+  { key: 'conclusion', label: '10.2 风险处置建议' },
+  { key: 'residual_risk', label: '10.3 残余风险分析' },
+]
+
+/** 存在风险时必须填写的风险信息（9.2.1 表 1、9.2.2/9.2.3 表 2/表 3） */
+const REQUIRED_RISK_FIELDS: { key: string; label: string }[] = [
+  { key: 'risk_desc', label: '风险描述' },
+  { key: 'source_desc', label: '风险源描述' },
+  { key: 'data_involved', label: '涉及的数据及类型、级别' },
+  { key: 'activity_involved', label: '涉及的数据处理活动' },
+  { key: 'harm_level', label: '风险危害程度' },
+  { key: 'likelihood_level', label: '风险发生可能性' },
+]
+
+interface MissingItem {
+  type: 'field' | 'clause'
+  field?: string
+  code?: string
+  title?: string
+  reason?: string
+  label: string
+}
+
+const missingItems = computed<MissingItem[]>(() => {
+  const out: MissingItem[] = []
+  REQUIRED_FIELDS.forEach((f) => {
+    if (!String(form[f.key] || '').trim()) {
+      out.push({ type: 'field', field: f.key, label: f.label })
+    }
+  })
+  framework.value.clauses.forEach((cl) => {
+    const it = itemOf(cl.code)
+    const result = it.result || ''
+    const tag = `${cl.code} ${cl.title}`
+    if (!result) {
+      out.push({ type: 'clause', code: cl.code, title: cl.title, reason: '未判定', label: `${tag}：未判定` })
+      return
+    }
+    if (!String(it.evidence || '').trim()) {
+      out.push({ type: 'clause', code: cl.code, title: cl.title, reason: '缺核查情况/证据', label: `${tag}：缺核查情况/证据` })
+    }
+    if (result === 'part' || result === 'no') {
+      if (!String(it.suggestion || '').trim()) {
+        out.push({ type: 'clause', code: cl.code, title: cl.title, reason: '缺整改建议', label: `${tag}：缺整改建议` })
+      }
+      if (!(it.risk_type_nos || []).length) {
+        out.push({ type: 'clause', code: cl.code, title: cl.title, reason: '缺风险类型', label: `${tag}：缺风险类型` })
+      }
+      REQUIRED_RISK_FIELDS.forEach((f) => {
+        const v = it[f.key as keyof RiskItem] as any
+        const filled = f.key === 'harm_level' || f.key === 'likelihood_level'
+          ? !!v
+          : !!String(v || '').trim()
+        if (!filled) {
+          out.push({ type: 'clause', code: cl.code, title: cl.title, reason: `缺${f.label}`, label: `${tag}：缺${f.label}` })
+        }
+      })
+    }
+  })
+  return out
+})
+
+/** 列表页进度条的悬浮明细 */
+function progressTip(row: RiskAssessment) {
+  const p = row.progress
+  if (!p) return '暂无进度数据'
+  return `已判定 ${p.done}/${p.total} 条款 · 符合 ${p.ok} · 部分符合 ${p.part} · 不符合 ${p.no} · 不适用 ${p.na} · 未判定 ${p.none}`
+}
+
+/** 点击缺失项 → 跳转到对应字段/条款 */
+async function jumpToMissing(m: MissingItem) {
+  if (m.type === 'field') {
+    step.value = 0
+    await nextTick()
+    const el = document.getElementById(`f-${m.field}`) as HTMLElement | null
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    ;(el as HTMLInputElement | null)?.focus?.()
+    return
+  }
+  const code = m.code || ''
+  step.value = 1
+  const dim = code.split('.').slice(0, 2).join('.')
+  if (dim) activeDim.value = dim
+  if (code && !openClauses.value.includes(code)) {
+    openClauses.value = [...openClauses.value, code]
+  }
+  await nextTick()
+  const anchor =
+    (m.reason === '缺整改建议' ? document.getElementById(`sg-${code}`)
+      : m.reason === '缺核查情况/证据' ? document.getElementById(`ev-${code}`)
+        : document.getElementById(`c-${code}`)) as HTMLElement | null
+  anchor?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+  ;(anchor as HTMLInputElement | null)?.focus?.()
+}
 
 const dimSummary = computed(() =>
   framework.value.dimensions.map((d) => {
@@ -945,6 +1222,7 @@ function resetForm() {
     assessment_purpose: '', assessment_basis: '', summary: '',
     conclusion: '', residual_risk: '', remark: '',
   })
+  takeSnapshot()
 }
 
 function startCreate() {
@@ -984,8 +1262,10 @@ async function openEditor(id: number) {
         harm_level: it.harm_level || null,
         likelihood_level: it.likelihood_level || null,
         risk_level: it.risk_level || null,
+        cleared: false,
       }
     })
+    takeSnapshot()
     previewHtml.value = ''
     genProgress.value = ''
     step.value = 0
@@ -1060,11 +1340,11 @@ async function saveAll(silent = false) {
       await updateRiskAssessment(assessmentId.value, payload)
     }
 
-    const batch: RiskItem[] = Object.values(items).filter(
-      it => it.result || it.risk_desc || it.source_desc || (it.risk_type_nos && it.risk_type_nos.length),
-    )
+    // 增量保存：只提交本次编辑过的条款（含被取消的条款）
+    const batch: RiskItem[] = dirtyItems()
     if (batch.length) {
       await saveRiskItems(assessmentId.value!, batch)
+      takeSnapshot()
     }
     if (!silent) ElMessage.success('保存成功')
     return true
@@ -1091,6 +1371,10 @@ async function quickGenerate(row: RiskAssessment) {
 async function handleGenerate() {
   if (!assessmentId.value) {
     ElMessage.warning('请先保存评估')
+    return
+  }
+  if (missingItems.value.length) {
+    ElMessage.warning(`还有 ${missingItems.value.length} 项未填写完整，无法生成报告`)
     return
   }
   const ok = await saveAll(true)
@@ -1515,6 +1799,85 @@ function formatTime(v?: string | null) {
 .sum-tbl th { background: #F0F4F8; font-weight: 700; color: var(--brand); text-align: center; }
 .sum-tbl td.c { text-align: center; }
 .sum-tbl tr.total td { background: #F8FAFC; font-weight: 700; }
+
+/* 列表页进度条 */
+.list-progress { width: 100%; padding-right: 8px; }
+/* 自绘进度条：填充层随进度增长，文字层居中覆盖在整条轨道上 */
+.lp-track {
+  position: relative;
+  height: 20px;
+  border-radius: 10px;
+  background: var(--el-border-color-lighter);
+  overflow: hidden;
+}
+.lp-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  background: var(--el-color-primary);
+  border-radius: 10px;
+  transition: width .6s;
+}
+.lp-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  line-height: 1;
+  font-weight: 500;
+  color: var(--el-text-color-regular);
+}
+.lp-text.on-fill { color: #fff; }
+
+/* 编辑页顶部整体核查进度 */
+.overall-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 16px;
+  margin-bottom: 12px;
+  background: #F7FAFC;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+.ob-label { font-size: 13px; font-weight: 600; color: var(--ink); }
+.ob-text { font-size: 13px; color: var(--muted); }
+.ob-text.done { color: var(--ok); font-weight: 700; }
+.ob-legend { display: flex; gap: 14px; font-size: 12px; color: var(--muted); }
+
+/* 完整性检查 */
+.check-state {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+}
+.check-state.ok { background: #F2FAF5; border-color: #CDEBD8; }
+.check-state.bad { background: #FDF6F5; border-color: #F3D3CF; }
+.cs-hd {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.check-state.ok .cs-hd { color: var(--ok); }
+.check-state.bad .cs-hd { color: var(--bad); }
+.cs-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+  max-height: 168px;
+  overflow-y: auto;
+}
+.cs-item { cursor: pointer; }
+.cs-item:hover { color: var(--bad); }
+.gen-btn-wrap { display: inline-flex; }
 
 .gen-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
 .gen-progress {

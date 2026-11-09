@@ -119,8 +119,8 @@ export async function getReportTypes() {
   return get<ReportTypeOption[]>('/reports/types')
 }
 
-export async function getReportStats() {
-  return get<ReportStats>('/reports/stats')
+export async function getReportStats(params: Record<string, any> = {}) {
+  return get<ReportStats>('/reports/stats', params)
 }
 
 export async function generateReport(data: GenerateReportDTO) {

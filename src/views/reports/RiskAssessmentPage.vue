@@ -100,7 +100,7 @@
         <el-table-column prop="updated_at" label="更新时间" min-width="160">
           <template #default="{ row }">{{ formatTime(row.updated_at) }}</template>
         </el-table-column>
-        <el-table-column label="操作" width="220" fixed="right">
+        <el-table-column label="操作" width="280" fixed="right">
           <template #default="{ row }">
             <div class="action-btns">
               <el-button type="primary" link size="small" @click="openEditor((row as RiskAssessment).id)">
@@ -108,6 +108,15 @@
               </el-button>
               <el-button type="success" link size="small" @click="quickGenerate(row as RiskAssessment)">
                 生成报告
+              </el-button>
+              <el-button
+                v-if="(row as RiskAssessment).report_status === 'completed' && (row as RiskAssessment).report_id"
+                type="success"
+                link
+                size="small"
+                @click="downloadAssessmentReport(row as RiskAssessment)"
+              >
+                下载报告
               </el-button>
               <el-button type="danger" link size="small" @click="removeAssessment(row as RiskAssessment)">
                 删除
@@ -1428,6 +1437,16 @@ async function pollPreview(reportId: number) {
     }
   }
   genProgress.value = '报告仍在生成中，请稍后在报告中心查看'
+}
+
+/** 下载已生成的评估报告（报告在报告中心，类型为 data_security_risk） */
+async function downloadAssessmentReport(row: RiskAssessment) {
+  if (!row.report_id) return
+  try {
+    await downloadReport(row.report_id)
+  } catch (e: any) {
+    ElMessage.error(e?.message || '报告下载失败')
+  }
 }
 
 async function removeAssessment(row: RiskAssessment) {

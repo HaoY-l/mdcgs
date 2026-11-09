@@ -376,19 +376,24 @@ onUnmounted(() => {
 async function fetchReportTypes() {
   try {
     const data = await getReportTypes()
-    reportTypeOptions.value = data || []
+    // 风险评估报告在「数据安全风险评估报告」页签，不作为分类分级报告的类型筛选项
+    reportTypeOptions.value = (data || []).filter((t: any) => t.value !== 'data_security_risk')
   } catch {
     // 不影响主流程
   }
 }
 
 // ===== 获取列表 =====
+/** 数据安全风险评估报告的类型值：该类报告归属「数据安全风险评估报告」页签，不出现在分类分级报告列表 */
+const RISK_REPORT_TYPE = 'data_security_risk'
+
 async function fetchReports() {
   loading.value = true
   try {
     const params: Record<string, any> = {
       page: pagination.page,
       page_size: pagination.pageSize,
+      exclude_report_type: RISK_REPORT_TYPE,
     }
     if (filters.keyword) params.keyword = filters.keyword
     if (filters.report_type) params.report_type = filters.report_type
@@ -406,7 +411,7 @@ async function fetchReports() {
 
 async function fetchStats() {
   try {
-    const data = await getReportStats()
+    const data = await getReportStats({ exclude_report_type: RISK_REPORT_TYPE })
     Object.assign(stats, data)
   } catch {
     // stats 失败不影响主流程

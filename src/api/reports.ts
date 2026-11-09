@@ -9,6 +9,7 @@ export type ReportType =
   | 'annual_security'
   | 'important_data'
   | 'audit_summary'
+  | 'data_security_risk'
 
 export type ReportFormat = 'pdf' | 'excel' | 'html'
 

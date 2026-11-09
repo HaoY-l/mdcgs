@@ -175,7 +175,8 @@ async function loadReportTypes() {
   typesLoading.value = true
   try {
     const data = await getReportTypes()
-    reportTypes.value = data || []
+    // 数据安全风险评估报告需先填报评估过程，由「数据安全风险评估报告」页签生成
+    reportTypes.value = (data || []).filter((t: any) => t.value !== 'data_security_risk')
   } catch (err: any) {
     console.error('加载报告类型失败', err)
   } finally {

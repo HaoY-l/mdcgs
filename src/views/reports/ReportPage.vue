@@ -1,5 +1,8 @@
 <template>
-  <PageShell title="报告中心" description="数据分类分级合规报告生成与管理">
+  <PageShell title="报告中心" description="数据分类分级合规报告与数据安全风险评估报告生成与管理">
+
+    <el-tabs v-model="activeTab" class="report-tabs">
+      <el-tab-pane label="数据分类分级报告" name="classification">
 
     <!-- 统计卡片 -->
     <div class="stats-row">
@@ -264,16 +267,25 @@
       </template>
     </el-dialog>
 
+      </el-tab-pane>
+
+      <el-tab-pane label="数据安全风险评估报告" name="risk">
+        <RiskAssessmentPage />
+      </el-tab-pane>
+    </el-tabs>
+
   </PageShell>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { Search, Plus, Document, CircleCheck, CircleClose, Loading, Download, WarningFilled, CircleCheckFilled, CircleCloseFilled } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import PageShell from '@/components/common/PageShell.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ReportGenerateDialog from './ReportGenerateDialog.vue'
+import RiskAssessmentPage from './RiskAssessmentPage.vue'
 import {
   getReports,
   getReportTypes,
@@ -289,6 +301,30 @@ import {
 
 // ===== 报告类型选项 =====
 const reportTypeOptions = ref<any[]>([])
+
+// ===== 页签 =====
+// 页签状态写入地址栏（?tab=risk），刷新/前进后退都能停留在当前页签
+const route = useRoute()
+const router = useRouter()
+
+function tabFromQuery(): 'classification' | 'risk' {
+  return route.query.tab === 'risk' ? 'risk' : 'classification'
+}
+
+const activeTab = ref<'classification' | 'risk'>(tabFromQuery())
+
+watch(activeTab, (val) => {
+  const query = { ...route.query }
+  if (val === 'risk') query.tab = 'risk'
+  else delete query.tab
+  router.replace({ path: route.path, query })
+})
+
+// 浏览器前进/后退时同步页签
+watch(() => route.query.tab, () => {
+  const next = tabFromQuery()
+  if (next !== activeTab.value) activeTab.value = next
+})
 
 // ===== 状态 =====
 const loading = ref(false)
@@ -485,7 +521,12 @@ async function handleDelete(row: ReportItem) {
 
 // ===== 辅助 =====
 function getTypeLabel(type: string) {
-  return reportTypeOptions.value.find((t: any) => t.value === type)?.label || type
+  const hit = reportTypeOptions.value.find((t: any) => t.value === type)?.label
+  if (hit) return hit
+  const fallback: Record<string, string> = {
+    data_security_risk: '数据安全风险评估报告',
+  }
+  return fallback[type] || type
 }
 
 function statusLabel(status: string) {
@@ -651,6 +692,9 @@ function formatTime(iso?: string) {
 }
 
 .text-muted { font-size: 12px; color: #8c8c8c; }
+
+/* 页签 */
+.report-tabs :deep(.el-tabs__header) { margin-bottom: 16px; }
 </style>
 
 <style>

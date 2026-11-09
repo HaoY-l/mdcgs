@@ -80,6 +80,37 @@
 
         <!-- 开放接口 -->
         <el-tab-pane label="开放接口" name="api">
+          <!-- 服务地址配置 -->
+          <el-card shadow="never" style="margin-bottom: 16px">
+            <template #header>
+              <div style="display: flex; align-items: baseline; gap: 10px">
+                <span style="font-size: 14px; font-weight: 600">服务地址配置</span>
+                <span style="font-size: 12px; color: var(--el-text-color-secondary)">
+                  决定接口文档与示例代码中使用的请求地址
+                </span>
+              </div>
+            </template>
+
+            <el-form :model="addrForm" label-width="150px" style="max-width: 720px">
+              <el-form-item label="对外服务地址">
+                <el-input v-model="addrForm.base_url" placeholder="如：https://api.example.com（留空则按请求自动识别）" />
+                <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px">
+                  用户访问系统时使用的地址（域名或反向代理后的对外地址），文档示例代码中使用该地址
+                </div>
+              </el-form-item>
+              <el-form-item label="直连后端地址">
+                <el-input v-model="addrForm.direct_url" placeholder="如：http://10.0.0.5:8000（选填，仅用于展示）" />
+                <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-top: 4px">
+                  内网直连后端服务的地址，填写后会一并展示在文档地址栏
+                </div>
+              </el-form-item>
+              <el-form-item>
+                <el-button type="primary" :loading="addrSaving" @click="saveAddrConfig">保存</el-button>
+                <el-button :loading="addrSaving" @click="resetAddrConfig">恢复自动识别</el-button>
+              </el-form-item>
+            </el-form>
+          </el-card>
+
           <el-form :model="apiForm" style="margin-bottom: 16px">
             <el-form-item label="密钥名称" style="margin-bottom: 0">
               <el-input v-model="apiForm.name" placeholder="输入密钥名称" style="width: 200px" />
@@ -89,83 +120,35 @@
           <el-table :data="apiKeys" stripe v-loading="apiLoading" style="margin-bottom:16px">
             <el-table-column prop="name" label="密钥名称" min-width="120" />
             <el-table-column prop="key_preview" label="密钥预览" min-width="200" />
-            <el-table-column prop="created_at" label="创建时间" min-width="160" />
-            <el-table-column label="操作" min-width="120">
+            <el-table-column label="可调用接口" min-width="200">
               <template #default="{ row }">
+                <span v-if="!row.endpoints || !row.endpoints.length" style="color: var(--el-text-color-secondary)">
+                  全部开放接口
+                </span>
+                <template v-else>
+                  <el-tag
+                    v-for="eid in row.endpoints"
+                    :key="eid"
+                    size="small"
+                    effect="plain"
+                    style="margin-right: 4px"
+                  >
+                    {{ scopeOptionName(eid) }}
+                  </el-tag>
+                </template>
+              </template>
+            </el-table-column>
+            <el-table-column prop="created_at" label="创建时间" min-width="160" />
+            <el-table-column label="操作" min-width="180">
+              <template #default="{ row }">
+                <el-button link type="primary" size="small" @click="openScopeDialog(row)">配置接口</el-button>
                 <el-button link type="danger" size="small" @click="handleDeleteApiKey(row)">删除</el-button>
               </template>
             </el-table-column>
           </el-table>
 
           <!-- API 文档 -->
-          <el-card shadow="hover" style="margin-top: 20px">
-            <template #header>
-              <span>API 接口文档</span>
-            </template>
-            <div style="font-size: 13px; line-height: 1.8">
-              <p>外部系统可通过以下 API 查询分类分级结果，认证方式为 <code>Authorization: Bearer &lt;API_KEY&gt;</code>。</p>
-
-              <el-divider />
-              <h4 style="margin: 0 0 8px 0">1. 健康检查</h4>
-              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
-                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/health
-              </div>
-              <p style="color: #909399; font-size: 12px; margin: 0">无需认证，返回服务状态。</p>
-
-              <el-divider />
-              <h4 style="margin: 0 0 8px 0">2. 统计概览</h4>
-              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
-                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/statistics
-              </div>
-              <p style="color: #909399; font-size: 12px; margin: 0">返回资产总数、总字段数、敏感字段数、各级别分布。</p>
-
-              <el-divider />
-              <h4 style="margin: 0 0 8px 0">3. 资产列表</h4>
-              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
-                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/assets?page=1&page_size=20
-              </div>
-              <p style="color: #909399; font-size: 12px; margin: 0">
-                返回数据资产列表，包含资产名称、类型、地址、业务部门、应用系统、总字段数、敏感字段数。
-              </p>
-
-              <el-divider />
-              <h4 style="margin: 0 0 8px 0">4. 数据目录查询</h4>
-              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
-                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/classification-results?page=1&page_size=20
-              </div>
-              <p style="color: #909399; font-size: 12px; margin: 0">返回数据目录的字段级资产信息（原分类结果查询）。支持筛选参数：</p>
-              <ul style="color: #909399; font-size: 12px; margin: 4px 0">
-                <li><code>keyword</code> - 关键词搜索（字段名/注释/类型/分类路径/表名/资产名）</li>
-                <li><code>level</code> - 分级代码筛选，如 L2</li>
-                <li><code>category_path</code> - 分类路径筛选</li>
-                <li><code>asset</code> - 资产名称筛选</li>
-                <li><code>is_sensitive</code> - 1=敏感字段, 0=非敏感字段</li>
-              </ul>
-
-              <el-divider />
-              <h4 style="margin: 0 0 8px 0">5. 数据分类模版目录</h4>
-              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
-                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/templates/{tpl_id}/categories/tree
-              </div>
-              <p style="color: #909399; font-size: 12px; margin: 0">返回指定模板的分类目录树结构，包含分级信息。</p>
-
-              <el-divider />
-              <h4 style="margin: 0 0 8px 0">6. 分级信息</h4>
-              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; margin-bottom: 8px">
-                <span style="color: #67c23a; font-weight: bold">GET</span> /api/v1/open/v1/levels
-              </div>
-              <p style="color: #909399; font-size: 12px; margin: 0">返回所有数据分级列表，包含级别代码、值、颜色、管控原则、敏感/受限状态等。</p>
-
-              <el-divider />
-              <h4 style="margin: 0 0 8px 0">响应格式</h4>
-              <div style="background: #f5f7fa; padding: 8px 12px; border-radius: 4px; font-family: monospace; font-size: 12px; white-space: pre; overflow-x: auto">{
-  "code": 0,
-  "message": "success",
-  "data": { ... }
-}</div>
-              <p style="color: #909399; font-size: 12px; margin: 8px 0 0 0">分页接口返回 <code>data.items</code>、<code>data.total</code>、<code>data.page</code>、<code>data.page_size</code>、<code>data.total_pages</code>。</p>
-            </div>
-          </el-card>
+          <OpenApiDocsPanel :key="docsPanelKey" :api-keys="apiKeys" style="margin-top: 20px" />
         </el-tab-pane>
 
         <!-- 数据安全应用 -->
@@ -735,12 +718,36 @@
       <el-button @click="showKeyDialog = false">已保存，关闭</el-button>
     </template>
   </el-dialog>
+
+  <!-- 密钥可调用接口配置弹窗 -->
+  <el-dialog v-model="scopeDialogVisible" title="配置密钥可调用接口" width="640px">
+    <div style="font-size: 12px; color: var(--el-text-color-secondary); margin-bottom: 12px">
+      勾选该密钥允许调用的开放接口。不勾选任何接口表示开放全部开放接口（与未配置时行为一致）。
+    </div>
+    <el-checkbox-group v-model="scopeSelected" style="display: flex; flex-direction: column; gap: 8px">
+      <el-checkbox
+        v-for="opt in scopeOptions"
+        :key="opt.id"
+        :value="opt.id"
+      >
+        <span style="font-weight: 500">{{ opt.name }}</span>
+        <code style="margin-left: 8px; font-size: 12px">{{ opt.method }} {{ opt.path }}</code>
+        <el-tag v-if="!opt.auth" size="small" type="success" effect="plain" style="margin-left: 6px">无需认证</el-tag>
+      </el-checkbox>
+    </el-checkbox-group>
+    <template #footer>
+      <el-button type="primary" :loading="scopeSaving" @click="saveScope">保存</el-button>
+      <el-button @click="scopeDialogVisible = false">取消</el-button>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
+import OpenApiDocsPanel from './OpenApiDocsPanel.vue'
+import { getOpenApiAddressConfig, saveOpenApiAddressConfig } from '@/api/openApi'
 import {
   getSettings, updateSettings, uploadLogo,
   getLdapSettings, updateLdapSettings, testLdapConnection,
@@ -749,6 +756,7 @@ import {
   getSessionTimeout, updateSessionTimeout,
   getIpWhitelist, updateIpWhitelist,
   getApiKeys, createApiKey, deleteApiKey,
+  getApiKeyScopeOptions, getApiKeyScopes, updateApiKeyScopes,
   getDataApps, createDataApp, deleteDataApp, testDataAppConnection,
   getLicenseInfo, activateLicense, deactivateLicense,
   getAiSettings, saveAiSettings,
@@ -784,6 +792,19 @@ const securityForm = reactive({
 const ldapForm = reactive({ enabled: false, host: '', port: 389, base_dn: '', bind_dn: '', bind_password: '', user_filter: '(uid={username})' })
 const apiForm = reactive({ name: '' })
 const apiKeys = ref<any[]>([])
+
+// 密钥可调用接口（授权范围）配置
+const scopeOptions = ref<any[]>([])
+const scopeSelected = ref<string[]>([])
+const scopeDialogVisible = ref(false)
+const scopeSaving = ref(false)
+const scopeKeyId = ref<number | null>(null)
+
+// 开放接口服务地址配置
+const addrForm = reactive({ base_url: '', direct_url: '' })
+const addrSaving = ref(false)
+// 保存地址后强制重建文档面板，使其按新地址重新拉取示例代码
+const docsPanelKey = ref(0)
 const shownKey = ref('')
 const showKeyDialog = ref(false)
 const keyInputRef = ref()
@@ -842,6 +863,36 @@ async function fetchSettings() {
 async function saveBasicSettings() {
   await updateSettings({ basic: { ...basicForm } })
   ElMessage.success('基本设置已保存')
+}
+
+// ===== 开放接口服务地址配置 =====
+async function fetchAddrConfig() {
+  try {
+    const cfg = await getOpenApiAddressConfig()
+    addrForm.base_url = cfg.base_url
+    addrForm.direct_url = cfg.direct_url
+  } catch {
+    // 读取失败时保持默认值，不影响其他功能
+  }
+}
+
+async function saveAddrConfig() {
+  addrSaving.value = true
+  try {
+    await saveOpenApiAddressConfig({ base_url: addrForm.base_url, direct_url: addrForm.direct_url })
+    docsPanelKey.value += 1
+    ElMessage.success('服务地址已保存，接口文档中的示例地址已更新')
+  } catch (e: any) {
+    ElMessage.error(e?.message || '服务地址保存失败')
+  } finally {
+    addrSaving.value = false
+  }
+}
+
+async function resetAddrConfig() {
+  addrForm.base_url = ''
+  addrForm.direct_url = ''
+  await saveAddrConfig()
 }
 
 function handleLogoChange(file: any) {
@@ -955,6 +1006,50 @@ async function loadApiKeys() {
     const res = await getApiKeys()
     apiKeys.value = res.data?.items || []
   } finally { apiLoading.value = false }
+}
+
+/** 加载可授权的开放接口清单 */
+async function loadScopeOptions() {
+  try {
+    const res = await getApiKeyScopeOptions()
+    scopeOptions.value = res.data || []
+  } catch {
+    scopeOptions.value = []
+  }
+}
+
+/** 接口 ID 转接口名称 */
+function scopeOptionName(endpointId: string) {
+  return scopeOptions.value.find((o) => o.id === endpointId)?.name || endpointId
+}
+
+/** 打开密钥的接口授权配置弹窗 */
+async function openScopeDialog(row: any) {
+  scopeKeyId.value = row.id
+  await loadScopeOptions()
+  try {
+    const res = await getApiKeyScopes(row.id)
+    scopeSelected.value = res.data?.endpoints || []
+  } catch {
+    scopeSelected.value = []
+  }
+  scopeDialogVisible.value = true
+}
+
+/** 保存密钥的接口授权 */
+async function saveScope() {
+  if (scopeKeyId.value === null) return
+  scopeSaving.value = true
+  try {
+    await updateApiKeyScopes(scopeKeyId.value, scopeSelected.value)
+    ElMessage.success('授权接口已更新')
+    scopeDialogVisible.value = false
+    await loadApiKeys()
+  } catch (e: any) {
+    ElMessage.error(e?.message || '授权接口保存失败')
+  } finally {
+    scopeSaving.value = false
+  }
 }
 
 async function handleCreateApiKey() {
@@ -1540,7 +1635,11 @@ onMounted(async () => {
 // 切换标签时按需加载
 const tabLoaders: Record<string, () => Promise<void>> = {
   security: loadSecuritySettings,
-  api: loadApiKeys,
+  api: async () => {
+    await fetchAddrConfig()
+    await loadApiKeys()
+    await loadScopeOptions()
+  },
   apps: loadDataApps,
   engine: loadEngineSettings,
   ai: loadAiConfigs,

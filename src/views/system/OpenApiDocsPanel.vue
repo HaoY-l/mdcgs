@@ -237,8 +237,22 @@
 
                   <div class="dbg-row" v-for="p in ep.path_params || []" :key="'p_' + p.name">
                     <span class="dbg-k">{{ p.name }}</span>
+                    <el-select
+                      v-if="p.options_source === 'classification_templates'"
+                      v-model="debugStates[ep.id].pathParams[p.name]"
+                      placeholder="选择分类模版"
+                      class="dbg-ctrl"
+                      filterable
+                    >
+                      <el-option
+                        v-for="t in templates"
+                        :key="t.id"
+                        :label="t.name"
+                        :value="t.id"
+                      />
+                    </el-select>
                     <el-input-number
-                      v-if="p.type === 'integer'"
+                      v-else-if="p.type === 'integer'"
                       v-model="debugStates[ep.id].pathParams[p.name]"
                       :min="1"
                       :controls="false"
@@ -350,6 +364,7 @@ import {
   type SdkLang,
 } from '@/api/openApi'
 import { getApiKeys } from '@/api/system'
+import { getTemplates } from '@/api/classification'
 
 /** 密钥列表项（与后端 /api-keys 返回结构一致） */
 interface ApiKeyItem {
@@ -605,9 +620,34 @@ async function loadKeys() {
   }
 }
 
+/** 分类模版选项：路径参数声明 options_source=classification_templates 时按名称下拉选择 */
+const templates = ref<{ id: number; name: string }[]>([])
+
+/** 加载分类模版列表，并把下拉参数的默认值对齐到真实模版 */
+async function loadTemplates() {
+  try {
+    const res: any = await getTemplates({ page: 1, page_size: 100 })
+    const items = res?.data?.items || []
+    templates.value = items.map((t: any) => ({ id: t.id, name: t.name }))
+  } catch {
+    templates.value = []
+  }
+  for (const ep of endpoints.value) {
+    for (const p of ep.path_params || []) {
+      if (p.options_source !== 'classification_templates') continue
+      const st = debugState(ep)
+      const current = Number(st.pathParams[p.name])
+      if (!templates.value.some((t) => t.id === current)) {
+        st.pathParams[p.name] = templates.value.length ? templates.value[0].id : ''
+      }
+    }
+  }
+}
+
 onMounted(async () => {
   await loadKeys()
   await loadDocs()
+  await loadTemplates()
 })
 </script>
 

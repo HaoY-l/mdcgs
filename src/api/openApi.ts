@@ -27,6 +27,8 @@ export interface OpenApiParam {
   ge?: number
   /** 数值型参数的上界 */
   le?: number
+  /** 可选项来源：classification_templates 表示该参数按分类模版名称下拉选择 */
+  options_source?: string
 }
 
 export interface OpenApiSnippets {

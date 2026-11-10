@@ -218,6 +218,15 @@
 
               <!-- 调试：后端持密钥发起真实调用，前端不接触密钥明文 -->
               <el-tab-pane label="调试" name="debug">
+                <el-alert
+                  v-if="ep.debug_supported === false"
+                  type="warning"
+                  :closable="false"
+                  show-icon
+                  title="该接口需要上传文件，无法在文档面板中在线调试"
+                  description="请参考「SDK 示例」标签页中的调用示例，直接以 multipart/form-data 方式调用该接口。"
+                />
+                <template v-else>
                 <div class="dbg-form">
                   <div class="dbg-row" v-if="ep.auth">
                     <span class="dbg-k">API Key</span>
@@ -322,6 +331,7 @@
                   </div>
                   <pre class="code-block"><code>{{ debugResultText(ep) }}</code></pre>
                 </div>
+                </template>
               </el-tab-pane>
             </el-tabs>
           </div>

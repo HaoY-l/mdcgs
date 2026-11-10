@@ -50,6 +50,8 @@ export interface OpenApiEndpoint {
   description: string
   query_params?: OpenApiParam[]
   path_params?: OpenApiParam[]
+  /** 是否支持在文档面板中在线调试（需要上传文件的接口为 false） */
+  debug_supported?: boolean
   response_fields?: OpenApiParam[]
   response_example?: any
   snippets: OpenApiSnippets

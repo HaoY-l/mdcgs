@@ -743,7 +743,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { QuestionFilled } from '@element-plus/icons-vue'
 import OpenApiDocsPanel from './OpenApiDocsPanel.vue'
@@ -766,7 +767,23 @@ import {
   getPlugins, uploadPlugin, validatePlugin, deployPlugin, uninstallPlugin, deletePluginFile, restartService,
 } from '@/api/system'
 
-const activeTab = ref('basic')
+// ===== 页签状态写入地址栏（?tab=xxx）=====
+// 刷新 / 前进后退都能停留在当前页签；地址可收藏分享到具体页签。
+const TAB_NAMES = [
+  'basic', 'security', 'ldap', 'api', 'apps', 'engine', 'ai', 'plugins', 'license',
+] as const
+type TabName = (typeof TAB_NAMES)[number]
+
+const route = useRoute()
+const router = useRouter()
+
+// 只接受白名单内的页签名，非法值一律回落到「基本设置」，避免手改 URL 出现空白页签
+function tabFromQuery(): TabName {
+  const q = route.query.tab
+  return (TAB_NAMES as readonly string[]).includes(q as string) ? (q as TabName) : 'basic'
+}
+
+const activeTab = ref<TabName>(tabFromQuery())
 const basicLoading = ref(false)
 const ldapLoading = ref(false)
 const securityLoading = ref(false)
@@ -1627,11 +1644,6 @@ async function handleDeactivateLicense() {
   }
 }
 
-onMounted(async () => {
-  await fetchSettings()
-  await fetchLdapSettings()
-})
-
 // 切换标签时按需加载
 const tabLoaders: Record<string, () => Promise<void>> = {
   security: loadSecuritySettings,
@@ -1647,9 +1659,29 @@ const tabLoaders: Record<string, () => Promise<void>> = {
   plugins: loadPlugins,
 }
 
-import { watch } from 'vue'
+onMounted(async () => {
+  await fetchSettings()
+  await fetchLdapSettings()
+  // 刷新后停留在非「基本设置」页签时，watch 不会触发（初值即目标值），需主动补一次加载
+  if (activeTab.value !== 'basic') {
+    tabLoaders[activeTab.value]?.()
+  }
+})
+
+// 页签变化：加载数据 + 同步到地址栏
 watch(activeTab, (tab) => {
   tabLoaders[tab]?.()
+
+  const query = { ...route.query }
+  if (tab === 'basic') delete query.tab
+  else query.tab = tab
+  router.replace({ path: route.path, query })
+})
+
+// 浏览器前进/后退时同步页签
+watch(() => route.query.tab, () => {
+  const next = tabFromQuery()
+  if (next !== activeTab.value) activeTab.value = next
 })
 </script>
 

@@ -27,6 +27,7 @@
             </svg>
           </div>
           <span class="brand-name">MDCGS</span>
+          <span v-if="appVersion" class="app-version">{{ appVersion }}</span>
         </div>
       </div>
 
@@ -172,6 +173,7 @@ import { useUserStore } from '@/store/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getLogoUrl } from '@/api/system'
 import { getDocs, downloadDoc, type DocItem } from '@/api/system'
+import { getAppVersion } from '@/api/system'
 
 const route = useRoute()
 const router = useRouter()
@@ -179,6 +181,7 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 const customLogoUrl = ref('')
+const appVersion = ref('')
 
 const showDocsDialog = ref(false)
 const docList = ref<DocItem[]>([])
@@ -286,6 +289,14 @@ onMounted(() => {
       customLogoUrl.value = res.data.logo_url
     }
   }).catch(() => {})
+  // 获取后端版本号（取不到则不显示）
+  ;(getAppVersion() as any).then((res: any) => {
+    const version = res?.data?.version
+    if (version) {
+      const text = String(version)
+      appVersion.value = text.startsWith('v') ? text : `v${text}`
+    }
+  }).catch(() => {})
 })
 </script>
 
@@ -338,7 +349,7 @@ onMounted(() => {
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--spacing-10);
+  gap: var(--spacing-8);
 }
 
 .brand-name {
@@ -366,6 +377,19 @@ onMounted(() => {
   font-weight: var(--font-weight-700);
   color: var(--color-text-primary);
   letter-spacing: var(--letter-spacing-tight);
+}
+
+/* 版本号（后端 /api/v1/health 返回） */
+.app-version {
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-500);
+  color: var(--color-text-tertiary);
+  background: var(--color-surface-muted);
+  border: 1px solid var(--color-border-light);
+  border-radius: var(--radius-tag);
+  padding: 1px 6px;
+  line-height: 18px;
+  white-space: nowrap;
 }
 
 .header-right {

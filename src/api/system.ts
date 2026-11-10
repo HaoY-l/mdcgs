@@ -29,6 +29,15 @@ export async function getLogoUrl() {
 }
 
 // ============================================================
+// 系统信息
+// ============================================================
+
+/** 获取后端服务版本（GET /api/v1/health，返回 data.version） */
+export async function getAppVersion() {
+  return client.get('/health')
+}
+
+// ============================================================
 // LDAP设置
 // ============================================================
 
@@ -216,6 +225,21 @@ export async function createApiKey(data: Record<string, any>) {
 
 export async function deleteApiKey(id: number) {
   return client.delete(`/api-keys/${id}`)
+}
+
+/** 可授权给密钥的开放接口清单 */
+export async function getApiKeyScopeOptions() {
+  return client.get('/api-keys/scopes/options')
+}
+
+/** 查询密钥的接口授权 */
+export async function getApiKeyScopes(keyId: number) {
+  return client.get(`/api-keys/${keyId}/scopes`)
+}
+
+/** 设置密钥可调用的开放接口（空列表表示开放全部） */
+export async function updateApiKeyScopes(keyId: number, endpoints: string[]) {
+  return client.put(`/api-keys/${keyId}/scopes`, { endpoints })
 }
 
 // ============================================================

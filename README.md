@@ -332,6 +332,7 @@ MDCGS 内置了一套**通用分类分级模板**，同时也支持导入行业�
 | [`通用模版.xlsx`](TemplateExamples/通用模版.xlsx) | 通用分类分级模板，开箱即用 |
 | [`医疗行业模版.xlsx`](TemplateExamples/医疗行业模版.xlsx) | 医疗行业分类分级模板，开箱即用 |
 | [`教育行业模版.xlsx`](TemplateExamples/教育行业模版.xlsx) | 教育行业分类分级模板，开箱即用 |
+| [`金融行业模版.xlsx`](TemplateExamples/金融行业模版.xlsx) | 金融行业分类分级模板，开箱即用 |
 
 ### 📥 如何导入
 

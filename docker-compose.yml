@@ -1,5 +1,9 @@
 version: '3.8'
 
+# ★★★ 应用版本号 ★★★
+# 版本号的唯一声明处就在本文件：镜像 tag 与后端容器内的 APP_VERSION 保持一致，
+# 升级时改这里即可（本地直跑后端时，后端会直接读本项目根目录的 docker-compose.yml 兜底）。
+
 services:
   # ========== 前端 ==========
   frontend:
@@ -24,6 +28,8 @@ services:
     ports:
       - "8000:8000"
     environment:
+      # ★★★ 应用版本（开放接口 /health、/docs 返回的 version 取自此变量）★★★
+      - APP_VERSION=v1.1.4
       # ★★★ MySQL 配置 ★★★
       - DB_HOST=${DB_HOST}
       - DB_PORT=${DB_PORT}

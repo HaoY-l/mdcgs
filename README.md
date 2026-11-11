@@ -93,7 +93,7 @@ flowchart TB
 ---
 
 ## 📡 支持的数据源
-
+### 结构化数据
 | 类型 | 说明 |
 |:---|:---|
 | MySQL | 完整支持，自动扫描表结构与元数据 |
@@ -110,6 +110,9 @@ flowchart TB
 | PDF | .pdf |
 | 文本类 | .txt, .md, .json |
 | 图片 | .png, .jpg, .jpeg（支持 OCR 识别） |
+
+### 离线资产导入  
+支持格式：.sql（MySQL / Oracle / PostgreSQL / SQL Server 等常见导出脚本）
 
 ---
 

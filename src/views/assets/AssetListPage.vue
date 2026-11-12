@@ -24,7 +24,10 @@
         </template>
       </el-table-column>
       <el-table-column label="地址" min-width="180">
-        <template #default="{ row }">{{ row.host }}:{{ row.port }}</template>
+        <template #default="{ row }">
+          <span v-if="row.connection_method === 'file_import'">离线导入</span>
+          <span v-else>{{ row.host }}:{{ row.port }}</span>
+        </template>
       </el-table-column>
       <el-table-column prop="version" label="版本" min-width="100" show-overflow-tooltip>
         <template #default="{ row }">
@@ -86,7 +89,7 @@
             />
           </el-select>
         </el-form-item>
-        <el-row :gutter="16">
+        <el-row :gutter="16" v-if="!isOfflineAsset">
           <el-col :span="12">
             <el-form-item label="IP地址" required>
               <el-input v-model="form.host" />
@@ -188,7 +191,7 @@
           <el-input-number v-model="form.sample_count" :min="1" :max="100" style="width: 140px" />
           <span style="margin-left: 8px; color: #909399; font-size: 12px">每个字段采集的样本数据条数，默认5条</span>
         </el-form-item>
-        <el-form-item>
+        <el-form-item v-if="!isOfflineAsset">
           <el-button size="small" @click="testConnectionHandler">测试连接</el-button>
         </el-form-item>
       </el-form>
@@ -209,7 +212,7 @@
     </el-tabs>
 
     <!-- 资产类型选择：新增资产时先选数据库资产还是文件资产 -->
-    <el-dialog v-model="showTypeDialog" title="选择资产类型" width="420px" align-center>
+    <el-dialog v-model="showTypeDialog" title="选择资产类型" width="760px" align-center>
       <div class="asset-type-picker">
         <div class="asset-type-card" @click="chooseAssetType('database')">
           <el-icon class="card-icon" :size="40"><Monitor /></el-icon>
@@ -221,6 +224,11 @@
           <div class="card-title">文件资产</div>
           <div class="card-desc">上传 Excel 等文件，解析后分类分级</div>
         </div>
+        <div class="asset-type-card" @click="chooseAssetType('offline')">
+          <el-icon class="card-icon" :size="40"><Coin /></el-icon>
+          <div class="card-title">离线导入</div>
+          <div class="card-desc">上传 .sql 导出脚本，解析成数据资产后分类分级</div>
+        </div>
       </div>
     </el-dialog>
   </PageShell>
@@ -230,7 +238,7 @@
 import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { WarningFilled, QuestionFilled, Monitor, Document } from '@element-plus/icons-vue'
+import { WarningFilled, QuestionFilled, Monitor, Document, Coin } from '@element-plus/icons-vue'
 import { getAssets, createAsset, updateAsset, deleteAsset, testConnection, testConnectionDirect, updateAssetManual, stopAssetUpdate } from '@/api/assets'
 import { DATA_SOURCE_TYPES, getDefaultPort, getDefaultUsername, getDataSourceLabel } from '@/constants/datasource'
 import PageShell from '@/components/common/PageShell.vue'
@@ -259,6 +267,8 @@ const businessDeptOptions = ref<string[]>([])
 const appSystemOptions = ref<string[]>([])
 const showDialog = ref(false)
 const isEdit = ref(false)
+// 当前编辑的是否为离线导入资产（无源库，隐藏连接相关操作）
+const isOfflineAsset = ref(false)
 const showTypeDialog = ref(false)
 const editId = ref<number | null>(null)
 const form = reactive({
@@ -356,6 +366,7 @@ function resetForm() {
   form.schedule_freq = 'daily'; form.schedule_time = null
   form.schedule_week_days = []; form.schedule_month_day = 1
   isEdit.value = false; editId.value = null
+  isOfflineAsset.value = false
   // 重置时同步默认端口和用户名
   form.port = getDefaultPort(form.asset_type)
   form.username = getDefaultUsername(form.asset_type)
@@ -372,10 +383,14 @@ function handleAdd() {
   showTypeDialog.value = true
 }
 
-function chooseAssetType(type: 'database' | 'file') {
+function chooseAssetType(type: 'database' | 'file' | 'offline') {
   showTypeDialog.value = false
   if (type === 'file') {
     router.push('/file-assets/create')
+    return
+  }
+  if (type === 'offline') {
+    router.push('/assets/import')
     return
   }
   // 数据库资产：保留原有逻辑不变
@@ -402,6 +417,7 @@ function handleRefresh() {
 
 function handleEdit(row: any) {
   isEdit.value = true; editId.value = row.id
+  isOfflineAsset.value = row.connection_method === 'file_import'
   form.name = row.name; form.asset_type = row.asset_type; form.host = row.host
   form.port = row.port; form.database_name = row.database_name || ''; form.service_name = row.service_name || ''
   form.username = row.username || ''; form.password = ''
@@ -585,6 +601,14 @@ function getAssetActions(row: any) {
       { label: '停止更新', type: 'warning' as const, click: () => handleStopUpdate(row) },
     ]
   }
+  // 离线导入的资产没有源库，不提供「更新」操作
+  if (row.connection_method === 'file_import') {
+    return [
+      { label: '查看', click: () => handleView(row) },
+      { label: '编辑', click: () => handleEdit(row) },
+      { label: '删除', type: 'danger' as const, click: () => handleDelete(row) },
+    ]
+  }
   return [
     { label: '查看', click: () => handleView(row) },
     { label: '更新', click: () => handleUpdate(row) },
@@ -655,16 +679,17 @@ onUnmounted(() => {
 
 .asset-type-picker {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   padding: 8px 4px;
 }
 .asset-tabs { background: #fff; }
 .toolbar { margin-bottom: 12px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .asset-type-card {
   flex: 1;
+  min-width: 0;
   border: 1px solid #ebeef5;
   border-radius: 8px;
-  padding: 24px 16px;
+  padding: 28px 20px;
   text-align: center;
   cursor: pointer;
   transition: all 0.2s;

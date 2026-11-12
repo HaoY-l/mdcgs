@@ -67,6 +67,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '资产发现', icon: 'Search' },
       },
       {
+        path: 'assets/import',
+        name: 'OfflineImport',
+        component: () => import('@/views/assets/OfflineImportPage.vue'),
+        meta: { title: '离线导入' },
+      },
+      {
         path: 'file-assets/create',
         name: 'FileAssetCreate',
         component: () => import('@/views/file-assets/FileAssetCreatePage.vue'),

@@ -119,12 +119,17 @@
           </template>
         </el-form-item>
         <!-- 服务名（仅 Oracle 显示） -->
-        <el-form-item v-if="form.asset_type === 'oracle'">
-          <el-input v-model="form.service_name" placeholder="如：ORCL、XE，不填使用默认服务名" />
+        <el-form-item v-if="form.asset_type === 'oracle'" :required="isOracleDirect">
+          <el-input
+            v-model="form.service_name"
+            :placeholder="isOracleDirect
+              ? '如：DGEAPTDB、DGFDCDDB（区分大小写，需与 lsnrctl status 中写法一致）'
+              : '如：ORCL、XE，不填使用默认服务名'"
+          />
           <template #label>
             <span>
               服务名
-              <el-tooltip placement="top" :content="'Oracle 连接用服务名，即数据库实例的监听服务名。常见值：ORCL（11g）、XE（11g Express）、FREEPDB1（23c）、ORCLPDB1（12c/19c PDB）。不填则使用默认服务名。'">
+              <el-tooltip placement="top" :content="'Oracle 连接用服务名，即数据库实例的监听服务名。常见值：ORCL（11g）、XE（11g Express）、FREEPDB1（23c）、ORCLPDB1（12c/19c PDB）。同一 IP+端口下部署了多个实例时，用不同的服务名区分，需填写。注意：服务名区分大小写，请与 lsnrctl status 中的写法完全一致。'">
                 <el-icon style="margin-left: 4px; color: #909399; cursor: help; font-size: 14px; vertical-align: -2px;"><WarningFilled /></el-icon>
               </el-tooltip>
             </span>
@@ -235,7 +240,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, watch } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { WarningFilled, QuestionFilled, Monitor, Document, Coin } from '@element-plus/icons-vue'
@@ -288,6 +293,9 @@ const form = reactive({
   schedule_week_days: [] as number[],
   schedule_month_day: 1,
 })
+
+// Oracle 直连资产必须填写服务名（同一 IP+端口下用服务名区分不同实例）
+const isOracleDirect = computed(() => form.asset_type === 'oracle' && !isOfflineAsset.value)
 
 // 资产类型切换时自动更新默认端口和用户名
 watch(() => form.asset_type, (newType) => {
@@ -557,8 +565,41 @@ function buildCronExpression(): string {
   return ''
 }
 
+// Oracle 服务名区分大小写：提交前检查同主机同端口下是否已存在「仅大小写不同」的服务名
+async function checkOracleServiceNameCaseConflict(): Promise<boolean> {
+  if (!isOracleDirect.value || !form.service_name?.trim()) return true
+  const svc = form.service_name.trim()
+  try {
+    const res = await getAssets({ keyword: form.host, asset_type: 'oracle', page_size: 100 })
+    const items = res.data?.items || []
+    const conflict = items.find((a: any) =>
+      a.host === form.host &&
+      a.port === form.port &&
+      a.id !== editId.value &&
+      (a.service_name || '').toUpperCase() === svc.toUpperCase() &&
+      (a.service_name || '') !== svc
+    )
+    if (!conflict) return true
+    await ElMessageBox.confirm(
+      `服务名仅大小写不同：同一主机和端口下已存在服务名为「${conflict.service_name}」的资产「${conflict.name}」，你填的是「${svc}」。Oracle 服务名区分大小写，若与已有资产是同一实例请改成完全一致的写法。`,
+      '服务名疑似重复',
+      { type: 'warning', confirmButtonText: '仍然保存', cancelButtonText: '返回修改' }
+    )
+    return true
+  } catch (e: any) {
+    // 用户点了「返回修改」
+    if (e === 'cancel' || e === 'close') return false
+    return true
+  }
+}
+
 async function handleSave() {
   if (!form.name || !form.host) { ElMessage.warning('请填写必要信息'); return }
+  if (isOracleDirect.value && !form.service_name?.trim()) {
+    ElMessage.warning('Oracle 资产必须填写服务名（同一 IP+端口下不同服务名可分别创建多个资产）')
+    return
+  }
+  if (!(await checkOracleServiceNameCaseConflict())) return
   if (form.execute_type === 'periodic') {
     if (!form.schedule_time) { ElMessage.warning('请选择执行时间'); return }
     if (form.schedule_freq === 'weekly' && !form.schedule_week_days.length) { ElMessage.warning('请选择至少一天'); return }

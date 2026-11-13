@@ -14,7 +14,7 @@
       <template #header><span class="section-title">选择导出脚本</span></template>
 
       <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 16px">
-        <p>单文件最大 <b>1GB</b>，大文件解析可能需要数分钟，请勿关闭页面。文件仅在内存中解析，<b>不会</b>保留在服务器上。</p>
+        <p>单文件最大 <b>10GB</b>，大文件解析可能需要数分钟，请勿关闭页面。文件仅在内存中解析，<b>不会</b>保留在服务器上。</p>
         <p>支持格式：<b>.sql</b>（MySQL / Oracle / PostgreSQL / SQL Server 等常见导出脚本）。</p>
       </el-alert>
 
@@ -35,7 +35,7 @@
         <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
         <div class="el-upload__text">将 .sql 文件拖到此处，或<em>点击选择</em></div>
         <template #tip>
-          <div class="el-upload__tip">仅支持 .sql，单个文件不超过 1GB</div>
+          <div class="el-upload__tip">仅支持 .sql，单个文件不超过 10GB</div>
         </template>
       </el-upload>
 
@@ -172,7 +172,7 @@ const COMMON_NOTES = [
   '文件必须包含 CREATE TABLE（建表语句）。只有数据、没有表结构的文件会导入失败。',
   '认不出来的语句（视图、触发器、存储过程、SET、LOCK TABLES 等）会被跳过并计入导入结果里的「跳过语句数」，不会中断解析。',
   '表名会保留库 / 模式前缀（如 public.orders、dbo.Staff、HR.CUSTOMER），这样同一个文件里多个模式的同名表不会冲突。',
-  '只支持 .sql 格式，单个文件最大 1GB；文件仅在内存中解析，不会保留在服务器上。',
+  '只支持 .sql 格式，单个文件最大 10GB；文件仅在内存中解析，不会保留在服务器上。',
 ]
 
 /** 各数据库类型的导出命令与注意事项 */

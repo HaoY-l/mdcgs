@@ -27,7 +27,7 @@ export interface OfflineImportResult {
 
 /**
  * 上传 .sql 导出文件，离线解析并生成数据资产。
- * 文件较大（最大 1GB），因此不设置超时。
+ * 文件较大（最大 10GB），因此不设置超时。
  */
 export async function offlineImport(data: OfflineImportForm, onProgress?: (percent: number) => void) {
   const fd = new FormData()

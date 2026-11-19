@@ -212,6 +212,7 @@ flowchart TB
 | Docker Compose | ≥ 2.0 |
 
 ### 1. 一键启动
+> 部署脚本：https://github.com/HaoY-l/mdcgs/blob/main/deploy.sh
 
 ```bash
 git clone https://github.com/HaoY-l/mdcgs.git && cd mdcgs

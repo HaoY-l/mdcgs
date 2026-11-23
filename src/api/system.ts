@@ -530,3 +530,8 @@ export async function testNotifyTarget(id: number) {
 export async function getWebhookKeyword() {
   return client.get('/notify-targets/webhook-keyword')
 }
+
+/** 品牌信息（LOGO + 系统名称），公开接口，登录页与顶栏共用 */
+export async function getBranding() {
+  return client.get('/settings/branding')
+}

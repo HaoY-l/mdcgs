@@ -26,7 +26,7 @@
               <circle cx="18" cy="18" r="3.5" fill="var(--color-primary-500)" />
             </svg>
           </div>
-          <span class="brand-name">MDCGS</span>
+          <span class="brand-name">{{ systemName }}</span>
           <span v-if="appVersion" class="app-version">{{ appVersion }}</span>
         </div>
       </div>
@@ -233,7 +233,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { getLogoUrl } from '@/api/system'
+import { getBranding } from '@/api/system'
 import { getDocs, downloadDoc, type DocItem } from '@/api/system'
 import { getAppVersion } from '@/api/system'
 import { getUnreadAlerts, acknowledgeAllAlerts } from '@/api/audit'
@@ -244,6 +244,7 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 const customLogoUrl = ref('')
+const systemName = ref('MDCGS')
 const appVersion = ref('')
 
 const showDocsDialog = ref(false)
@@ -458,9 +459,12 @@ onMounted(() => {
     userStore.fetchUserInfo().catch(() => router.push('/login'))
   }
   // 获取自定义Logo
-  ;(getLogoUrl() as any).then((res: any) => {
+  ;(getBranding() as any).then((res: any) => {
     if (res.data?.logo_url) {
       customLogoUrl.value = res.data.logo_url
+    }
+    if (res.data?.system_name) {
+      systemName.value = res.data.system_name
     }
   }).catch(() => {})
   // 获取后端版本号（取不到则不显示）
@@ -562,14 +566,19 @@ onUnmounted(() => {
 }
 
 .brand-logo-img {
-  width: 36px;
-  height: 36px;
+  height: 32px;
+  width: auto;
+  max-width: 120px;
   object-fit: contain;
-  border-radius: 9px;
+  border-radius: 8px;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 
 .brand-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-18);
   font-weight: var(--font-weight-700);
   color: var(--color-text-primary);

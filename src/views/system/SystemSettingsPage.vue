@@ -6,6 +6,16 @@
         <!-- 基本设置 -->
         <el-tab-pane label="基本设置" name="basic">
           <el-form label-width="160px" v-loading="basicLoading">
+            <el-form-item label="系统名称">
+              <el-input
+                v-model="basicForm.system_name"
+                placeholder="MDCGS"
+                maxlength="30"
+                show-word-limit
+                style="width: 320px"
+              />
+              <div class="form-hint">显示在登录后页面左上角，留空则使用 MDCGS</div>
+            </el-form-item>
             <el-form-item label="自定义LOGO">
               <div class="logo-preview-wrapper" v-if="currentLogoUrl">
                 <img :src="currentLogoUrl" class="logo-preview-img" />
@@ -15,6 +25,9 @@
                 <el-button size="small">选择文件</el-button>
               </el-upload>
               <el-button v-if="logoFile" size="small" type="primary" style="margin-left:12px" @click="submitLogo">上传</el-button>
+              <div class="form-hint">
+                支持 PNG / JPG / GIF / WebP / SVG，大小不超过 2MB。推荐横向比例（如 200×72）或正方形，过大图片会自动等比压缩。
+              </div>
             </el-form-item>
             <el-form-item label="数据资产更新任务上限">
               <el-input-number v-model="basicForm.asset_task_limit" :min="1" :max="20" />
@@ -1016,7 +1029,12 @@ const logoFile = ref<File | null>(null)
 const uploadRef = ref()
 const currentLogoUrl = ref('')
 
-const basicForm = reactive({ asset_task_limit: 5, classify_task_limit: 5, refresh_interval: 60 })
+const basicForm = reactive({
+  asset_task_limit: 5,
+  classify_task_limit: 5,
+  refresh_interval: 60,
+  system_name: 'MDCGS',
+})
 
 // 安全设置 - 值都是字符串，后端 SysSettings 存字符串
 const securityForm = reactive({
@@ -1285,16 +1303,27 @@ async function fetchSettings() {
   try {
     const res = await getSettings()
     if (res.data?.basic) {
-      Object.assign(basicForm, res.data.basic)
-      if (res.data.basic.logo_url) {
-        currentLogoUrl.value = res.data.basic.logo_url
+      // logo_url 由上传接口独立维护，不能混进基本设置表单，
+      // 否则点「保存设置」会把旧 logo 地址写回数据库
+      const { logo_url, ...rest } = res.data.basic
+      Object.assign(basicForm, rest)
+      if (logo_url) {
+        currentLogoUrl.value = logo_url
       }
     }
   } finally { basicLoading.value = false }
 }
 
 async function saveBasicSettings() {
-  await updateSettings({ basic: { ...basicForm } })
+  // 只提交基本设置表单里的字段，避免污染 logo_url 等独立维护的配置
+  const payload = {
+    asset_task_limit: basicForm.asset_task_limit,
+    classify_task_limit: basicForm.classify_task_limit,
+    refresh_interval: basicForm.refresh_interval,
+    system_name: (basicForm.system_name || '').trim() || 'MDCGS',
+  }
+  await updateSettings({ basic: payload })
+  basicForm.system_name = payload.system_name
   ElMessage.success('基本设置已保存')
 }
 
@@ -1329,7 +1358,21 @@ async function resetAddrConfig() {
 }
 
 function handleLogoChange(file: any) {
-  logoFile.value = file.raw
+  const raw = file.raw
+  if (!raw) return
+  const ext = (raw.name || '').split('.').pop()?.toLowerCase() || ''
+  const allowed = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'ico']
+  if (!allowed.includes(ext)) {
+    ElMessage.error('仅支持 PNG / JPG / GIF / WebP / SVG 格式')
+    logoFile.value = null
+    return
+  }
+  if (raw.size > 2 * 1024 * 1024) {
+    ElMessage.error('图片不能超过 2MB')
+    logoFile.value = null
+    return
+  }
+  logoFile.value = raw
 }
 
 async function submitLogo() {
@@ -1339,7 +1382,7 @@ async function submitLogo() {
     ElMessage.success('LOGO上传成功')
     logoFile.value = null
     if (res?.data?.url) {
-      currentLogoUrl.value = res.data.url
+      currentLogoUrl.value = `${res.data.url}?t=${Date.now()}`
     }
   } catch { ElMessage.error('上传失败') }
 }

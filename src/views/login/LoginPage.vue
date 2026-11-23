@@ -21,8 +21,8 @@
             <circle cx="36" cy="36" r="8" fill="var(--color-primary-500)"/>
           </svg>
         </div>
-        <h1 class="brand-title">MDCGS</h1>
-        <p class="brand-desc">数据分类分级系统</p>
+        <h1 class="brand-title">{{ brandTitle }}</h1>
+        <p class="brand-desc">{{ brandDesc }}</p>
       </div>
       <div class="login-card">
         <h2 class="login-title">{{ isLdapLogin ? 'LDAP登录' : '登录' }}</h2>
@@ -111,11 +111,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { login, ldapLogin } from '@/api/auth'
-import { getLicenseInfo, activateLicense, deactivateLicense, getLogoUrl, type LicenseInfo } from '@/api/system'
+import { getLicenseInfo, activateLicense, deactivateLicense, getBranding, type LicenseInfo } from '@/api/system'
 import { useUserStore } from '@/store/user'
 
 const router = useRouter()
@@ -126,6 +126,18 @@ const loading = ref(false)
 const errorMsg = ref('')
 const isLdapLogin = ref(false)
 const customLogoUrl = ref('')
+const systemName = ref('MDCGS')
+
+const DEFAULT_SYSTEM_NAME = 'MDCGS'
+const DEFAULT_SYSTEM_DESC = '数据分类分级系统'
+
+// 系统名称未改动（默认/为空）时，登录页保留原有品牌文案；
+// 一旦管理员改成了别的名字，登录页标题同步显示新名称
+const isDefaultName = computed(
+  () => !systemName.value || systemName.value.trim() === DEFAULT_SYSTEM_NAME,
+)
+const brandTitle = computed(() => (isDefaultName.value ? DEFAULT_SYSTEM_NAME : systemName.value))
+const brandDesc = computed(() => (isDefaultName.value ? DEFAULT_SYSTEM_DESC : ''))
 
 const loginForm = reactive({ username: '', password: '' })
 const rememberPassword = ref(false)
@@ -152,9 +164,12 @@ const licenseKeyForm = reactive({ license_key: '' })
 // 获取自定义Logo
 async function fetchCustomLogo() {
   try {
-    const res = await getLogoUrl()
+    const res = await getBranding()
     if (res.data?.logo_url) {
       customLogoUrl.value = res.data.logo_url
+    }
+    if (res.data?.system_name) {
+      systemName.value = res.data.system_name
     }
   } catch {}
 }
@@ -273,6 +288,12 @@ async function handleDeactivateLicense() {
   50% { opacity: 1; transform: translate(-50%, -50%) scale(1.1); }
 }
 
+/* LOGO 专用呼吸动画：只动阴影，不动 transform（glow-pulse 带 translate(-50%,-50%) 会让图片偏移） */
+@keyframes logo-glow {
+  0%, 100% { filter: drop-shadow(0 4px 18px rgba(6, 182, 212, 0.35)); }
+  50% { filter: drop-shadow(0 4px 26px rgba(6, 182, 212, 0.65)); }
+}
+
 @keyframes glow-secondary {
   0%, 100% { opacity: 0.3; }
   50% { opacity: 0.6; }
@@ -378,26 +399,30 @@ async function handleDeactivateLicense() {
 
 /* ─── Brand Section ─── */
 .login-brand {
+  /* 定宽：让图标盒子与下方标题共用同一条中轴线 */
+  width: 260px;
+  flex-shrink: 0;
   text-align: center;
   animation: brand-enter 0.8s ease-out;
 }
 .brand-icon {
-  margin-bottom: 16px;
+  margin: 0 auto 16px;
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 100px;
+  /* 与 .login-brand 同宽：内部图片水平居中，中轴线与下方标题一致 */
+  width: 100%;
+  height: 88px;
   animation: float 4s ease-in-out infinite;
 }
 .brand-logo-img {
-  max-height: 100px;
-  max-width: 200px;
+  max-width: 100%;
+  max-height: 100%;
   width: auto;
   height: auto;
-  object-fit: scale-down;
-  border-radius: 18px;
-  filter: drop-shadow(0 4px 20px rgba(6, 182, 212, 0.4));
-  animation: glow-pulse 3s ease-in-out infinite;
+  object-fit: contain;
+  border-radius: 16px;
+  animation: logo-glow 3s ease-in-out infinite;
 }
 .brand-title {
   font-size: 36px; font-weight: 700;
@@ -415,6 +440,11 @@ async function handleDeactivateLicense() {
   color: #94a3b8;
   margin: 0;
   letter-spacing: 0.1em;
+}
+
+/* 副标题为空时不占位（自定义系统名称时） */
+.brand-desc:empty {
+  display: none;
 }
 
 /* ─── Login Card ─── */

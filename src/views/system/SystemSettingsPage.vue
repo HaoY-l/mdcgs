@@ -642,8 +642,8 @@
           </el-dialog>
         </el-tab-pane>
 
-        <!-- 联系人/组 -->
-        <el-tab-pane label="联系人/组" name="notify">
+        <!-- 告警对象 -->
+        <el-tab-pane label="告警对象" name="notify">
           <div v-loading="notifyLoading">
             <el-alert type="info" :closable="false" show-icon style="margin-bottom: 16px">
               <template #title>告警规则触发后，会把消息推送到此处<b>启用中的 Webhook 对象</b>。</template>
@@ -1069,7 +1069,7 @@ const licenseInfo = reactive({
 })
 const licenseKeyForm = reactive({ license_key: '' })
 
-// ===== 联系人/组（告警通知对象） =====
+// ===== 告警对象（告警通知对象） =====
 interface NotifyTargetItem {
   id: number
   name: string
@@ -2184,7 +2184,7 @@ watch(() => route.query.tab, () => {
   white-space: nowrap;
 }
 
-/* ─── 联系人/组 ─── */
+/* ─── 告警对象 ─── */
 .notify-toolbar {
   display: flex;
   align-items: center;

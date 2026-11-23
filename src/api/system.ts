@@ -490,3 +490,43 @@ export async function deletePluginFile(name: string) {
 export async function restartService() {
   return client.post('/system/plugins/restart')
 }
+
+// ============================================================
+// 告警通知对象（人员 / Webhook）
+// ============================================================
+
+export async function getNotifyTargets(params?: Record<string, any>) {
+  return client.get('/notify-targets', { params })
+}
+
+/** 规则表单用的精简选项 */
+export async function getNotifyTargetOptions() {
+  return client.get('/notify-targets/options')
+}
+
+export async function createNotifyTarget(data: Record<string, any>) {
+  return client.post('/notify-targets', data)
+}
+
+export async function updateNotifyTarget(id: number, data: Record<string, any>) {
+  return client.put(`/notify-targets/${id}`, data)
+}
+
+export async function deleteNotifyTarget(id: number) {
+  return client.delete(`/notify-targets/${id}`)
+}
+
+/** 未保存时测试 Webhook */
+export async function testWebhookUrl(data: { webhook_url: string; webhook_secret?: string; webhook_protocol?: string }) {
+  return client.post('/notify-targets/test', data)
+}
+
+/** 对已保存的告警对象发送测试消息 */
+export async function testNotifyTarget(id: number) {
+  return client.post(`/notify-targets/${id}/test`)
+}
+
+/** Webhook 消息默认关键字（用于界面提示） */
+export async function getWebhookKeyword() {
+  return client.get('/notify-targets/webhook-keyword')
+}

@@ -642,6 +642,225 @@
           </el-dialog>
         </el-tab-pane>
 
+        <!-- 联系人/组 -->
+        <el-tab-pane label="联系人/组" name="notify">
+          <div v-loading="notifyLoading">
+            <el-alert type="info" :closable="false" show-icon style="margin-bottom: 16px">
+              <template #title>告警规则触发后，会把消息推送到此处<b>启用中的 Webhook 对象</b>。</template>
+              <div style="font-size: 12px; line-height: 1.7">
+                人员类型对象当前仅做登记（姓名/邮箱/电话/职位/部门），邮件与短信发送暂未开放，用于后续扩展。
+              </div>
+            </el-alert>
+
+            <div class="notify-toolbar">
+              <el-input
+                v-model="notifyKeyword"
+                placeholder="搜索名称"
+                clearable
+                size="small"
+                style="width: 200px"
+                @clear="fetchNotifyTargets"
+                @keyup.enter="fetchNotifyTargets"
+              />
+              <el-select
+                v-model="notifyTypeFilter"
+                placeholder="全部类型"
+                clearable
+                size="small"
+                style="width: 130px"
+                @change="fetchNotifyTargets"
+              >
+                <el-option label="人员" value="person" />
+                <el-option label="Webhook" value="webhook" />
+              </el-select>
+              <el-button size="small" @click="fetchNotifyTargets">刷新</el-button>
+              <div style="margin-left: auto">
+                <el-button type="primary" size="small" @click="openNotifyForm()">新增告警对象</el-button>
+              </div>
+            </div>
+
+            <el-table
+              :data="notifyTargets"
+              stripe
+              v-loading="notifyLoading"
+              empty-text="暂无告警对象，点击右上角新增"
+              :header-cell-style="{ background: '#f5f7fa', color: '#606266', fontWeight: 600 }"
+            >
+              <el-table-column prop="name" label="名称" min-width="130" show-overflow-tooltip />
+              <el-table-column label="类型" width="100" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="row.target_type === 'webhook' ? 'primary' : 'info'" size="small">
+                    {{ row.target_type === 'webhook' ? 'Webhook' : '人员' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="联系方式" min-width="180" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <span :class="{ 'text-muted': !row.email && !row.phone }">
+                    {{ [row.email, row.phone].filter(Boolean).join(' / ') || '-' }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="职位/部门" min-width="150" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <span :class="{ 'text-muted': !row.position && !row.department }">
+                    {{ [row.position, row.department].filter(Boolean).join(' / ') || '-' }}
+                  </span>
+                </template>
+              </el-table-column>
+              <el-table-column label="Webhook 地址" min-width="200" show-overflow-tooltip>
+                <template #default="{ row }">
+                  <span :class="{ 'text-muted': !row.webhook_url }">{{ row.webhook_url || '-' }}</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="协议" width="100" align="center">
+                <template #default="{ row }">
+                  <span v-if="row.target_type === 'webhook'">
+                    {{ protocolLabel(row.webhook_protocol) }}
+                  </span>
+                  <span v-else class="text-muted">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="最近推送" width="120" align="center">
+                <template #default="{ row }">
+                  <el-tooltip
+                    v-if="row.target_type === 'webhook' && row.last_test_ok !== null && row.last_test_ok !== undefined"
+                    :content="row.last_test_msg || ''"
+                    placement="top"
+                  >
+                    <el-tag :type="row.last_test_ok ? 'success' : 'danger'" size="small" effect="plain">
+                      {{ row.last_test_ok ? '成功' : '失败' }}
+                    </el-tag>
+                  </el-tooltip>
+                  <span v-else class="text-muted">-</span>
+                </template>
+              </el-table-column>
+              <el-table-column label="状态" width="90" align="center">
+                <template #default="{ row }">
+                  <el-tag :type="row.enabled ? 'success' : 'info'" size="small" effect="plain">
+                    {{ row.enabled ? '启用' : '停用' }}
+                  </el-tag>
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="230" align="center" fixed="right">
+                <template #default="{ row }">
+                  <el-button link type="primary" size="small" @click="openNotifyForm(row as NotifyTargetItem)">编辑</el-button>
+                  <el-button
+                    v-if="row.target_type === 'webhook'"
+                    link
+                    type="primary"
+                    size="small"
+                    @click="handleTestSavedTarget(row as NotifyTargetItem)"
+                  >
+                    发送测试
+                  </el-button>
+                  <el-button link type="danger" size="small" @click="handleDeleteTarget(row as NotifyTargetItem)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+
+            <!-- 新增/编辑弹窗 -->
+            <el-dialog
+              v-model="notifyFormVisible"
+              :title="notifyForm.id ? '编辑告警对象' : '新增告警对象'"
+              width="560px"
+              :close-on-click-modal="false"
+            >
+              <el-form :model="notifyForm" label-width="92px">
+                <el-form-item label="类型" required>
+                  <el-radio-group v-model="notifyForm.target_type">
+                    <el-radio value="person">人员</el-radio>
+                    <el-radio value="webhook">Webhook</el-radio>
+                  </el-radio-group>
+                </el-form-item>
+                <el-form-item :label="notifyForm.target_type === 'webhook' ? '名称' : '姓名'" required>
+                  <el-input
+                    v-model="notifyForm.name"
+                    :placeholder="notifyForm.target_type === 'webhook' ? '如：钉钉群机器人' : '如：张三'"
+                    maxlength="100"
+                    show-word-limit
+                  />
+                </el-form-item>
+
+                <template v-if="notifyForm.target_type === 'person'">
+                  <el-form-item label="邮箱">
+                    <el-input v-model="notifyForm.email" placeholder="选填" maxlength="100" />
+                  </el-form-item>
+                  <el-form-item label="电话">
+                    <el-input v-model="notifyForm.phone" placeholder="选填" maxlength="50" />
+                  </el-form-item>
+                  <el-form-item label="职位">
+                    <el-input v-model="notifyForm.position" placeholder="选填" maxlength="100" />
+                  </el-form-item>
+                  <el-form-item label="部门">
+                    <el-input v-model="notifyForm.department" placeholder="选填" maxlength="100" />
+                  </el-form-item>
+                </template>
+
+                <template v-else>
+                  <el-form-item label="Webhook" required>
+                    <el-input
+                      v-model="notifyForm.webhook_url"
+                      placeholder="https://example.com/webhook"
+                      maxlength="500"
+                    />
+                    <div class="form-hint">告警触发后向该地址 POST JSON</div>
+                  </el-form-item>
+                  <el-form-item label="协议类型" required>
+                    <el-select v-model="notifyForm.webhook_protocol" style="width: 100%">
+                      <el-option label="钉钉机器人" value="dingtalk" />
+                      <el-option label="企业微信机器人" value="wecom" />
+                      <el-option label="通用 JSON（自建接收端）" value="generic" />
+                    </el-select>
+                    <div class="form-hint">
+                      钉钉/企业微信会按 msgtype=text 格式发送，并校验返回的 errcode；通用 JSON 发送完整业务字段。
+                    </div>
+                  </el-form-item>
+                  <el-form-item label="消息关键字">
+                    <div class="webhook-keyword-box">
+                      <el-tag type="primary" size="small">{{ webhookKeyword }}</el-tag>
+                      <span class="webhook-keyword-tip">
+                        推送消息会自动带上该关键字。若使用钉钉/企业微信机器人并开启了「自定义关键词」，
+                        请在机器人后台把 <b>{{ webhookKeyword }}</b> 加入关键词列表，否则消息会被拒收。
+                      </span>
+                    </div>
+                  </el-form-item>
+                  <el-form-item label="签名密钥">
+                    <el-input
+                      v-model="notifyForm.webhook_secret"
+                      placeholder="选填，填写后请求头带 X-MDCGS-Signature"
+                      maxlength="200"
+                    />
+                  </el-form-item>
+                  <el-form-item label="连通性">
+                    <el-button size="small" :loading="webhookTesting" @click="handleTestUnsavedWebhook">
+                      发送测试消息
+                    </el-button>
+                    <span
+                      v-if="webhookTestResult"
+                      class="webhook-test-result"
+                      :class="webhookTestResult.success ? 'ok' : 'fail'"
+                    >
+                      {{ webhookTestResult.success ? '成功' : '失败' }}：{{ webhookTestResult.detail }}
+                    </span>
+                  </el-form-item>
+                </template>
+
+                <el-form-item label="启用">
+                  <el-switch v-model="notifyForm.enabledBool" />
+                </el-form-item>
+                <el-form-item label="备注">
+                  <el-input v-model="notifyForm.remark" type="textarea" :rows="2" placeholder="选填" maxlength="500" />
+                </el-form-item>
+              </el-form>
+              <template #footer>
+                <el-button @click="notifyFormVisible = false">取消</el-button>
+                <el-button type="primary" :loading="notifySaving" @click="handleSaveTarget">确定</el-button>
+              </template>
+            </el-dialog>
+          </div>
+        </el-tab-pane>
+
         <!-- 授权管理 -->
         <el-tab-pane label="授权管理" name="license">
           <div v-loading="licenseLoading">
@@ -765,12 +984,14 @@ import {
   deleteAiModelConfig, activateAiModelConfig, testAiModelConfig, testAiModelConnection,
   getAiKnowledge, uploadAiKnowledge, deleteAiKnowledge, getAiKnowledgeHits,
   getPlugins, uploadPlugin, validatePlugin, deployPlugin, uninstallPlugin, deletePluginFile, restartService,
+  getNotifyTargets, createNotifyTarget, updateNotifyTarget, deleteNotifyTarget,
+  testWebhookUrl, testNotifyTarget, getWebhookKeyword,
 } from '@/api/system'
 
 // ===== 页签状态写入地址栏（?tab=xxx）=====
 // 刷新 / 前进后退都能停留在当前页签；地址可收藏分享到具体页签。
 const TAB_NAMES = [
-  'basic', 'security', 'ldap', 'api', 'apps', 'engine', 'ai', 'plugins', 'license',
+  'basic', 'security', 'ldap', 'api', 'apps', 'engine', 'ai', 'plugins', 'notify', 'license',
 ] as const
 type TabName = (typeof TAB_NAMES)[number]
 
@@ -847,6 +1068,201 @@ const licenseInfo = reactive({
   status: '未激活',
 })
 const licenseKeyForm = reactive({ license_key: '' })
+
+// ===== 联系人/组（告警通知对象） =====
+interface NotifyTargetItem {
+  id: number
+  name: string
+  target_type: 'person' | 'webhook'
+  email?: string
+  phone?: string
+  position?: string
+  department?: string
+  webhook_url?: string
+  webhook_secret?: string
+  webhook_protocol?: string
+  last_test_ok?: number
+  last_test_msg?: string
+  last_test_at?: string
+  enabled: number
+  remark?: string
+}
+
+const notifyLoading = ref(false)
+const notifyTargets = ref<NotifyTargetItem[]>([])
+const notifyKeyword = ref('')
+const notifyTypeFilter = ref('')
+const notifyFormVisible = ref(false)
+const notifySaving = ref(false)
+const webhookTesting = ref(false)
+const webhookKeyword = ref('MDCGS')
+const webhookTestResult = ref<{ success: boolean; detail: string } | null>(null)
+
+const notifyForm = reactive({
+  id: null as number | null,
+  name: '',
+  target_type: 'person' as 'person' | 'webhook',
+  email: '',
+  phone: '',
+  position: '',
+  department: '',
+  webhook_url: '',
+  webhook_secret: '',
+  webhook_protocol: 'dingtalk',
+  enabledBool: true,
+  remark: '',
+})
+
+function protocolLabel(p?: string): string {
+  return ({ dingtalk: '钉钉', wecom: '企业微信', generic: '通用' } as Record<string, string>)[p || ''] || '通用'
+}
+
+async function loadWebhookKeyword() {
+  try {
+    const res = await getWebhookKeyword() as any
+    if (res.code === 0 && res.data?.keyword) webhookKeyword.value = res.data.keyword
+  } catch {
+    /* 取不到就沿用默认值 */
+  }
+}
+
+async function loadNotifyTargets() {
+  notifyLoading.value = true
+  try {
+    const params: Record<string, any> = {}
+    if (notifyKeyword.value) params.keyword = notifyKeyword.value
+    if (notifyTypeFilter.value) params.target_type = notifyTypeFilter.value
+    const res = await getNotifyTargets(params) as any
+    if (res.code === 0) notifyTargets.value = res.data?.items || []
+  } catch {
+    ElMessage.error('加载告警对象失败')
+  } finally {
+    notifyLoading.value = false
+  }
+}
+
+// 表格/按钮共用同一个加载函数
+const fetchNotifyTargets = loadNotifyTargets
+
+function openNotifyForm(row?: NotifyTargetItem) {
+  webhookTestResult.value = null
+  if (row) {
+    Object.assign(notifyForm, {
+      id: row.id,
+      name: row.name,
+      target_type: row.target_type,
+      email: row.email || '',
+      phone: row.phone || '',
+      position: row.position || '',
+      department: row.department || '',
+      webhook_url: row.webhook_url || '',
+      webhook_secret: row.webhook_secret || '',
+      webhook_protocol: row.webhook_protocol || 'dingtalk',
+      enabledBool: !!row.enabled,
+      remark: row.remark || '',
+    })
+  } else {
+    Object.assign(notifyForm, {
+      id: null, name: '', target_type: 'person',
+      email: '', phone: '', position: '', department: '',
+      webhook_url: '', webhook_secret: '', webhook_protocol: 'dingtalk', enabledBool: true, remark: '',
+    })
+  }
+  notifyFormVisible.value = true
+}
+
+async function handleSaveTarget() {
+  if (!notifyForm.name.trim()) {
+    ElMessage.error(notifyForm.target_type === 'webhook' ? '请填写名称' : '请填写姓名')
+    return
+  }
+  if (notifyForm.target_type === 'webhook' && !notifyForm.webhook_url.trim()) {
+    ElMessage.error('请填写 Webhook 地址')
+    return
+  }
+  notifySaving.value = true
+  try {
+    const payload = {
+      name: notifyForm.name.trim(),
+      target_type: notifyForm.target_type,
+      email: notifyForm.email || null,
+      phone: notifyForm.phone || null,
+      position: notifyForm.position || null,
+      department: notifyForm.department || null,
+      webhook_url: notifyForm.webhook_url || null,
+      webhook_secret: notifyForm.webhook_secret || null,
+      webhook_protocol: notifyForm.webhook_protocol,
+      enabled: notifyForm.enabledBool ? 1 : 0,
+      remark: notifyForm.remark || null,
+    }
+    const res = notifyForm.id
+      ? await updateNotifyTarget(notifyForm.id, payload) as any
+      : await createNotifyTarget(payload) as any
+    if (res.code === 0) {
+      ElMessage.success(res.message || '保存成功')
+      notifyFormVisible.value = false
+      loadNotifyTargets()
+    }
+  } catch {
+    ElMessage.error('保存失败')
+  } finally {
+    notifySaving.value = false
+  }
+}
+
+async function handleTestUnsavedWebhook() {
+  if (!notifyForm.webhook_url.trim()) {
+    ElMessage.error('请先填写 Webhook 地址')
+    return
+  }
+  webhookTesting.value = true
+  webhookTestResult.value = null
+  try {
+    const res = await testWebhookUrl({
+      webhook_url: notifyForm.webhook_url.trim(),
+      webhook_secret: notifyForm.webhook_secret || undefined,
+      webhook_protocol: notifyForm.webhook_protocol,
+    }) as any
+    if (res.code === 0) {
+      webhookTestResult.value = res.data
+    }
+  } catch {
+    webhookTestResult.value = { success: false, detail: '请求失败' }
+  } finally {
+    webhookTesting.value = false
+  }
+}
+
+async function handleTestSavedTarget(row: NotifyTargetItem) {
+  try {
+    const res = await testNotifyTarget(row.id) as any
+    if (res.code === 0) {
+      const d = res.data
+      if (d.success) ElMessage.success(`测试成功：${d.detail}`)
+      else ElMessage.error(`测试失败：${d.detail}`)
+    }
+  } catch {
+    ElMessage.error('测试失败')
+  }
+}
+
+async function handleDeleteTarget(row: NotifyTargetItem) {
+  try {
+    await ElMessageBox.confirm(`确定删除「${row.name}」吗？`, '提示', {
+      confirmButtonText: '删除',
+      cancelButtonText: '取消',
+      type: 'warning',
+    })
+    const res = await deleteNotifyTarget(row.id) as any
+    if (res.code === 0) {
+      ElMessage.success('已删除')
+      loadNotifyTargets()
+    }
+  } catch (err: any) {
+    if (err === 'cancel') return
+    // 被规则引用时后端返回具体提示，已在拦截器里弹出，这里不再重复
+  }
+}
 
 // ===== 插件管理 =====
 const plugins = ref<any[]>([])
@@ -1657,6 +2073,10 @@ const tabLoaders: Record<string, () => Promise<void>> = {
   ai: loadAiConfigs,
   license: loadLicenseInfo,
   plugins: loadPlugins,
+  notify: async () => {
+    await loadWebhookKeyword()
+    await loadNotifyTargets()
+  },
 }
 
 onMounted(async () => {
@@ -1762,5 +2182,52 @@ watch(() => route.query.tab, () => {
   align-items: center;
   gap: 4px;
   white-space: nowrap;
+}
+
+/* ─── 联系人/组 ─── */
+.notify-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.text-muted {
+  color: var(--color-text-tertiary);
+}
+
+.form-hint {
+  margin-top: 4px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--color-text-tertiary);
+}
+
+.webhook-test-result {
+  margin-left: 10px;
+  font-size: 12px;
+  word-break: break-all;
+}
+
+.webhook-test-result.ok {
+  color: var(--el-color-success);
+}
+
+.webhook-test-result.fail {
+  color: var(--el-color-danger);
+}
+
+/* ─── Webhook 关键字提示 ─── */
+.webhook-keyword-box {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  line-height: 1.6;
+}
+
+.webhook-keyword-tip {
+  flex: 1;
+  font-size: 12px;
+  color: var(--color-text-tertiary);
 }
 </style>

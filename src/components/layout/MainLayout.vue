@@ -36,14 +36,76 @@
           <span class="breadcrumb-current">{{ pageTitle }}</span>
         </div>
         <div class="header-actions">
-          <el-tooltip content="通知" placement="bottom">
-            <button class="header-action-btn">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-            </button>
-          </el-tooltip>
+          <el-popover
+            v-if="canViewAudit"
+            v-model:visible="notifyVisible"
+            placement="bottom-end"
+            :width="360"
+            trigger="click"
+            popper-class="notify-popper"
+          >
+            <template #reference>
+              <!-- 外层 span 作为 popover 的点击触发元素；tooltip 只包按钮负责悬浮提示 -->
+              <span class="notify-ref">
+                <el-tooltip content="通知中心" placement="bottom">
+                  <button class="header-action-btn notify-btn" type="button">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 01-3.46 0" />
+                    </svg>
+                    <span v-if="unreadCount > 0" class="notify-badge">
+                      {{ unreadCount > 99 ? '99+' : unreadCount }}
+                    </span>
+                  </button>
+                </el-tooltip>
+              </span>
+            </template>
+
+            <div class="notify-panel">
+              <div class="notify-header">
+                <span class="notify-title">通知中心</span>
+                <div class="notify-header-actions">
+                  <el-button v-if="unreadCount > 0" link type="primary" size="small" @click="handleAckAll">
+                    全部已读
+                  </el-button>
+                </div>
+              </div>
+
+              <!-- 类型标签页：点分类只看该类通知 -->
+              <div class="notify-tabs">
+                <span
+                  v-for="tab in notifyTabs"
+                  :key="tab.key"
+                  class="notify-tab"
+                  :class="{ active: notifyTypeFilter === tab.key }"
+                  @click="notifyTypeFilter = tab.key"
+                >
+                  {{ tab.label }}
+                  <span v-if="tab.count" class="notify-tab-count">{{ tab.count }}</span>
+                </span>
+              </div>
+
+              <div v-if="filteredNotifyItems.length === 0" class="notify-empty">
+                暂无通知消息
+              </div>
+
+              <div v-else class="notify-list">
+                <div
+                  v-for="item in filteredNotifyItems"
+                  :key="item.id"
+                  class="notify-item"
+                  @click="handleNotifyClick(item)"
+                >
+                  <span class="notify-level" :class="`level-${item.level || 'warning'}`"></span>
+                  <div class="notify-body">
+                    <div class="notify-item-title">{{ item.title }}</div>
+                    <div class="notify-item-msg">{{ item.message }}</div>
+                    <div class="notify-item-time">{{ formatNotifyTime(item.created_at) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-popover>
 
           <el-tooltip content="文档下载" placement="bottom">
             <button class="header-action-btn" @click="showDocsDialog = true">
@@ -167,13 +229,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
 import { getLogoUrl } from '@/api/system'
 import { getDocs, downloadDoc, type DocItem } from '@/api/system'
 import { getAppVersion } from '@/api/system'
+import { getUnreadAlerts, acknowledgeAllAlerts } from '@/api/audit'
 
 const route = useRoute()
 const router = useRouter()
@@ -186,6 +249,117 @@ const appVersion = ref('')
 const showDocsDialog = ref(false)
 const docList = ref<DocItem[]>([])
 const docLoading = ref(false)
+
+// 右上角通知中心
+// 目前只有「审计告警」一种来源，结构与类型已按多来源设计，
+// 后续接入报告生成通知/任务完成通知时，只需在 NOTIFY_TYPES 增加一项并在 fetchNotifications 里补充数据源。
+type NotifyType = 'audit_alert' | 'report' | 'task'
+
+interface NotifyItem {
+  id: number | string
+  type: NotifyType
+  title: string
+  message: string
+  level: string
+  created_at: string
+}
+
+const NOTIFY_TYPES: { key: NotifyType; label: string }[] = [
+  { key: 'audit_alert', label: '审计告警' },
+  // { key: 'report', label: '报告生成' },   // 后续接入
+  // { key: 'task', label: '任务完成' },     // 后续接入
+]
+
+const notifyVisible = ref(false)
+const unreadCount = ref(0)
+const notifyItems = ref<NotifyItem[]>([])
+const notifyTypeFilter = ref<NotifyType | 'all'>('all')
+let notifyTimer: number | null = null
+
+// ADMIN 角色 permissions 为 {"*": true}，需单独放行
+const canViewAudit = computed(() =>
+  userStore.userInfo?.role_code === 'ADMIN' || userStore.hasPermission('log_view')
+)
+
+// 顶部类型标签（带各类型未读数）
+const notifyTabs = computed<{ key: NotifyType | 'all'; label: string; count: number }[]>(() => {
+  const tabs: { key: NotifyType | 'all'; label: string; count: number }[] = [
+    { key: 'all', label: '全部', count: notifyItems.value.length },
+  ]
+  for (const t of NOTIFY_TYPES) {
+    tabs.push({
+      key: t.key,
+      label: t.label,
+      count: notifyItems.value.filter(i => i.type === t.key).length,
+    })
+  }
+  return tabs
+})
+
+const filteredNotifyItems = computed(() =>
+  notifyTypeFilter.value === 'all'
+    ? notifyItems.value
+    : notifyItems.value.filter(i => i.type === notifyTypeFilter.value)
+)
+
+/** 审计告警数据源（后续可在此聚合其他来源） */
+async function fetchNotifications() {
+  if (!canViewAudit.value) return
+  try {
+    const res = await getUnreadAlerts(20) as any
+    if (res.code === 0) {
+      unreadCount.value = res.data?.unread || 0
+      notifyItems.value = (res.data?.items || []).map((a: any) => ({
+        id: `audit_${a.id}`,
+        type: 'audit_alert' as const,
+        title: a.rule_name || '审计告警',
+        message: a.message,
+        level: a.alert_level || 'warning',
+        created_at: a.created_at,
+      }))
+    }
+  } catch {
+    // 通知拉取失败不影响主流程
+  }
+}
+
+async function handleAckAll() {
+  try {
+    const res = await acknowledgeAllAlerts() as any
+    if (res.code === 0) {
+      ElMessage.success(res.message || '已全部确认')
+      fetchNotifications()
+    }
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+function goToAuditAlerts(alertId?: number | string) {
+  notifyVisible.value = false
+  const query: Record<string, string> = { alerts: '1' }
+  if (alertId !== undefined && alertId !== null) query.alert_id = String(alertId)
+  router.push({ path: '/audit', query })
+}
+
+/** 点击某条通知：跳到对应页面并定位到该条记录 */
+function handleNotifyClick(item: NotifyItem) {
+  if (item.type === 'audit_alert') {
+    // 审计告警：跳到审计日志页并打开告警弹窗，自动定位到这条告警
+    goToAuditAlerts(String(item.id).replace('audit_', ''))
+    return
+  }
+  // 后续其它类型在此扩展跳转目标
+  notifyVisible.value = false
+}
+
+function formatNotifyTime(v?: string | null): string {
+  if (!v) return ''
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return v
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
 const displayName = computed(() =>
   userStore.userInfo?.real_name || userStore.userInfo?.username || '用户'
@@ -297,6 +471,29 @@ onMounted(() => {
       appVersion.value = text.startsWith('v') ? text : `v${text}`
     }
   }).catch(() => {})
+  // 通知中心：登录后立即拉一次，之后每 60 秒刷新
+  if (canViewAudit.value) fetchNotifications()
+  notifyTimer = window.setInterval(() => {
+    // 首屏时用户信息可能还没回来，拿到权限后再开始拉取
+    if (canViewAudit.value) fetchNotifications()
+  }, 60000)
+})
+
+// userInfo 是异步加载的：Mounted 时通常还没拿到，权限到位后补拉一次，避免通知中心一直空着
+watch(canViewAudit, (ok) => {
+  if (ok && notifyItems.value.length === 0) fetchNotifications()
+})
+
+// 打开面板时主动刷新，保证点开就看到最新
+watch(notifyVisible, (open) => {
+  if (open) fetchNotifications()
+})
+
+onUnmounted(() => {
+  if (notifyTimer) {
+    clearInterval(notifyTimer)
+    notifyTimer = null
+  }
 })
 </script>
 
@@ -431,6 +628,161 @@ onMounted(() => {
 .header-action-btn:hover {
   background: var(--color-surface-muted);
   color: var(--color-text-primary);
+}
+
+/* ─── 通知中心 ─── */
+.notify-ref {
+  display: inline-flex;
+  align-items: center;
+}
+
+.notify-btn {
+  position: relative;
+}
+
+.notify-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--el-color-danger);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notify-panel {
+  margin: -12px;
+}
+
+.notify-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-light, #ebeef5);
+}
+
+.notify-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.notify-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.notify-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+/* ─── 通知类型标签 ─── */
+.notify-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--color-border-light, #ebeef5);
+}
+
+.notify-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.notify-tab:hover {
+  background: var(--color-surface-muted);
+}
+
+.notify-tab.active {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-weight: 500;
+}
+
+.notify-tab-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--el-color-danger);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notify-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notify-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border-light, #f2f3f5);
+}
+
+.notify-item:hover {
+  background: var(--color-surface-muted);
+}
+
+.notify-level {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--el-color-info);
+}
+
+.notify-level.level-warning {
+  background: var(--el-color-warning);
+}
+
+.notify-level.level-critical {
+  background: var(--el-color-danger);
+}
+
+.notify-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notify-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.notify-item-msg {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notify-item-time {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
 }
 
 /* ─── User Avatar ─── */

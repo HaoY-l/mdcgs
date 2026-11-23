@@ -37,7 +37,6 @@
         </div>
         <div class="header-actions">
           <el-popover
-            v-if="canViewAudit"
             v-model:visible="notifyVisible"
             placement="bottom-end"
             :width="360"
@@ -98,7 +97,9 @@
                 >
                   <span class="notify-level" :class="`level-${item.level || 'warning'}`"></span>
                   <div class="notify-body">
-                    <div class="notify-item-title">{{ item.title }}</div>
+                    <div class="notify-item-title" :class="{ 'notify-item-unread': item.read === false }">
+                      {{ item.title }}
+                    </div>
                     <div class="notify-item-msg">{{ item.message }}</div>
                     <div class="notify-item-time">{{ formatNotifyTime(item.created_at) }}</div>
                   </div>
@@ -236,7 +237,10 @@ import { ElMessageBox, ElMessage } from 'element-plus'
 import { getBranding } from '@/api/system'
 import { getDocs, downloadDoc, type DocItem } from '@/api/system'
 import { getAppVersion } from '@/api/system'
-import { getUnreadAlerts, acknowledgeAllAlerts } from '@/api/audit'
+import {
+  getUnreadAlerts, acknowledgeAllAlerts,
+  getUnreadNotifications, readNotification, readAllNotifications,
+} from '@/api/audit'
 
 const route = useRoute()
 const router = useRouter()
@@ -254,7 +258,7 @@ const docLoading = ref(false)
 // 右上角通知中心
 // 目前只有「审计告警」一种来源，结构与类型已按多来源设计，
 // 后续接入报告生成通知/任务完成通知时，只需在 NOTIFY_TYPES 增加一项并在 fetchNotifications 里补充数据源。
-type NotifyType = 'audit_alert' | 'report' | 'task'
+type NotifyType = 'audit_alert' | 'asset' | 'task' | 'report'
 
 interface NotifyItem {
   id: number | string
@@ -263,13 +267,26 @@ interface NotifyItem {
   message: string
   level: string
   created_at: string
+  /** 点击跳转路由（后端下发） */
+  link?: string
+  /** 是否已读（系统通知有已读态，审计告警未确认即未读） */
+  read?: boolean
 }
 
-const NOTIFY_TYPES: { key: NotifyType; label: string }[] = [
-  { key: 'audit_alert', label: '审计告警' },
-  // { key: 'report', label: '报告生成' },   // 后续接入
-  // { key: 'task', label: '任务完成' },     // 后续接入
+const ALL_NOTIFY_TYPES: { key: NotifyType; label: string; needAudit?: boolean }[] = [
+  { key: 'audit_alert', label: '审计告警', needAudit: true },
+  { key: 'task', label: '任务完成' },
+  { key: 'report', label: '报告生成' },
+  { key: 'asset', label: '资产变更' },
 ]
+
+// 后端通知类型 -> 前端标签页
+const NOTIFY_TYPE_MAP: Record<string, NotifyType> = {
+  task_complete: 'task',
+  report_complete: 'report',
+  asset_discovery: 'asset',
+  asset_update: 'asset',
+}
 
 const notifyVisible = ref(false)
 const unreadCount = ref(0)
@@ -282,12 +299,17 @@ const canViewAudit = computed(() =>
   userStore.userInfo?.role_code === 'ADMIN' || userStore.hasPermission('log_view')
 )
 
+// 无审计权限的用户不展示"审计告警"标签
+const visibleNotifyTypes = computed(() =>
+  ALL_NOTIFY_TYPES.filter(t => !t.needAudit || canViewAudit.value)
+)
+
 // 顶部类型标签（带各类型未读数）
 const notifyTabs = computed<{ key: NotifyType | 'all'; label: string; count: number }[]>(() => {
   const tabs: { key: NotifyType | 'all'; label: string; count: number }[] = [
     { key: 'all', label: '全部', count: notifyItems.value.length },
   ]
-  for (const t of NOTIFY_TYPES) {
+  for (const t of visibleNotifyTypes.value) {
     tabs.push({
       key: t.key,
       label: t.label,
@@ -303,34 +325,76 @@ const filteredNotifyItems = computed(() =>
     : notifyItems.value.filter(i => i.type === notifyTypeFilter.value)
 )
 
-/** 审计告警数据源（后续可在此聚合其他来源） */
+/** 通知数据源：审计告警 + 系统通知（任务完成/报告生成/资产变更） */
 async function fetchNotifications() {
-  if (!canViewAudit.value) return
+  const items: NotifyItem[] = []
+  let unread = 0
+
+  // 1) 审计告警（需要 log_view 权限）
+  if (canViewAudit.value) {
+    try {
+      const res = await getUnreadAlerts(20) as any
+      if (res.code === 0) {
+        unread += res.data?.unread || 0
+        for (const a of (res.data?.items || [])) {
+          items.push({
+            id: `audit_${a.id}`,
+            type: 'audit_alert',
+            title: a.rule_name || '审计告警',
+            message: a.message,
+            level: a.alert_level || 'warning',
+            created_at: a.created_at,
+            read: false,
+          })
+        }
+      }
+    } catch {
+      // 单个数据源失败不影响其它来源
+    }
+  }
+
+  // 2) 系统通知
   try {
-    const res = await getUnreadAlerts(20) as any
+    const res = await getUnreadNotifications(20) as any
     if (res.code === 0) {
-      unreadCount.value = res.data?.unread || 0
-      notifyItems.value = (res.data?.items || []).map((a: any) => ({
-        id: `audit_${a.id}`,
-        type: 'audit_alert' as const,
-        title: a.rule_name || '审计告警',
-        message: a.message,
-        level: a.alert_level || 'warning',
-        created_at: a.created_at,
-      }))
+      unread += res.data?.unread || 0
+      for (const n of (res.data?.items || [])) {
+        const tab = NOTIFY_TYPE_MAP[n.type]
+        if (!tab) continue
+        items.push({
+          id: `sys_${n.id}`,
+          type: tab,
+          title: n.title,
+          message: n.message || '',
+          level: n.level || 'info',
+          created_at: n.created_at,
+          link: n.link || undefined,
+          read: n.status === 'read',
+        })
+      }
     }
   } catch {
-    // 通知拉取失败不影响主流程
+    // 同上
   }
+
+  items.sort((a, b) => {
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+    return tb - ta
+  })
+  notifyItems.value = items
+  unreadCount.value = unread
 }
 
 async function handleAckAll() {
   try {
-    const res = await acknowledgeAllAlerts() as any
-    if (res.code === 0) {
-      ElMessage.success(res.message || '已全部确认')
-      fetchNotifications()
-    }
+    // 系统通知对所有登录用户开放；审计告警需要 log_view 权限，无权限时不发请求，
+    // 避免 403 把整批操作判为失败
+    const tasks: Promise<any>[] = [readAllNotifications() as any]
+    if (canViewAudit.value) tasks.push(acknowledgeAllAlerts() as any)
+    await Promise.all(tasks)
+    ElMessage.success('已全部处理')
+    fetchNotifications()
   } catch {
     ElMessage.error('操作失败')
   }
@@ -344,14 +408,33 @@ function goToAuditAlerts(alertId?: number | string) {
 }
 
 /** 点击某条通知：跳到对应页面并定位到该条记录 */
-function handleNotifyClick(item: NotifyItem) {
+async function handleNotifyClick(item: NotifyItem) {
   if (item.type === 'audit_alert') {
     // 审计告警：跳到审计日志页并打开告警弹窗，自动定位到这条告警
     goToAuditAlerts(String(item.id).replace('audit_', ''))
     return
   }
-  // 后续其它类型在此扩展跳转目标
+
+  // 系统通知：先标记已读，再把该条从列表中移除（避免等待网络回来才消失）
+  const isSys = String(item.id).startsWith('sys_')
+  const nid = isSys ? Number(String(item.id).replace('sys_', '')) : 0
+  if (isSys) {
+    try {
+      await readNotification(nid)
+    } catch {
+      // 标记失败不阻断跳转
+    }
+    // 本地即时移除，保证"已读即消失"，随后 fetchNotifications 以前端为准再校准一次
+    notifyItems.value = notifyItems.value.filter(i => i.id !== item.id)
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  }
+
   notifyVisible.value = false
+  if (item.link) {
+    router.push(item.link)
+  }
+  // 不论是否跳转，都刷新一次，保证角标与列表和后端一致
+  fetchNotifications()
 }
 
 function formatNotifyTime(v?: string | null): string {
@@ -476,10 +559,9 @@ onMounted(() => {
     }
   }).catch(() => {})
   // 通知中心：登录后立即拉一次，之后每 60 秒刷新
-  if (canViewAudit.value) fetchNotifications()
+  fetchNotifications()
   notifyTimer = window.setInterval(() => {
-    // 首屏时用户信息可能还没回来，拿到权限后再开始拉取
-    if (canViewAudit.value) fetchNotifications()
+    fetchNotifications()
   }, 60000)
 })
 
@@ -764,8 +846,17 @@ onUnmounted(() => {
   background: var(--el-color-warning);
 }
 
-.notify-level.level-critical {
+.notify-level.level-critical,
+.notify-level.level-error {
   background: var(--el-color-danger);
+}
+
+.notify-level.level-info {
+  background: var(--el-color-primary);
+}
+
+.notify-item-unread {
+  font-weight: 600;
 }
 
 .notify-body {

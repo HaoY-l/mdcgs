@@ -200,3 +200,27 @@ export async function resendAlert(alertId: number) {
 export async function getAlertStats() {
   return client.get('/audit-alerts/stats')
 }
+
+// ── 系统通知（任务完成 / 报告生成 / 资产发现 / 资产更新失败）──
+
+/** 通知分页列表 */
+export async function getNotifications(params: Record<string, any> = {}) {
+  return client.get('/notifications', { params })
+}
+
+/** 通知中心：未读数 + 各类型未读 + 最近 N 条 */
+export async function getUnreadNotifications(limit: number = 20) {
+  return client.get('/notifications/unread', { params: { limit } })
+}
+
+/** 单条已读 */
+export async function readNotification(id: number) {
+  return client.put(`/notifications/${id}/read`)
+}
+
+/** 全部已读（可按类型） */
+export async function readAllNotifications(type?: string) {
+  return client.put('/notifications/read-all', undefined, {
+    params: type ? { type } : {},
+  })
+}

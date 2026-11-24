@@ -28,15 +28,23 @@ export async function previewFile(assetId: number, file: File) {
 export async function uploadFiles(
   assetId: number,
   files: File[],
-  onProgress?: (e: any) => void
+  onProgress?: (e: any) => void,
+  partialOk = false
 ) {
   const fd = new FormData()
   files.forEach(f => fd.append('files', f))
   return client.post(`/file-assets/${assetId}/files`, fd, {
+    params: partialOk ? { partial_ok: true } : {},
     headers: { 'Content-Type': 'multipart/form-data' },
     onUploadProgress: onProgress,
     timeout: 30 * 60 * 1000,
   })
+}
+
+/** 单批上传结果 */
+export interface BatchUploadResult {
+  uploaded: any[]
+  skipped: Array<{ file_name: string; reason: string; message: string }>
 }
 
 // 文件查询与删除

@@ -113,34 +113,76 @@
     </template>
 
     <!-- 继续上传弹窗 -->
-    <el-dialog v-model="showUpload" title="继续上传" width="500px">
+    <el-dialog v-model="showUpload" title="继续上传" width="640px">
       <el-alert type="warning" :closable="false" show-icon style="margin-bottom: 8px">
-        单文件最大 1GB
+        单文件最大 {{ maxSizeMb }}MB；文件仅在内存中解析，不会保留在服务器上。
+        含宏/内嵌对象的 Office 文档、伪装扩展名的文件会被拒绝。
       </el-alert>
-      <el-upload
-        ref="uploaderRef" drag multiple :auto-upload="false"
-        :accept="'.xlsx,.xls,.csv,.docx,.pdf,.md,.json,.txt,.png,.jpg,.jpeg'"
-        :file-list="newFiles"
-        :on-change="onNewFileChange" :on-remove="onNewFileRemove"
-      >
-        <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
-        <div class="el-upload__text">将文件拖到此处，或<em>点击选择</em></div>
-      </el-upload>
+      <div class="upload-actions">
+        <el-upload
+          ref="uploaderRef" drag multiple :auto-upload="false"
+          :accept="ACCEPT_EXTS"
+          :show-file-list="false"
+          :on-change="onNewFileChange" :on-remove="onNewFileRemove"
+          class="upload-block"
+        >
+          <el-icon class="el-icon--upload"><UploadFilled /></el-icon>
+          <div class="el-upload__text">将文件或<b>文件夹</b>拖到此处，或<em>点击选择文件</em></div>
+        </el-upload>
+        <el-button type="primary" plain :icon="FolderOpened" @click="pickFolder">选择文件夹</el-button>
+        <input
+          ref="folderInputRef"
+          type="file"
+          webkitdirectory
+          multiple
+          style="display: none"
+          @change="onFolderChange"
+        />
+      </div>
+
+      <div v-if="items.length" class="files-block">
+        <el-table :data="items" border size="small" max-height="300">
+          <el-table-column label="#" type="index" width="50" />
+          <el-table-column prop="name" label="文件名" min-width="200" show-overflow-tooltip />
+          <el-table-column label="大小" width="100">
+            <template #default="{ row }">{{ formatSize(row.size) }}</template>
+          </el-table-column>
+          <el-table-column label="状态" width="100">
+            <template #default="{ row }">
+              <el-tag :type="itemTagType(row)" size="small">{{ itemStatusText(row) }}</el-tag>
+            </template>
+          </el-table-column>
+          <el-table-column label="说明" min-width="160" show-overflow-tooltip>
+            <template #default="{ row }">{{ row.message || '-' }}</template>
+          </el-table-column>
+        </el-table>
+      </div>
+
+      <el-progress
+        v-if="uploading || batchTotal"
+        :percentage="itemPercent"
+        style="margin-top: 12px"
+      />
       <template #footer>
-        <el-button @click="showUpload = false">取消</el-button>
-        <el-button type="primary" :loading="uploading" :disabled="!newFiles.length" @click="onUploadConfirm">上传</el-button>
+        <el-button @click="onCloseUpload">关闭</el-button>
+        <el-button type="primary" :loading="uploading" :disabled="!pendingCount" @click="onUploadConfirm">
+          上传（{{ pendingCount }} 个文件）
+        </el-button>
       </template>
     </el-dialog>
+
   </PageShell>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRoute } from 'vue-router'
 import { ElMessage } from 'element-plus'
-import { Files, UploadFilled } from '@element-plus/icons-vue'
+import { Files, UploadFilled, FolderOpened } from '@element-plus/icons-vue'
 import PageShell from '@/components/common/PageShell.vue'
-import { getFileAssetDetail, deleteFile, uploadFiles, getFile } from '@/api/fileAsset'
+import { getFileAssetDetail, deleteFile, getFile } from '@/api/fileAsset'
+import { useFileUploadQueue } from '@/composables/useFileUploadQueue'
+import { ACCEPT_EXTS, MAX_FILE_SIZE } from '@/constants/fileUpload'
 
 const route = useRoute()
 const assetId = ref(Number(route.params.id))
@@ -156,9 +198,42 @@ const blockPageSize = ref(100)
 const blockKeyword = ref('')
 
 const showUpload = ref(false)
-const newFiles = ref<any[]>([])
-const uploading = ref(false)
 const uploaderRef = ref()
+const folderInputRef = ref<HTMLInputElement>()
+
+const maxSizeMb = Math.round(MAX_FILE_SIZE / 1024 / 1024)
+
+const {
+  items, uploading, batchTotal, finishedCount,
+  addFiles, clear: clearQueue, submit: submitQueue,
+} = useFileUploadQueue()
+
+const pendingCount = computed(
+  () => items.value.filter(i => i.status === 'waiting').length
+)
+const itemPercent = computed(() => {
+  const total = items.value.length
+  if (!total) return 0
+  return Math.min(100, Math.round((finishedCount.value / total) * 100))
+})
+
+function itemStatusText(row: any) {
+  return ({
+    waiting: '待上传',
+    uploading: '上传中',
+    done: '已上传',
+    rejected: '已拒绝',
+  } as any)[row.status] || row.status
+}
+function itemTagType(row: any) {
+  return ({
+    waiting: 'info',
+    uploading: 'warning',
+    done: 'success',
+    rejected: 'danger',
+  } as any)[row.status] || 'info'
+}
+
 
 function formatTime(s?: string) {
   if (!s) return '-'
@@ -271,42 +346,45 @@ async function onDeleteFile(row: any) {
   loadDetail()
 }
 
-const MAX_SIZE = 1 * 1024 * 1024 * 1024
-function onNewFileChange(file: any) {
-  if (!newFiles.value.find((f: any) => f.uid === file.uid)) {
-    newFiles.value.push(file)
-  }
-  if (file.raw && file.raw.size > MAX_SIZE) {
-    ElMessage.error(`${file.name} 超过 1GB`)
-    setTimeout(() => {
-      const idx = newFiles.value.findIndex((f: any) => f.uid === file.uid)
-      if (idx >= 0) newFiles.value.splice(idx, 1)
-    }, 0)
-  }
+function onNewFileChange(file: any, _fileList?: any[]) {
+  if (file.raw) addFiles([file.raw])
+  // 交给自有队列管理，清空组件内部列表避免重复
+  if (uploaderRef.value) uploaderRef.value.clearFiles()
 }
-function onNewFileRemove(file: any) {
-  const idx = newFiles.value.findIndex((f: any) => f.uid === file.uid)
-  if (idx >= 0) newFiles.value.splice(idx, 1)
+function onNewFileRemove(_file: any) { /* 列表由自有队列管理 */ }
+
+function pickFolder() {
+  folderInputRef.value?.click()
+}
+function onFolderChange(e: Event) {
+  const input = e.target as HTMLInputElement
+  const fileList = Array.from(input.files || [])
+  if (fileList.length) addFiles(fileList)
+  input.value = ''
+}
+
+function onCloseUpload() {
+  showUpload.value = false
+  if (!uploading.value) clearQueue()
 }
 
 async function onUploadConfirm() {
-  if (!newFiles.value.length) return
-  uploading.value = true
+  if (!pendingCount.value) return
   try {
-    const fileList: File[] = newFiles.value.map(f => f.raw).filter(Boolean)
-    await uploadFiles(assetId.value, fileList)
-    ElMessage.success(`已上传 ${fileList.length} 个文件`)
-    showUpload.value = false
-    newFiles.value = []
+    const stat = await submitQueue(assetId.value)
+    if (!stat.failed && !stat.rejected) {
+      ElMessage.success(`已上传 ${stat.uploaded} 个文件`)
+    } else if (stat.uploaded) {
+      ElMessage.warning(`上传完成：成功 ${stat.uploaded} 个，跳过 ${stat.rejected} 个，失败 ${stat.failed} 个`)
+    } else {
+      ElMessage.error('没有文件上传成功，请查看列表说明')
+    }
     loadDetail()
   } catch (e: any) {
     ElMessage.error('上传失败：' + (e?.message || ''))
-  } finally {
-    uploading.value = false
   }
 }
 
-import { onMounted } from 'vue'
 onMounted(loadDetail)
 </script>
 
@@ -317,4 +395,7 @@ onMounted(loadDetail)
 :deep(.active-row) { background: #ecf5ff !important; }
 :deep(.active-row > td) { background: #ecf5ff !important; }
 .pagination-wrapper { display: flex; justify-content: flex-end; margin-top: 12px; }
+.upload-actions { display: flex; align-items: flex-start; gap: 12px; }
+.upload-block { flex: 1; }
+.files-block { margin-top: 12px; }
 </style>

@@ -26,7 +26,7 @@
               <circle cx="18" cy="18" r="3.5" fill="var(--color-primary-500)" />
             </svg>
           </div>
-          <span class="brand-name">MDCGS</span>
+          <span class="brand-name">{{ systemName }}</span>
           <span v-if="appVersion" class="app-version">{{ appVersion }}</span>
         </div>
       </div>
@@ -36,14 +36,77 @@
           <span class="breadcrumb-current">{{ pageTitle }}</span>
         </div>
         <div class="header-actions">
-          <el-tooltip content="通知" placement="bottom">
-            <button class="header-action-btn">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
-                <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
-                <path d="M13.73 21a2 2 0 01-3.46 0" />
-              </svg>
-            </button>
-          </el-tooltip>
+          <el-popover
+            v-model:visible="notifyVisible"
+            placement="bottom-end"
+            :width="360"
+            trigger="click"
+            popper-class="notify-popper"
+          >
+            <template #reference>
+              <!-- 外层 span 作为 popover 的点击触发元素；tooltip 只包按钮负责悬浮提示 -->
+              <span class="notify-ref">
+                <el-tooltip content="通知中心" placement="bottom">
+                  <button class="header-action-btn notify-btn" type="button">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+                      <path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9" />
+                      <path d="M13.73 21a2 2 0 01-3.46 0" />
+                    </svg>
+                    <span v-if="unreadCount > 0" class="notify-badge">
+                      {{ unreadCount > 99 ? '99+' : unreadCount }}
+                    </span>
+                  </button>
+                </el-tooltip>
+              </span>
+            </template>
+
+            <div class="notify-panel">
+              <div class="notify-header">
+                <span class="notify-title">通知中心</span>
+                <div class="notify-header-actions">
+                  <el-button v-if="unreadCount > 0" link type="primary" size="small" @click="handleAckAll">
+                    全部已读
+                  </el-button>
+                </div>
+              </div>
+
+              <!-- 类型标签页：点分类只看该类通知 -->
+              <div class="notify-tabs">
+                <span
+                  v-for="tab in notifyTabs"
+                  :key="tab.key"
+                  class="notify-tab"
+                  :class="{ active: notifyTypeFilter === tab.key }"
+                  @click="notifyTypeFilter = tab.key"
+                >
+                  {{ tab.label }}
+                  <span v-if="tab.count" class="notify-tab-count">{{ tab.count }}</span>
+                </span>
+              </div>
+
+              <div v-if="filteredNotifyItems.length === 0" class="notify-empty">
+                暂无通知消息
+              </div>
+
+              <div v-else class="notify-list">
+                <div
+                  v-for="item in filteredNotifyItems"
+                  :key="item.id"
+                  class="notify-item"
+                  @click="handleNotifyClick(item)"
+                >
+                  <span class="notify-level" :class="`level-${item.level || 'warning'}`"></span>
+                  <div class="notify-body">
+                    <div class="notify-item-title" :class="{ 'notify-item-unread': item.read === false }">
+                      {{ item.title }}
+                    </div>
+                    <div class="notify-item-msg">{{ item.message }}</div>
+                    <div class="notify-item-time">{{ formatNotifyTime(item.created_at) }}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </el-popover>
 
           <el-tooltip content="文档下载" placement="bottom">
             <button class="header-action-btn" @click="showDocsDialog = true">
@@ -167,13 +230,17 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useUserStore } from '@/store/user'
 import { ElMessageBox, ElMessage } from 'element-plus'
-import { getLogoUrl } from '@/api/system'
+import { getBranding } from '@/api/system'
 import { getDocs, downloadDoc, type DocItem } from '@/api/system'
 import { getAppVersion } from '@/api/system'
+import {
+  getUnreadAlerts, acknowledgeAllAlerts,
+  getUnreadNotifications, readNotification, readAllNotifications,
+} from '@/api/audit'
 
 const route = useRoute()
 const router = useRouter()
@@ -181,11 +248,202 @@ const userStore = useUserStore()
 
 const isCollapse = ref(false)
 const customLogoUrl = ref('')
+const systemName = ref('MDCGS')
 const appVersion = ref('')
 
 const showDocsDialog = ref(false)
 const docList = ref<DocItem[]>([])
 const docLoading = ref(false)
+
+// 右上角通知中心
+// 目前只有「审计告警」一种来源，结构与类型已按多来源设计，
+// 后续接入报告生成通知/任务完成通知时，只需在 NOTIFY_TYPES 增加一项并在 fetchNotifications 里补充数据源。
+type NotifyType = 'audit_alert' | 'asset' | 'task' | 'report'
+
+interface NotifyItem {
+  id: number | string
+  type: NotifyType
+  title: string
+  message: string
+  level: string
+  created_at: string
+  /** 点击跳转路由（后端下发） */
+  link?: string
+  /** 是否已读（系统通知有已读态，审计告警未确认即未读） */
+  read?: boolean
+}
+
+const ALL_NOTIFY_TYPES: { key: NotifyType; label: string; needAudit?: boolean }[] = [
+  { key: 'audit_alert', label: '审计告警', needAudit: true },
+  { key: 'task', label: '任务完成' },
+  { key: 'report', label: '报告生成' },
+  { key: 'asset', label: '资产变更' },
+]
+
+// 后端通知类型 -> 前端标签页
+const NOTIFY_TYPE_MAP: Record<string, NotifyType> = {
+  task_complete: 'task',
+  report_complete: 'report',
+  asset_discovery: 'asset',
+  asset_update: 'asset',
+}
+
+const notifyVisible = ref(false)
+const unreadCount = ref(0)
+const notifyItems = ref<NotifyItem[]>([])
+const notifyTypeFilter = ref<NotifyType | 'all'>('all')
+let notifyTimer: number | null = null
+
+// ADMIN 角色 permissions 为 {"*": true}，需单独放行
+const canViewAudit = computed(() =>
+  userStore.userInfo?.role_code === 'ADMIN' || userStore.hasPermission('log_view')
+)
+
+// 无审计权限的用户不展示"审计告警"标签
+const visibleNotifyTypes = computed(() =>
+  ALL_NOTIFY_TYPES.filter(t => !t.needAudit || canViewAudit.value)
+)
+
+// 顶部类型标签（带各类型未读数）
+const notifyTabs = computed<{ key: NotifyType | 'all'; label: string; count: number }[]>(() => {
+  const tabs: { key: NotifyType | 'all'; label: string; count: number }[] = [
+    { key: 'all', label: '全部', count: notifyItems.value.length },
+  ]
+  for (const t of visibleNotifyTypes.value) {
+    tabs.push({
+      key: t.key,
+      label: t.label,
+      count: notifyItems.value.filter(i => i.type === t.key).length,
+    })
+  }
+  return tabs
+})
+
+const filteredNotifyItems = computed(() =>
+  notifyTypeFilter.value === 'all'
+    ? notifyItems.value
+    : notifyItems.value.filter(i => i.type === notifyTypeFilter.value)
+)
+
+/** 通知数据源：审计告警 + 系统通知（任务完成/报告生成/资产变更） */
+async function fetchNotifications() {
+  const items: NotifyItem[] = []
+  let unread = 0
+
+  // 1) 审计告警（需要 log_view 权限）
+  if (canViewAudit.value) {
+    try {
+      const res = await getUnreadAlerts(20) as any
+      if (res.code === 0) {
+        unread += res.data?.unread || 0
+        for (const a of (res.data?.items || [])) {
+          items.push({
+            id: `audit_${a.id}`,
+            type: 'audit_alert',
+            title: a.rule_name || '审计告警',
+            message: a.message,
+            level: a.alert_level || 'warning',
+            created_at: a.created_at,
+            read: false,
+          })
+        }
+      }
+    } catch {
+      // 单个数据源失败不影响其它来源
+    }
+  }
+
+  // 2) 系统通知
+  try {
+    const res = await getUnreadNotifications(20) as any
+    if (res.code === 0) {
+      unread += res.data?.unread || 0
+      for (const n of (res.data?.items || [])) {
+        const tab = NOTIFY_TYPE_MAP[n.type]
+        if (!tab) continue
+        items.push({
+          id: `sys_${n.id}`,
+          type: tab,
+          title: n.title,
+          message: n.message || '',
+          level: n.level || 'info',
+          created_at: n.created_at,
+          link: n.link || undefined,
+          read: n.status === 'read',
+        })
+      }
+    }
+  } catch {
+    // 同上
+  }
+
+  items.sort((a, b) => {
+    const ta = a.created_at ? new Date(a.created_at).getTime() : 0
+    const tb = b.created_at ? new Date(b.created_at).getTime() : 0
+    return tb - ta
+  })
+  notifyItems.value = items
+  unreadCount.value = unread
+}
+
+async function handleAckAll() {
+  try {
+    // 系统通知对所有登录用户开放；审计告警需要 log_view 权限，无权限时不发请求，
+    // 避免 403 把整批操作判为失败
+    const tasks: Promise<any>[] = [readAllNotifications() as any]
+    if (canViewAudit.value) tasks.push(acknowledgeAllAlerts() as any)
+    await Promise.all(tasks)
+    ElMessage.success('已全部处理')
+    fetchNotifications()
+  } catch {
+    ElMessage.error('操作失败')
+  }
+}
+
+function goToAuditAlerts(alertId?: number | string) {
+  notifyVisible.value = false
+  const query: Record<string, string> = { alerts: '1' }
+  if (alertId !== undefined && alertId !== null) query.alert_id = String(alertId)
+  router.push({ path: '/audit', query })
+}
+
+/** 点击某条通知：跳到对应页面并定位到该条记录 */
+async function handleNotifyClick(item: NotifyItem) {
+  if (item.type === 'audit_alert') {
+    // 审计告警：跳到审计日志页并打开告警弹窗，自动定位到这条告警
+    goToAuditAlerts(String(item.id).replace('audit_', ''))
+    return
+  }
+
+  // 系统通知：先标记已读，再把该条从列表中移除（避免等待网络回来才消失）
+  const isSys = String(item.id).startsWith('sys_')
+  const nid = isSys ? Number(String(item.id).replace('sys_', '')) : 0
+  if (isSys) {
+    try {
+      await readNotification(nid)
+    } catch {
+      // 标记失败不阻断跳转
+    }
+    // 本地即时移除，保证"已读即消失"，随后 fetchNotifications 以前端为准再校准一次
+    notifyItems.value = notifyItems.value.filter(i => i.id !== item.id)
+    unreadCount.value = Math.max(0, unreadCount.value - 1)
+  }
+
+  notifyVisible.value = false
+  if (item.link) {
+    router.push(item.link)
+  }
+  // 不论是否跳转，都刷新一次，保证角标与列表和后端一致
+  fetchNotifications()
+}
+
+function formatNotifyTime(v?: string | null): string {
+  if (!v) return ''
+  const d = new Date(v)
+  if (Number.isNaN(d.getTime())) return v
+  const p = (n: number) => String(n).padStart(2, '0')
+  return `${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}`
+}
 
 const displayName = computed(() =>
   userStore.userInfo?.real_name || userStore.userInfo?.username || '用户'
@@ -284,9 +542,12 @@ onMounted(() => {
     userStore.fetchUserInfo().catch(() => router.push('/login'))
   }
   // 获取自定义Logo
-  ;(getLogoUrl() as any).then((res: any) => {
+  ;(getBranding() as any).then((res: any) => {
     if (res.data?.logo_url) {
       customLogoUrl.value = res.data.logo_url
+    }
+    if (res.data?.system_name) {
+      systemName.value = res.data.system_name
     }
   }).catch(() => {})
   // 获取后端版本号（取不到则不显示）
@@ -297,6 +558,28 @@ onMounted(() => {
       appVersion.value = text.startsWith('v') ? text : `v${text}`
     }
   }).catch(() => {})
+  // 通知中心：登录后立即拉一次，之后每 60 秒刷新
+  fetchNotifications()
+  notifyTimer = window.setInterval(() => {
+    fetchNotifications()
+  }, 60000)
+})
+
+// userInfo 是异步加载的：Mounted 时通常还没拿到，权限到位后补拉一次，避免通知中心一直空着
+watch(canViewAudit, (ok) => {
+  if (ok && notifyItems.value.length === 0) fetchNotifications()
+})
+
+// 打开面板时主动刷新，保证点开就看到最新
+watch(notifyVisible, (open) => {
+  if (open) fetchNotifications()
+})
+
+onUnmounted(() => {
+  if (notifyTimer) {
+    clearInterval(notifyTimer)
+    notifyTimer = null
+  }
 })
 </script>
 
@@ -365,14 +648,19 @@ onMounted(() => {
 }
 
 .brand-logo-img {
-  width: 36px;
-  height: 36px;
+  height: 32px;
+  width: auto;
+  max-width: 120px;
   object-fit: contain;
-  border-radius: 9px;
+  border-radius: 8px;
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.15);
 }
 
 .brand-name {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: var(--font-size-18);
   font-weight: var(--font-weight-700);
   color: var(--color-text-primary);
@@ -431,6 +719,170 @@ onMounted(() => {
 .header-action-btn:hover {
   background: var(--color-surface-muted);
   color: var(--color-text-primary);
+}
+
+/* ─── 通知中心 ─── */
+.notify-ref {
+  display: inline-flex;
+  align-items: center;
+}
+
+.notify-btn {
+  position: relative;
+}
+
+.notify-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--el-color-danger);
+  color: #fff;
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notify-panel {
+  margin: -12px;
+}
+
+.notify-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border-light, #ebeef5);
+}
+
+.notify-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.notify-header-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.notify-empty {
+  padding: 32px 0;
+  text-align: center;
+  color: var(--color-text-tertiary);
+  font-size: 13px;
+}
+
+/* ─── 通知类型标签 ─── */
+.notify-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--color-border-light, #ebeef5);
+}
+
+.notify-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.notify-tab:hover {
+  background: var(--color-surface-muted);
+}
+
+.notify-tab.active {
+  background: var(--el-color-primary-light-9);
+  color: var(--el-color-primary);
+  font-weight: 500;
+}
+
+.notify-tab-count {
+  min-width: 16px;
+  padding: 0 4px;
+  border-radius: 8px;
+  background: var(--el-color-danger);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+  text-align: center;
+}
+
+.notify-list {
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.notify-item {
+  display: flex;
+  gap: 10px;
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid var(--color-border-light, #f2f3f5);
+}
+
+.notify-item:hover {
+  background: var(--color-surface-muted);
+}
+
+.notify-level {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: var(--el-color-info);
+}
+
+.notify-level.level-warning {
+  background: var(--el-color-warning);
+}
+
+.notify-level.level-critical,
+.notify-level.level-error {
+  background: var(--el-color-danger);
+}
+
+.notify-level.level-info {
+  background: var(--el-color-primary);
+}
+
+.notify-item-unread {
+  font-weight: 600;
+}
+
+.notify-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.notify-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.notify-item-msg {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.notify-item-time {
+  margin-top: 4px;
+  font-size: 11px;
+  color: var(--color-text-tertiary);
 }
 
 /* ─── User Avatar ─── */

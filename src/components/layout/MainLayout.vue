@@ -39,7 +39,7 @@
           <el-popover
             v-model:visible="notifyVisible"
             placement="bottom-end"
-            :width="360"
+            :width="440"
             trigger="click"
             popper-class="notify-popper"
           >
@@ -778,14 +778,24 @@ onUnmounted(() => {
 /* ─── 通知类型标签 ─── */
 .notify-tabs {
   display: flex;
+  flex-wrap: nowrap;
   gap: 4px;
   padding: 8px 14px;
   border-bottom: 1px solid var(--color-border-light, #ebeef5);
+  /* 分类过多时横向滚动，不换行 */
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.notify-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .notify-tab {
   display: inline-flex;
   align-items: center;
+  flex: 0 0 auto;
   gap: 4px;
   padding: 3px 10px;
   font-size: 12px;
@@ -793,6 +803,7 @@ onUnmounted(() => {
   border-radius: 12px;
   cursor: pointer;
   transition: all 0.2s;
+  white-space: nowrap;
 }
 
 .notify-tab:hover {
@@ -806,6 +817,7 @@ onUnmounted(() => {
 }
 
 .notify-tab-count {
+  flex: none;
   min-width: 16px;
   padding: 0 4px;
   border-radius: 8px;

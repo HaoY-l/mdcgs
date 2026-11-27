@@ -56,7 +56,7 @@
                       <div v-for="col in tbl.columns" :key="col.id" style="display: flex; align-items: center; gap: 8px; padding: 3px 8px; font-size: 13px;">
                         <el-icon :size="12" color="#67C23A"><Coin /></el-icon>
                         <span style="font-weight: 500; min-width: 120px;">{{ col.name }}</span>
-                        <el-tag size="small" effect="plain" style="min-width: 80px; text-align: center;">{{ col.data_type }}</el-tag>
+                        <el-tag size="small" effect="plain" class="col-type-tag" :title="col.data_type">{{ col.data_type }}</el-tag>
                         <span style="color: #909399; flex: 1;">{{ col.comment || '' }}</span>
                         <span style="color: #909399; font-size: 12px; white-space: nowrap;">{{ tbl.row_count || 0 }} 条</span>
                         <el-tag v-if="col.is_primary_key" size="small" type="danger" effect="dark" style="min-width: 32px; text-align: center;">PK</el-tag>
@@ -264,4 +264,14 @@ onMounted(async () => {
 <style scoped>
 .back-nav { margin-bottom: 12px; }
 .mb-20 { margin-bottom: 20px; }
+
+/* 字段类型：enum/set 的完整定义可能几百字符，超出部分省略，悬浮可见全文 */
+.col-type-tag {
+  max-width: 220px;
+}
+.col-type-tag :deep(.el-tag__content) {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 </style>

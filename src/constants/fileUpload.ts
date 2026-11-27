@@ -34,6 +34,35 @@ export const MAX_BYTES_PER_BATCH = 200 * 1024 * 1024
 /** 单个资产文件总数上限（后端 MAX_FILES_PER_ASSET） */
 export const MAX_FILES_PER_ASSET = 5000
 
+/**
+ * 报告配图上传常量（前后端同一份真值）
+ *
+ * 后端对应位置：
+ * - app/api/v1/reports/risk_assets.py: MAX_IMAGE_BYTES / MAX_IMAGE_PIXELS / MAX_IMAGE_SIDE
+ *
+ * 注意：报告配图只接受 PNG / JPEG，且后端会按魔数校验真实类型，
+ * 不接受 SVG（可内联脚本，构成存储型 XSS）。
+ */
+export const MAX_IMAGE_SIZE = 5 * 1024 * 1024
+
+/** 报告配图允许的扩展名 */
+export const IMAGE_EXTS = ['.png', '.jpg', '.jpeg'] as const
+
+/** 报告配图 el-upload accept 属性 */
+export const IMAGE_ACCEPT = IMAGE_EXTS.join(',')
+
+/** 报告配图总像素上限（2000 万像素，防解压炸弹） */
+export const MAX_IMAGE_PIXELS = 20_000_000
+
+/** 报告配图单边像素上限 */
+export const MAX_IMAGE_SIDE = 4000
+
+/** 扩展名是否属于允许的报告配图格式 */
+export function isImageExt(name: string): boolean {
+  const ext = extOf(name)
+  return (IMAGE_EXTS as readonly string[]).includes(ext as any)
+}
+
 /** 扩展名是否受支持 */
 export function isSupportedExt(name: string): boolean {
   const idx = name.lastIndexOf('.')

@@ -11,7 +11,7 @@ export type ReportType =
   | 'audit_summary'
   | 'data_security_risk'
 
-export type ReportFormat = 'pdf' | 'excel' | 'html'
+export type ReportFormat = 'pdf' | 'excel' | 'html' | 'word'
 
 export type ReportStatus = 'pending' | 'generating' | 'completed' | 'failed'
 
